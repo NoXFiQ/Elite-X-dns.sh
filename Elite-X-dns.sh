@@ -1,10 +1,9 @@
 #!/bin/bash
 # ============================================
-# ELITE-X DNSTT INSTALL
+# ELITE-X DNSTT AUTO INSTALL (INTERACTIVE TDOMAIN)
 # ============================================
 set -euo pipefail
 
-# Color codes for better output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -57,13 +56,15 @@ show_dashboard() {
     echo ""
 }
 
+
 show_banner
-read -p "$(echo -e $RED"Enter Your Subdomain [==> e.x ns-ex.elitex.sbs]: "$NC)" TDOMAIN
+read -p "$(echo -e $RED"Enter Your Subdomain => |ns.elitex.sbs|: "$NC)" TDOMAIN
 MTU=1800
 DNSTT_PORT=5300
 DNS_PORT=53
 
 echo "==> ELITE-X DNSTT AUTO INSTALL STARTING..."
+
 
 if [ "$(id -u)" -ne 0 ]; then
   echo "[-] Run as root: sudo bash install.sh"
@@ -76,6 +77,7 @@ mkdir -p /etc/elite-x/users
 mkdir -p /etc/elite-x/traffic
 echo "$TDOMAIN" > /etc/elite-x/subdomain
 echo "$MTU" > /etc/elite-x/mtu
+
 
 cat > /etc/elite-x/banner/default <<'EOF'
 ===============================================
@@ -122,6 +124,7 @@ echo "==> Installing dnstt-server..."
 curl -fsSL https://dnstt.network/dnstt-server-linux-amd64 -o /usr/local/bin/dnstt-server
 chmod +x /usr/local/bin/dnstt-server
 
+# Keys
 echo "==> Generating keys..."
 mkdir -p /etc/dnstt
 if [ ! -f /etc/dnstt/server.key ]; then
@@ -157,6 +160,7 @@ LimitNOFILE=1048576
 WantedBy=multi-user.target
 EOF
 
+# EDNS proxy
 echo "==> Installing EDNS proxy..."
 cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
@@ -223,6 +227,7 @@ EOF
 
 chmod +x /usr/local/bin/dnstt-edns-proxy.py
 
+# Proxy service
 echo "==> Creating dnstt-elite-x-proxy.service..."
 cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
 [Unit]
@@ -240,20 +245,20 @@ TimeoutStopSec=10
 WantedBy=multi-user.target
 EOF
 
-
+# Firewall
 if command -v ufw >/dev/null 2>&1; then
   ufw allow 22/tcp || true
   ufw allow 53/udp || true
 fi
 
-
+# Start services
 systemctl daemon-reload
 systemctl enable dnstt-elite-x.service
 systemctl enable dnstt-elite-x-proxy.service
 systemctl start dnstt-elite-x.service
 systemctl start dnstt-elite-x-proxy.service
 
-
+# Create user management system with traffic monitoring
 cat >/usr/local/bin/elite-x-user <<'EOF'
 #!/bin/bash
 
@@ -558,7 +563,7 @@ main_menu() {
                 if [[ "$new_mtu" =~ ^[0-9]+$ ]] && [ "$new_mtu" -ge 1000 ] && [ "$new_mtu" -le 5000 ]; then
                     echo "$new_mtu" > /etc/elite-x/mtu
                     
-            
+                    # Update service file
                     sed -i "s/-mtu [0-9]*/-mtu $new_mtu/" /etc/systemd/system/dnstt-elite-x.service
                     
                     systemctl daemon-reload
