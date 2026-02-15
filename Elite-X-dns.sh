@@ -1196,7 +1196,27 @@ main_menu
 EOF
 chmod +x /usr/local/bin/elite-x
 
-# Aliases
+# ========== AUTO-SHOW DASHBOARD ON LOGIN ==========
+# This is the key change - removes elite-x/menu requirement
+cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
+#!/bin/bash
+# Auto-show ELITE-X dashboard on login
+if [ -f /usr/local/bin/elite-x ]; then
+    /usr/local/bin/elite-x
+fi
+EOF
+chmod +x /etc/profile.d/elite-x-dashboard.sh
+
+# Also add to bashrc for SSH logins
+cat >> ~/.bashrc <<'EOF'
+# Auto-show ELITE-X dashboard
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_LOADED" ]; then
+    export ELITE_X_LOADED=1
+    /usr/local/bin/elite-x
+fi
+EOF
+
+# Aliases (still available but not needed)
 echo "alias menu='elite-x'" >> ~/.bashrc
 echo "alias elitex='elite-x'" >> ~/.bashrc
 
@@ -1214,7 +1234,8 @@ echo "PUBLIC KEY:"
 cat /etc/dnstt/server.pub
 echo "======================================"
 echo ""
-echo -e "${GREEN}Type ${YELLOW}elite-x${GREEN} or ${YELLOW}menu${GREEN} to access the management panel${NC}"
+echo -e "${GREEN}✅ DASHBOARD WILL NOW SHOW AUTOMATICALLY ON LOGIN${NC}"
+echo -e "${YELLOW}No need to type 'elite-x' or 'menu' - it appears automatically!${NC}"
 echo "======================================"
 
 read -p "Open menu now? (y/n): " open
