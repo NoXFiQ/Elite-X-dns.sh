@@ -1,20 +1,22 @@
 #!/bin/bash
 # ============================================
 # ELITE-X DNSTT AUTO INSTALL 
+# 
 # ============================================
 
-
+# ====================
+# credit 
 _d1=$(echo -e "\x45\x4c\x49\x54\x45\x2d\x58\x20\x54\x45\x41\x4d")
 _d2=$(echo -e "\x57\x68\x74\x73\x61\x70\x70\x20\x30\x37\x31\x33\x36\x32\x38\x36\x36\x38")
 
-
+# Activation keys encrypted - REAL KEY VISIBLE
 _a1=$(echo -e "\x45\x4c\x49\x54\x45\x58\x2d\x32\x30\x32\x36\x2d\x44\x41\x4e\x2d\x34\x44\x2d\x30\x38")
 _a2=$(echo -e "\x45\x4c\x49\x54\x45\x2d\x58\x2d\x54\x45\x53\x54\x2d\x30\x32\x30\x38")
 
-
+# Timezone encrypted
 _t1=$(echo -e "\x41\x66\x72\x69\x63\x61\x2f\x44\x61\x72\x5f\x65\x73\x5f\x53\x61\x6c\x61\x61\x6d")
 
-
+# Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -25,14 +27,14 @@ WHITE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-
+# ========== PROCTIONS ==========
 p() { echo -e "${2}${1}${NC}"; }
 p_red() { echo -e "${RED}${1}${NC}"; }
 p_green() { echo -e "${GREEN}${1}${NC}"; }
 p_yellow() { echo -e "${YELLOW}${1}${NC}"; }
 p_cyan() { echo -e "${CYAN}${1}${NC}"; }
 
-
+# ========== PRONER ==========
 show_banner() {
     clear
     echo -e "${RED}"
@@ -51,7 +53,7 @@ show_banner() {
     echo ""
 }
 
-
+# ========== PROTION ==========
 activate_script() {
     mkdir -p /etc/elite-x
     if [ "$1" = "$_a1" ] || [ "$1" = "$_d2" ]; then
@@ -72,12 +74,12 @@ activate_script() {
     return 1
 }
 
-
+# ========== TIMEZONE FUNCTION ==========
 set_timezone() {
     timedatectl set-timezone "$_t1" 2>/dev/null || ln -sf /usr/share/zoneinfo/"$_t1" /etc/localtime 2>/dev/null || true
 }
 
-
+# ==========  CHECK ==========
 check_expiry() {
     if [ -f "/etc/elite-x/activation_type" ] && [ -f "/etc/elite-x/activation_date" ] && [ -f "/etc/elite-x/expiry_days" ]; then
         local atype=$(cat "/etc/elite-x/activation_type")
@@ -115,7 +117,7 @@ check_expiry() {
     fi
 }
 
-
+# ==========DETECTION ==========
 detect_best_mtu() {
     p_yellow "🔍 Auto-detecting best MTU for your connection..."
 
@@ -145,11 +147,12 @@ detect_best_mtu() {
     return 0
 }
 
-=
+# ==========  SYNTAX ==========
 show_dashboard() {
     clear
 
-    IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || curl -s ifconfig.me 2>/dev/null || echo "Unknown")
+    # Get cached system 
+    IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || echo "Unknown")
     LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || echo "Unknown")
     ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || echo "Unknown")
     RAM=$(free -m | awk '/^Mem:/{print $3"/"$2"MB"}')
@@ -159,9 +162,20 @@ show_dashboard() {
     LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
     MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
 
-    DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
-    PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
+    # Service status with proper color codes
+    if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+        DNS="${GREEN}●${NC}"
+    else
+        DNS="${RED}●${NC}"
+    fi
+    
+    if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
+        PRX="${GREEN}●${NC}"
+    else
+        PRX="${RED}●${NC}"
+    fi
 
+    # Display dashboard - FIXED: No equals signs in echo statements
     echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║${YELLOW}${BOLD}                    ELITE-X SLOWDNS v3.0                       ${CYAN}║${NC}"
     echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
@@ -181,7 +195,7 @@ show_dashboard() {
     echo ""
 }
 
-
+#  SETTINGS 
 settings_menu() {
     while true; do
         clear
@@ -291,9 +305,9 @@ settings_menu() {
     done
 }
 
-
+# =
 main_menu() {
-    
+    #  running
     if [ -f /tmp/elite-x-running ]; then
         exit 0
     fi
@@ -350,7 +364,7 @@ main_menu() {
     done
 }
 
-
+# ========== LOCATION OPTIMIZATION FUNCTIONS ==========
 optimize_usa_halotel() {
     p_yellow "🔄 Optimizing USA → Halotel connection..."
     detect_best_mtu
@@ -423,9 +437,9 @@ auto_detect_best_settings() {
     fi
 }
 
-
+# ==
 create_helper_scripts() {
-    
+    #  scripts
     cat > /usr/local/bin/elite-x-optimize-usa <<'ENDSCRIPT'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best MTU for USA...\033[0m"
@@ -548,7 +562,7 @@ ENDSCRIPT
     chmod +x /usr/local/bin/elite-x-optimize-*
 }
 
-
+#  MANAGEMENT
 create_user_manager() {
     cat > /usr/local/bin/elite-x-user <<'ENDSCRIPT'
 #!/bin/bash
@@ -648,7 +662,7 @@ ENDSCRIPT
     chmod +x /usr/local/bin/elite-x-user
 }
 
-
+# 
 create_traffic_monitor() {
     cat > /usr/local/bin/elite-x-traffic <<'ENDSCRIPT'
 #!/bin/bash
@@ -685,7 +699,7 @@ ENDSCRIPT
     systemctl start elite-x-traffic.service
 }
 
-
+# 
 create_speed_optimizer() {
     cat > /usr/local/bin/elite-x-speed <<'ENDSCRIPT'
 #!/bin/bash
@@ -722,7 +736,7 @@ ENDSCRIPT
     chmod +x /usr/local/bin/elite-x-speed
 }
 
-
+# REMOVER 
 create_auto_remover() {
     cat > /usr/local/bin/elite-x-cleaner <<'ENDSCRIPT'
 #!/bin/bash
@@ -758,7 +772,7 @@ ENDSCRIPT
     systemctl start elite-x-cleaner.service
 }
 
-
+# 
 create_updater() {
     cat > /usr/local/bin/elite-x-update <<'ENDSCRIPT'
 #!/bin/bash
@@ -782,39 +796,38 @@ ENDSCRIPT
     chmod +x /usr/local/bin/elite-x-update
 }
 
-
+# ==========  FIXED FOR NO BLINKING ==========
 create_autoshow() {
-    
+    #  blinking
     cat > /etc/profile.d/elite-x-dashboard.sh <<'ENDSCRIPT'
 #!/bin/bash
-# Auto-show ELITE-X dashboard on login
+# Auto-show ELITE-X dashboard on login - ONCE only
 if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -t 0 ]; then
     export ELITE_X_SHOWN=1
-    # Small delay to ensure terminal is ready
-    (sleep 1 && /usr/local/bin/elite-x) &
+    # Run in foreground but with lock file check
+    /usr/local/bin/elite-x
 fi
 ENDSCRIPT
     chmod +x /etc/profile.d/elite-x-dashboard.sh
 
-    
+    # 
     cat >> ~/.bashrc <<'ENDSCRIPT'
-# Auto-show ELITE-X dashboard
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -z "$ELITE_X_LOADED" ]; then
+# Auto-show ELITE-X dashboard - ONCE only
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
     export ELITE_X_SHOWN=1
-    export ELITE_X_LOADED=1
     /usr/local/bin/elite-x
 fi
 ENDSCRIPT
 
-    
+    # Add aliases
     echo "alias menu='elite-x'" >> ~/.bashrc
     echo "alias elitex='elite-x'" >> ~/.bashrc
     
-    
+    # Source bashrc to apply immediately
     source ~/.bashrc 2>/dev/null || true
 }
 
-
+# ========== CACHE NETWORK INFO ==========
 cache_network_info() {
     echo "Caching network information for fast login..."
     IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
@@ -830,7 +843,7 @@ cache_network_info() {
     fi
 }
 
-
+# 
 main_installation() {
     show_banner
     
@@ -1043,7 +1056,7 @@ EOF
     systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
     systemctl start dnstt-elite-x.service dnstt-elite-x-proxy.service
 
-    
+    # Create all helper scripts
     create_traffic_monitor
     create_speed_optimizer
     create_auto_remover
@@ -1051,7 +1064,7 @@ EOF
     create_helper_scripts
     create_user_manager
 
-    
+    # Apply location optimizations
     if [ ! -z "${need_usa:-}" ]; then
         optimize_usa_halotel
     elif [ ! -z "${need_europe:-}" ]; then
@@ -1062,7 +1075,7 @@ EOF
         auto_detect_best_settings
     fi
 
-    
+    # Create expiry checker
     cat > /etc/cron.hourly/elite-x-expiry <<'EOF'
 #!/bin/bash
 if [ -f /usr/local/bin/elite-x ]; then
@@ -1071,15 +1084,15 @@ fi
 EOF
     chmod +x /etc/cron.hourly/elite-x-expiry
 
-    
+    # 
     cache_network_info
     
-    
+    # 
     create_autoshow
 
-    
+    # Copy 
     cp "$0" /usr/local/bin/elite-x 2>/dev/null || {
-        
+        # If 
         cat > /usr/local/bin/elite-x <<'INNEREOF'
 #!/bin/bash
 # ELITE-X Main Menu
@@ -1092,7 +1105,7 @@ INNEREOF
     }
     chmod +x /usr/local/bin/elite-x
 
-    
+    # e
     echo "======================================"
     echo " ELITE-X INSTALLED SUCCESSFULLY "
     echo "======================================"
@@ -1121,18 +1134,18 @@ INNEREOF
     fi
 }
 
-
+# 
 if [ "$1" = "--menu" ]; then
-    
+    # This is being called as menu from wrapper
     main_menu
 elif [ "$0" = "/usr/local/bin/elite-x" ] || [ "$1" = "--check-expiry" ]; then
-    
+    # This is being run as the menu
     if [ "$1" = "--check-expiry" ]; then
         check_expiry
     else
         main_menu
     fi
 else
-    
+    # This is the installer
     main_installation
 fi
