@@ -664,6 +664,78 @@ setup_manual_speed
 setup_auto_remover
 setup_updater
 
+# ========== CREATE OPTIMIZATION HELPER SCRIPTS (FIXED EOF) ==========
+cat > /usr/local/bin/elite-x-optimize-usa <<'EOL'
+#!/bin/bash
+cat >> /etc/sysctl.conf <<EOF
+# ELITE-X USA Halotel Optimization
+net.ipv4.tcp_rmem = 4096 87380 67108864
+net.ipv4.tcp_wmem = 4096 65536 67108864
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_mtu_probing = 1
+net.ipv4.tcp_window_scaling = 1
+net.ipv4.tcp_fastopen = 3
+EOF
+sysctl -p
+echo -e "\033[0;32m✅ USA optimizations applied\033[0m"
+EOL
+
+cat > /usr/local/bin/elite-x-optimize-europe <<'EOL'
+#!/bin/bash
+cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Europe Halotel Optimization
+net.ipv4.tcp_rmem = 4096 87380 33554432
+net.ipv4.tcp_wmem = 4096 65536 33554432
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_mtu_probing = 1
+EOF
+sysctl -p
+echo -e "\033[0;32m✅ Europe optimizations applied\033[0m"
+EOL
+
+cat > /usr/local/bin/elite-x-optimize-asia <<'EOL'
+#!/bin/bash
+cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Asia Halotel Optimization
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 8192
+net.ipv4.tcp_mtu_probing = 1
+EOF
+sysctl -p
+echo -e "\033[0;32m✅ Asia optimizations applied\033[0m"
+EOL
+
+cat > /usr/local/bin/elite-x-optimize-auto <<'EOL'
+#!/bin/bash
+echo -e "\033[1;33mAuto-detecting best settings...\033[0m"
+usa_latency=$(ping -c 3 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+europe_latency=$(ping -c 3 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+asia_latency=$(ping -c 3 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+
+[ ! -z "$usa_latency" ] && echo "USA: ${usa_latency}ms"
+[ ! -z "$europe_latency" ] && echo "Europe: ${europe_latency}ms"
+[ ! -z "$asia_latency" ] && echo "Asia: ${asia_latency}ms"
+
+if [ ! -z "$usa_latency" ] && [ $usa_latency -lt 200 ]; then
+    /usr/local/bin/elite-x-optimize-usa
+elif [ ! -z "$europe_latency" ] && [ $europe_latency -lt 250 ]; then
+    /usr/local/bin/elite-x-optimize-europe
+elif [ ! -z "$asia_latency" ] && [ $asia_latency -lt 300 ]; then
+    /usr/local/bin/elite-x-optimize-asia
+else
+    /usr/local/bin/elite-x-optimize-usa
+fi
+EOL
+
+chmod +x /usr/local/bin/elite-x-optimize-*
+
 # ========== APPLY LOCATION-SPECIFIC OPTIMIZATIONS (ONLY IF NOT SA) ==========
 # Your South Africa configuration remains PURE and UNTOUCHED
 if [ ! -z "${NEED_USA_OPT:-}" ]; then
@@ -677,7 +749,7 @@ elif [ ! -z "${NEED_AUTO_OPT:-}" ]; then
 fi
 
 # Create expiry checker cron job
-cat > /etc/cron.hourly/elite-x-expiry <<EOF
+cat > /etc/cron.hourly/elite-x-expiry <<'EOF'
 #!/bin/bash
 if [ -f /usr/local/bin/elite-x ]; then
     /usr/local/bin/elite-x --check-expiry
@@ -1008,79 +1080,6 @@ main_menu() {
 main_menu
 EOF
 chmod +x /usr/local/bin/elite-x
-
-# Create optimization helper scripts
-cat > /usr/local/bin/elite-x-optimize-usa <<'EOF'
-#!/bin/bash
-cat >> /etc/sysctl.conf <<EOF
-# ELITE-X USA Halotel Optimization
-net.ipv4.tcp_rmem = 4096 87380 67108864
-net.ipv4.tcp_wmem = 4096 65536 67108864
-net.ipv4.tcp_congestion_control = bbr
-net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 16384
-net.ipv4.tcp_mtu_probing = 1
-net.ipv4.tcp_window_scaling = 1
-net.ipv4.tcp_fastopen = 3
-EOF
-sysctl -p
-echo -e "${GREEN}✅ USA optimizations applied${NC}"
-EOF
-
-cat > /usr/local/bin/elite-x-optimize-europe <<'EOF'
-#!/bin/bash
-cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Europe Halotel Optimization
-net.ipv4.tcp_rmem = 4096 87380 33554432
-net.ipv4.tcp_wmem = 4096 65536 33554432
-net.ipv4.tcp_congestion_control = bbr
-net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 16384
-net.ipv4.tcp_mtu_probing = 1
-EOF
-sysctl -p
-echo -e "${GREEN}✅ Europe optimizations applied${NC}"
-EOF
-
-cat > /usr/local/bin/elite-x-optimize-asia <<'EOF'
-#!/bin/bash
-cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Asia Halotel Optimization
-net.ipv4.tcp_rmem = 4096 87380 16777216
-net.ipv4.tcp_wmem = 4096 65536 16777216
-net.ipv4.tcp_congestion_control = bbr
-net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 8192
-net.ipv4.tcp_mtu_probing = 1
-EOF
-sysctl -p
-echo -e "${GREEN}✅ Asia optimizations applied${NC}"
-EOF
-
-cat > /usr/local/bin/elite-x-optimize-auto <<'EOF'
-#!/bin/bash
-echo -e "${YELLOW}Auto-detecting best settings...${NC}"
-usa_latency=$(ping -c 3 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-europe_latency=$(ping -c 3 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-asia_latency=$(ping -c 3 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-
-[ ! -z "$usa_latency" ] && echo "USA: ${usa_latency}ms"
-[ ! -z "$europe_latency" ] && echo "Europe: ${europe_latency}ms"
-[ ! -z "$asia_latency" ] && echo "Asia: ${asia_latency}ms"
-
-if [ ! -z "$usa_latency" ] && [ $usa_latency -lt 200 ]; then
-    /usr/local/bin/elite-x-optimize-usa
-elif [ ! -z "$europe_latency" ] && [ $europe_latency -lt 250 ]; then
-    /usr/local/bin/elite-x-optimize-europe
-elif [ ! -z "$asia_latency" ] && [ $asia_latency -lt 300 ]; then
-    /usr/local/bin/elite-x-optimize-asia
-else
-    /usr/local/bin/elite-x-optimize-usa
-fi
-EOF
-
-chmod +x /usr/local/bin/elite-x-optimize-*
-chmod +x /usr/local/bin/elite-x-optimize-*
 
 # Aliases
 echo "alias menu='elite-x'" >> ~/.bashrc
