@@ -485,7 +485,7 @@ INFO
     echo "0" > $TD/$username
     
     SERVER=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "?")
-    PUBKEY=$(cat /etc/dnstt/server.pub 2>/dev/null | cut -c1-40)
+    PUBKEY=$(cat /etc/dnstt/server.pub 2>/dev/null || echo "Not generated")
     
     clear
     echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
@@ -494,7 +494,7 @@ INFO
     echo -e "${WHITE}Username  :${CYAN} $username${NC}"
     echo -e "${WHITE}Password  :${CYAN} $password${NC}"
     echo -e "${WHITE}Server    :${CYAN} $SERVER${NC}"
-    echo -e "${WHITE}Public Key:${CYAN} $PUBKEY...${NC}"
+    echo -e "${WHITE}Public Key:${CYAN} $PUBKEY${NC}"
     echo -e "${WHITE}Expire    :${CYAN} $expire_date${NC}"
     echo -e "${WHITE}Traffic   :${CYAN} $traffic_limit MB${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
@@ -584,14 +584,15 @@ settings_menu() {
         echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${CYAN}║${YELLOW}${BOLD}                      SETTINGS MENU                              ${CYAN}║${NC}"
         echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${CYAN}║${WHITE}  [8]  Change MTU Value${NC}"
-        echo -e "${CYAN}║${WHITE}  [9]  ⚡ Manual Speed Optimization${NC}"
-        echo -e "${CYAN}║${WHITE}  [10] 🧹 Clean Junk Files${NC}"
-        echo -e "${CYAN}║${WHITE}  [11] 🔄 Auto Expired Account Remover${NC}"
-        echo -e "${CYAN}║${WHITE}  [12] 📦 Update Script${NC}"
-        echo -e "${CYAN}║${WHITE}  [13] Restart All Services${NC}"
-        echo -e "${CYAN}║${WHITE}  [14] Reboot VPS${NC}"
-        echo -e "${CYAN}║${WHITE}  [15] Uninstall Script${NC}"
+        echo -e "${CYAN}║${WHITE}  [8]  🔑 View Public Key${NC}"
+        echo -e "${CYAN}║${WHITE}  [9]  Change MTU Value${NC}"
+        echo -e "${CYAN}║${WHITE}  [10] ⚡ Manual Speed Optimization${NC}"
+        echo -e "${CYAN}║${WHITE}  [11] 🧹 Clean Junk Files${NC}"
+        echo -e "${CYAN}║${WHITE}  [12] 🔄 Auto Expired Account Remover${NC}"
+        echo -e "${CYAN}║${WHITE}  [13] 📦 Update Script${NC}"
+        echo -e "${CYAN}║${WHITE}  [14] Restart All Services${NC}"
+        echo -e "${CYAN}║${WHITE}  [15] Reboot VPS${NC}"
+        echo -e "${CYAN}║${WHITE}  [16] Uninstall Script${NC}"
         echo -e "${CYAN}║${WHITE}  [0]  Back to Main Menu${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
@@ -599,6 +600,12 @@ settings_menu() {
         
         case $ch in
             8)
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${YELLOW}PUBLIC KEY (FULL):${NC}"
+                echo -e "${GREEN}$(cat /etc/dnstt/server.pub)${NC}"
+                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                ;;
+            9)
                 echo "Current MTU: $(cat /etc/elite-x/mtu)"
                 read -p "New MTU (1000-5000): " mtu
                 [[ "$mtu" =~ ^[0-9]+$ ]] && [ $mtu -ge 1000 ] && [ $mtu -le 5000 ] && {
@@ -609,22 +616,22 @@ settings_menu() {
                     echo -e "${GREEN}✅ MTU updated${NC}"
                 } || echo -e "${RED}❌ Invalid${NC}"
                 ;;
-            9) elite-x-speed manual ;;
-            10) elite-x-speed clean ;;
-            11)
+            10) elite-x-speed manual ;;
+            11) elite-x-speed clean ;;
+            12)
                 systemctl enable --now elite-x-cleaner.service
                 echo -e "${GREEN}✅ Auto remover started${NC}"
                 ;;
-            12) elite-x-update ;;
-            13)
+            13) elite-x-update ;;
+            14)
                 systemctl restart dnstt-elite-x dnstt-elite-x-proxy sshd
                 echo -e "${GREEN}✅ Services restarted${NC}"
                 ;;
-            14)
+            15)
                 read -p "Reboot? (y/n): " c
                 [ "$c" = "y" ] && reboot
                 ;;
-            15)
+            16)
                 read -p "Uninstall? (YES): " c
                 [ "$c" = "YES" ] && {
                     systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-cleaner
