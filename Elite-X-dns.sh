@@ -1,19 +1,14 @@
 #!/bin/bash
 # ============================================
-# ELITE-X DNSTT AUTO INSTALL (FULLY PROTECTED)
-# All important areas encrypted
+# ELITE-X DNSTT AUTO INSTALL 
 # ============================================
 
-# ========== ENCRYPTED CORE VARIABLES ==========
-# Developer credit encrypted
 _d1=$(echo -e "\x45\x4c\x49\x54\x45\x2d\x58\x20\x54\x45\x41\x4d")
 _d2=$(echo -e "\x57\x68\x74\x73\x61\x70\x70\x20\x30\x37\x31\x33\x36\x32\x38\x36\x36\x38")
 
-# Activation keys encrypted
 _a1=$(echo -e "\x45\x4c\x49\x54\x45\x58\x2d\x32\x30\x32\x36\x2d\x44\x41\x4e\x2d\x34\x44\x2d\x30\x38")
 _a2=$(echo -e "\x45\x4c\x49\x54\x45\x2d\x58\x2d\x54\x45\x53\x54\x2d\x30\x32\x30\x38")
 
-# Timezone encrypted
 _t1=$(echo -e "\x41\x66\x72\x69\x63\x61\x2f\x44\x61\x72\x5f\x65\x73\x5f\x53\x61\x6c\x61\x61\x6d")
 
 # Color codes
@@ -27,17 +22,13 @@ WHITE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# ========== PROTECTED FUNCTIONS ==========
-_() { echo -e "${2}${1}${NC}"; }
-__() { echo -e "${RED}${1}${NC}"; }
-___() { echo -e "${GREEN}${1}${NC}"; }
-____() { echo -e "${YELLOW}${1}${NC}"; }
-_____() { echo -e "${CYAN}${1}${NC}"; }
-______() { echo -e "${PURPLE}${1}${NC}"; }
-_______() { echo -e "${WHITE}${BOLD}${1}${NC}"; }
+p() { echo -e "${2}${1}${NC}"; }
+p_red() { echo -e "${RED}${1}${NC}"; }
+p_green() { echo -e "${GREEN}${1}${NC}"; }
+p_yellow() { echo -e "${YELLOW}${1}${NC}"; }
+p_cyan() { echo -e "${CYAN}${1}${NC}"; }
 
-# ========== PROTECTED BANNER ==========
-________() {
+show_banner() {
     clear
     echo -e "${RED}"
     echo "╔═══════════════════════════════════════════════════════════════╗"
@@ -55,12 +46,11 @@ ________() {
     echo ""
 }
 
-# ========== PROTECTED ACTIVATION ==========
-_________() {
+activate_script() {
     mkdir -p /etc/elite-x
     if [ "$1" = "$_a1" ]; then
         echo "$_a1" > /etc/elite-x/activated
-        echo "$_d2" > /etc/elite-x/key
+        echo "$_a1" > /etc/elite-x/key
         echo "lifetime" > /etc/elite-x/activation_type
         echo "Lifetime" > /etc/elite-x/expiry
         return 0
@@ -76,27 +66,25 @@ _________() {
     return 1
 }
 
-# ========== TIMEZONE FUNCTION ==========
-__________() {
+set_timezone() {
     timedatectl set-timezone "$_t1" 2>/dev/null || ln -sf /usr/share/zoneinfo/"$_t1" /etc/localtime 2>/dev/null || true
 }
 
-# ========== EXPIRY CHECK ==========
-___________() {
+check_expiry() {
     if [ -f "/etc/elite-x/activation_type" ] && [ -f "/etc/elite-x/activation_date" ] && [ -f "/etc/elite-x/expiry_days" ]; then
-        local _a=$(cat "/etc/elite-x/activation_type")
-        if [ "$_a" = "temporary" ]; then
-            local _b=$(cat "/etc/elite-x/activation_date")
-            local _c=$(cat "/etc/elite-x/expiry_days")
-            local _d=$(date +%s)
-            local _e=$(date -d "$_b + $_c days" +%s)
+        local atype=$(cat "/etc/elite-x/activation_type")
+        if [ "$atype" = "temporary" ]; then
+            local adate=$(cat "/etc/elite-x/activation_date")
+            local adays=$(cat "/etc/elite-x/expiry_days")
+            local now=$(date +%s)
+            local expiry=$(date -d "$adate + $adays days" +%s)
 
-            if [ $_d -ge $_e ]; then
-                $(____ "═══════════════════════════════════════════════════════════════")
-                $(____ "⚠️  TRIAL PERIOD EXPIRED ⚠️")
-                $(__ "Your 2-day trial has ended.")
-                $(__ "Script will now uninstall itself...")
-                $(____ "═══════════════════════════════════════════════════════════════")
+            if [ $now -ge $expiry ]; then
+                p_yellow "═══════════════════════════════════════════════════════════════"
+                p_yellow "⚠️  TRIAL PERIOD EXPIRED ⚠️"
+                p_red "Your 2-day trial has ended."
+                p_red "Script will now uninstall itself..."
+                p_yellow "═══════════════════════════════════════════════════════════════"
                 sleep 3
 
                 systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
@@ -108,85 +96,84 @@ ___________() {
                 systemctl restart sshd
 
                 rm -f "$0"
-                $(___ "✅ ELITE-X has been uninstalled.")
+                p_green "✅ ELITE-X has been uninstalled."
                 exit 0
             else
-                local _f=$(( (_e - _d) / 86400 ))
-                local _g=$(( ((_e - _d) % 86400) / 3600 ))
-                $(____ "⚠️  Trial: $_f days $_g hours remaining")
+                local days=$(( ($expiry - $now) / 86400 ))
+                local hours=$(( (($expiry - $now) % 86400) / 3600 ))
+                p_yellow "⚠️  Trial: $days days $hours hours remaining"
             fi
         fi
     fi
 }
 
-# ========== MTU DETECTION ==========
-____________() {
-    $(____ "🔍 Auto-detecting best MTU for your connection...")
 
-    local _test="1500 1450 1400 1350 1300"
-    local _best=1400
-    local _best_time=999999
+detect_best_mtu() {
+    p_yellow "🔍 Auto-detecting best MTU for your connection..."
 
-    for _m in $_test; do
-        echo -n "  Testing MTU $_m... "
+    local test_mtus="1500 1450 1400 1350 1300"
+    local best_mtu=1400
+    local best_time=999999
 
-        if timeout 2 ping -M do -c 2 -s $((_m-28)) 8.8.8.8 >/dev/null 2>&1; then
-            local _avg=$(ping -c 2 -s $((_m-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-            if [ ! -z "$_avg" ] && [ "$_avg" -lt "$_best_time" ]; then
-                _best_time=$_avg
-                _best=$_m
-                $(___ "✅ OK (${_avg}ms)")
+    for mtu in $test_mtus; do
+        echo -n "  Testing MTU $mtu... "
+
+        if timeout 2 ping -M do -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
+            local avg_time=$(ping -c 2 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+            if [ ! -z "$avg_time" ] && [ "$avg_time" -lt "$best_time" ]; then
+                best_time=$avg_time
+                best_mtu=$mtu
+                p_green "✅ OK (${avg_time}ms)"
             else
-                $(___ "✅ OK")
+                p_green "✅ OK"
             fi
         else
-            $(__ "❌ FAILED")
+            p_red "❌ FAILED"
         fi
     done
 
-    $(___ "✅ Best MTU selected: $_best (${_best_time}ms)")
-    echo "$_best" > /etc/elite-x/mtu
+    p_green "✅ Best MTU selected: $best_mtu (${best_time}ms)"
+    echo "$best_mtu" > /etc/elite-x/mtu
     return 0
 }
 
-# ========== PROTECTED DASHBOARD ==========
-_____________() {
+show_dashboard() {
     clear
 
-    _IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
-    _LOC=$(curl -s http://ip-api.com/json/$_IP 2>/dev/null | jq -r '.city + ", " + .country' 2>/dev/null || echo "Unknown")
-    _ISP=$(curl -s http://ip-api.com/json/$_IP 2>/dev/null | jq -r '.isp' 2>/dev/null || echo "Unknown")
-    _RAM=$(free -m | awk '/^Mem:/{print $3"/"$2"MB"}')
-    _SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
-    _KEY=$(cat /etc/elite-x/key 2>/dev/null | cut -c1-4)****$(cat /etc/elite-x/key 2>/dev/null | rev | cut -c1-4 | rev)
-    _EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
-    _LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
-    _MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
+    IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
+    LOC=$(curl -s http://ip-api.com/json/$IP 2>/dev/null | jq -r '.city + ", " + .country' 2>/dev/null || echo "Unknown")
+    ISP=$(curl -s http://ip-api.com/json/$IP 2>/dev/null | jq -r '.isp' 2>/dev/null || echo "Unknown")
+    RAM=$(free -m | awk '/^Mem:/{print $3"/"$2"MB"}')
+    SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
+    KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
+    EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
+    LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
+    MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
 
-    _DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
-    _PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
+    DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
+    PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
 
     echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║${YELLOW}${BOLD}                    ELITE-X SLOWDNS v3.0                       ${CYAN}║${NC}"
     echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${CYAN}║${WHITE}  Subdomain :${GREEN} $_SUB${NC}"
-    echo -e "${CYAN}║${WHITE}  IP        :${GREEN} $_IP${NC}"
-    echo -e "${CYAN}║${WHITE}  Location  :${GREEN} $_LOC${NC}"
-    echo -e "${CYAN}║${WHITE}  ISP       :${GREEN} $_ISP${NC}"
-    echo -e "${CYAN}║${WHITE}  RAM       :${GREEN} $_RAM${NC}"
-    echo -e "${CYAN}║${WHITE}  VPS Loc   :${GREEN} $_LOCATION${NC}"
-    echo -e "${CYAN}║${WHITE}  MTU       :${GREEN} $_MTU${NC}"
-    echo -e "${CYAN}║${WHITE}  Services  : DNS:$_DNS PRX:$_PRX${NC}"
+    echo -e "${CYAN}║${WHITE}  Subdomain :${GREEN} $SUB${NC}"
+    echo -e "${CYAN}║${WHITE}  IP        :${GREEN} $IP${NC}"
+    echo -e "${CYAN}║${WHITE}  Location  :${GREEN} $LOC${NC}"
+    echo -e "${CYAN}║${WHITE}  ISP       :${GREEN} $ISP${NC}"
+    echo -e "${CYAN}║${WHITE}  RAM       :${GREEN} $RAM${NC}"
+    echo -e "${CYAN}║${WHITE}  VPS Loc   :${GREEN} $LOCATION${NC}"
+    echo -e "${CYAN}║${WHITE}  MTU       :${GREEN} $MTU${NC}"
+    echo -e "${CYAN}║${WHITE}  Services  : DNS:$DNS PRX:$PRX${NC}"
     echo -e "${CYAN}║${WHITE}  Developer :${PURPLE} $_d1${NC}"
     echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${CYAN}║${WHITE}  Act Key   :${YELLOW} $_KEY${NC}"
-    echo -e "${CYAN}║${WHITE}  Expiry    :${YELLOW} $_EXP${NC}"
+    echo -e "${CYAN}║${WHITE}  Act Key   :${YELLOW} $KEY${NC}"
+    echo -e "${CYAN}║${WHITE}  Expiry    :${YELLOW} $EXP${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
-# ========== SETTINGS MENU ==========
-______________() {
+
+settings_menu() {
     while true; do
         clear
         echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
@@ -205,9 +192,9 @@ ______________() {
         echo -e "${CYAN}║${WHITE}  [0]  Back to Main Menu${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
-        read -p "$(echo -e ${GREEN}"Settings option: "${NC})" _ch
+        read -p "$(echo -e ${GREEN}"Settings option: "${NC})" ch
 
-        case $_ch in
+        case $ch in
             8)
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
                 echo -e "${YELLOW}PUBLIC KEY (FULL):${NC}"
@@ -217,10 +204,10 @@ ______________() {
                 ;;
             9)
                 echo "Current MTU: $(cat /etc/elite-x/mtu)"
-                read -p "New MTU (1000-5000): " _mtu
-                [[ "$_mtu" =~ ^[0-9]+$ ]] && [ $_mtu -ge 1000 ] && [ $_mtu -le 5000 ] && {
-                    echo "$_mtu" > /etc/elite-x/mtu
-                    sed -i "s/-mtu [0-9]*/-mtu $_mtu/" /etc/systemd/system/dnstt-elite-x.service
+                read -p "New MTU (1000-5000): " mtu
+                [[ "$mtu" =~ ^[0-9]+$ ]] && [ $mtu -ge 1000 ] && [ $mtu -le 5000 ] && {
+                    echo "$mtu" > /etc/elite-x/mtu
+                    sed -i "s/-mtu [0-9]*/-mtu $mtu/" /etc/systemd/system/dnstt-elite-x.service
                     systemctl daemon-reload
                     systemctl restart dnstt-elite-x dnstt-elite-x-proxy
                     echo -e "${GREEN}✅ MTU updated${NC}"
@@ -241,12 +228,12 @@ ______________() {
                 read -p "Press Enter to continue..."
                 ;;
             15)
-                read -p "Reboot? (y/n): " _c
-                [ "$_c" = "y" ] && reboot
+                read -p "Reboot? (y/n): " c
+                [ "$c" = "y" ] && reboot
                 ;;
             16)
-                read -p "Uninstall? (YES): " _c
-                [ "$_c" = "YES" ] && {
+                read -p "Uninstall? (YES): " c
+                [ "$c" = "YES" ] && {
                     systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner
                     systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner
                     rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
@@ -269,9 +256,9 @@ ______________() {
                 echo -e "${BLUE}  3. Europe (Auto-detect best MTU)${NC}"
                 echo -e "${PURPLE}  4. Asia (Auto-detect best MTU)${NC}"
                 echo -e "${YELLOW}  5. Auto-detect everything${NC}"
-                read -p "Choice: " _opt
+                read -p "Choice: " opt_choice
                 
-                case $_opt in
+                case $opt_choice in
                     1) echo "South Africa" > /etc/elite-x/location
                        echo "1800" > /etc/elite-x/mtu
                        sed -i "s/-mtu [0-9]*/-mtu 1800/" /etc/systemd/system/dnstt-elite-x.service
@@ -295,10 +282,17 @@ ______________() {
     done
 }
 
-# ========== MAIN MENU ==========
-_______________() {
+
+main_menu() {
+    
+    if [ -f /tmp/elite-x-running ]; then
+        exit 0
+    fi
+    touch /tmp/elite-x-running
+    trap 'rm -f /tmp/elite-x-running' EXIT
+
     while true; do
-        _____________
+        show_dashboard
         echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${CYAN}║${GREEN}${BOLD}                         MAIN MENU                              ${CYAN}║${NC}"
         echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
@@ -313,9 +307,9 @@ _______________() {
         echo -e "${CYAN}║${WHITE}  [00] Exit${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
-        read -p "$(echo -e ${GREEN}"Main menu option: "${NC})" _ch
+        read -p "$(echo -e ${GREEN}"Main menu option: "${NC})" ch
 
-        case $_ch in
+        case $ch in
             1) elite-x-user add; read -p "Press Enter to continue..." ;;
             2) elite-x-user list; read -p "Press Enter to continue..." ;;
             3) elite-x-user lock; read -p "Press Enter to continue..." ;;
@@ -336,8 +330,9 @@ _______________() {
                 echo -e "${GREEN}✅ Banner deleted${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            [Ss]) ______________ ;;
+            [Ss]) settings_menu ;;
             00|0) 
+                rm -f /tmp/elite-x-running
                 echo -e "${GREEN}Goodbye!${NC}"
                 exit 0 
                 ;;
@@ -346,12 +341,12 @@ _______________() {
     done
 }
 
-# ========== LOCATION OPTIMIZATION FUNCTIONS ==========
+
 optimize_usa_halotel() {
-    $(____ "🔄 Optimizing USA → Halotel connection...")
-    ____________
-    local _d_mtu=$(cat /etc/elite-x/mtu)
-    sed -i "s/-mtu [0-9]*/-mtu $_d_mtu/" /etc/systemd/system/dnstt-elite-x.service
+    p_yellow "🔄 Optimizing USA → Halotel connection..."
+    detect_best_mtu
+    local detected_mtu=$(cat /etc/elite-x/mtu)
+    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
     cat >> /etc/sysctl.conf <<EOF
 # ELITE-X USA Halotel Optimization
 net.ipv4.tcp_rmem = 4096 87380 67108864
@@ -362,14 +357,14 @@ EOF
     sysctl -p
     systemctl daemon-reload
     systemctl restart dnstt-elite-x dnstt-elite-x-proxy
-    $(___ "✅ USA optimized with MTU $_d_mtu")
+    p_green "✅ USA optimized with MTU $detected_mtu"
 }
 
 optimize_europe_halotel() {
-    $(____ "🔄 Optimizing Europe → Halotel connection...")
-    ____________
-    local _d_mtu=$(cat /etc/elite-x/mtu)
-    sed -i "s/-mtu [0-9]*/-mtu $_d_mtu/" /etc/systemd/system/dnstt-elite-x.service
+    p_yellow "🔄 Optimizing Europe → Halotel connection..."
+    detect_best_mtu
+    local detected_mtu=$(cat /etc/elite-x/mtu)
+    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
     cat >> /etc/sysctl.conf <<EOF
 # ELITE-X Europe Halotel Optimization
 net.ipv4.tcp_rmem = 4096 87380 33554432
@@ -380,14 +375,14 @@ EOF
     sysctl -p
     systemctl daemon-reload
     systemctl restart dnstt-elite-x dnstt-elite-x-proxy
-    $(___ "✅ Europe optimized with MTU $_d_mtu")
+    p_green "✅ Europe optimized with MTU $detected_mtu"
 }
 
 optimize_asia_halotel() {
-    $(____ "🔄 Optimizing Asia → Halotel connection...")
-    ____________
-    local _d_mtu=$(cat /etc/elite-x/mtu)
-    sed -i "s/-mtu [0-9]*/-mtu $_d_mtu/" /etc/systemd/system/dnstt-elite-x.service
+    p_yellow "🔄 Optimizing Asia → Halotel connection..."
+    detect_best_mtu
+    local detected_mtu=$(cat /etc/elite-x/mtu)
+    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
     cat >> /etc/sysctl.conf <<EOF
 # ELITE-X Asia Halotel Optimization
 net.ipv4.tcp_rmem = 4096 87380 16777216
@@ -398,30 +393,31 @@ EOF
     sysctl -p
     systemctl daemon-reload
     systemctl restart dnstt-elite-x dnstt-elite-x-proxy
-    $(___ "✅ Asia optimized with MTU $_d_mtu")
+    p_green "✅ Asia optimized with MTU $detected_mtu"
 }
 
 auto_detect_best_settings() {
-    $(____ "🔍 Auto-detecting best settings...")
-    ____________
-    _usa_latency=$(ping -c 2 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-    _europe_latency=$(ping -c 2 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-    _asia_latency=$(ping -c 2 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    p_yellow "🔍 Auto-detecting best settings..."
+    detect_best_mtu
+    usa_latency=$(ping -c 2 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    europe_latency=$(ping -c 2 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    asia_latency=$(ping -c 2 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
     
-    if [ ! -z "${_usa_latency:-}" ] && [ "${_usa_latency:-999}" -lt 200 ]; then
+    if [ ! -z "${usa_latency:-}" ] && [ "${usa_latency:-999}" -lt 200 ]; then
         optimize_usa_halotel
-    elif [ ! -z "${_europe_latency:-}" ] && [ "${_europe_latency:-999}" -lt 250 ]; then
+    elif [ ! -z "${europe_latency:-}" ] && [ "${europe_latency:-999}" -lt 250 ]; then
         optimize_europe_halotel
-    elif [ ! -z "${_asia_latency:-}" ] && [ "${_asia_latency:-999}" -lt 300 ]; then
+    elif [ ! -z "${asia_latency:-}" ] && [ "${asia_latency:-999}" -lt 300 ]; then
         optimize_asia_halotel
     else
         optimize_usa_halotel
     fi
 }
 
-# ========== CREATE HELPER SCRIPTS ==========
-________________() {
-    cat > /usr/local/bin/elite-x-optimize-usa <<'EOL'
+
+create_helper_scripts() {
+
+    cat > /usr/local/bin/elite-x-optimize-usa <<'EOF'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best MTU for USA...\033[0m"
 best_mtu=1400
@@ -453,9 +449,9 @@ sysctl -p
 systemctl daemon-reload
 systemctl restart dnstt-elite-x dnstt-elite-x-proxy
 echo -e "\033[0;32m✅ USA optimized with MTU $best_mtu\033[0m"
-EOL
+EOF
 
-    cat > /usr/local/bin/elite-x-optimize-europe <<'EOL'
+    cat > /usr/local/bin/elite-x-optimize-europe <<'EOF'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best MTU for Europe...\033[0m"
 best_mtu=1400
@@ -487,9 +483,9 @@ sysctl -p
 systemctl daemon-reload
 systemctl restart dnstt-elite-x dnstt-elite-x-proxy
 echo -e "\033[0;32m✅ Europe optimized with MTU $best_mtu\033[0m"
-EOL
+EOF
 
-    cat > /usr/local/bin/elite-x-optimize-asia <<'EOL'
+    cat > /usr/local/bin/elite-x-optimize-asia <<'EOF'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best MTU for Asia...\033[0m"
 best_mtu=1400
@@ -521,9 +517,9 @@ sysctl -p
 systemctl daemon-reload
 systemctl restart dnstt-elite-x dnstt-elite-x-proxy
 echo -e "\033[0;32m✅ Asia optimized with MTU $best_mtu\033[0m"
-EOL
+EOF
 
-    cat > /usr/local/bin/elite-x-optimize-auto <<'EOL'
+    cat > /usr/local/bin/elite-x-optimize-auto <<'EOF'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best location and MTU...\033[0m"
 usa_latency=$(ping -c 2 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
@@ -538,13 +534,12 @@ elif [ ! -z "${asia_latency:-}" ] && [ "${asia_latency:-999}" -lt 300 ]; then
 else
     /usr/local/bin/elite-x-optimize-usa
 fi
-EOL
+EOF
 
     chmod +x /usr/local/bin/elite-x-optimize-*
 }
 
-# ========== USER MANAGEMENT ==========
-_________________() {
+create_user_manager() {
     cat > /usr/local/bin/elite-x-user <<'EOF'
 #!/bin/bash
 
@@ -643,8 +638,8 @@ EOF
     chmod +x /usr/local/bin/elite-x-user
 }
 
-# ========== TRAFFIC MONITOR ==========
-__________________() {
+
+create_traffic_monitor() {
     cat > /usr/local/bin/elite-x-traffic <<'EOF'
 #!/bin/bash
 TD="/etc/elite-x/traffic";UD="/etc/elite-x/users";mkdir -p $TD
@@ -680,8 +675,8 @@ EOF
     systemctl start elite-x-traffic.service
 }
 
-# ========== SPEED OPTIMIZER ==========
-___________________() {
+
+create_speed_optimizer() {
     cat > /usr/local/bin/elite-x-speed <<'EOF'
 #!/bin/bash
 R='\033[0;31m';G='\033[0;32m';Y='\033[1;33m';N='\033[0m'
@@ -717,8 +712,7 @@ EOF
     chmod +x /usr/local/bin/elite-x-speed
 }
 
-# ========== AUTO REMOVER ==========
-____________________() {
+create_auto_remover() {
     cat > /usr/local/bin/elite-x-cleaner <<'EOF'
 #!/bin/bash
 UD="/etc/elite-x/users";TD="/etc/elite-x/traffic"
@@ -753,8 +747,7 @@ EOF
     systemctl start elite-x-cleaner.service
 }
 
-# ========== UPDATER ==========
-_____________________() {
+create_updater() {
     cat > /usr/local/bin/elite-x-update <<'EOF'
 #!/bin/bash
 echo -e "\033[1;33m🔄 Checking for updates...\033[0m"
@@ -777,9 +770,47 @@ EOF
     chmod +x /usr/local/bin/elite-x-update
 }
 
-# ========== MAIN INSTALLATION ==========
-______________________() {
-    ________
+
+create_autoshow() {
+    cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
+#!/bin/bash
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
+    export ELITE_X_SHOWN=1
+    /usr/local/bin/elite-x
+fi
+EOF
+    chmod +x /etc/profile.d/elite-x-dashboard.sh
+
+    cat >> ~/.bashrc <<'EOF'
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
+    export ELITE_X_SHOWN=1
+    /usr/local/bin/elite-x
+fi
+EOF
+
+    echo "alias menu='elite-x'" >> ~/.bashrc
+    echo "alias elitex='elite-x'" >> ~/.bashrc
+}
+
+
+cache_network_info() {
+    echo "Caching network information for fast login..."
+    IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
+    echo "$IP" > /etc/elite-x/cached_ip
+
+    if [ "$IP" != "Unknown" ]; then
+        LOC_INFO=$(curl -s http://ip-api.com/json/$IP 2>/dev/null)
+        echo "$LOC_INFO" | jq -r '.city + ", " + .country' 2>/dev/null > /etc/elite-x/cached_location || echo "Unknown" > /etc/elite-x/cached_location
+        echo "$LOC_INFO" | jq -r '.isp' 2>/dev/null > /etc/elite-x/cached_isp || echo "Unknown" > /etc/elite-x/cached_isp
+    else
+        echo "Unknown" > /etc/elite-x/cached_location
+        echo "Unknown" > /etc/elite-x/cached_isp
+    fi
+}
+
+
+main_installation() {
+    show_banner
     
     echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
     echo -e "${GREEN}                    ACTIVATION REQUIRED                          ${NC}"
@@ -789,10 +820,10 @@ ______________________() {
     echo -e "${GREEN}  Lifetime : $_d2${NC}"
     echo -e "${YELLOW}  Trial    : ELITE-X-TEST-0208 (2 days)${NC}"
     echo ""
-    read -p "$(echo -e ${CYAN}"Activation Key: "${NC})" _input
+    read -p "$(echo -e ${CYAN}"Activation Key: "${NC})" input_key
 
     mkdir -p /etc/elite-x
-    if ! _________ "$_input"; then
+    if ! activate_script "$input_key"; then
         echo -e "${RED}❌ Invalid activation key! Installation cancelled.${NC}"
         exit 1
     fi
@@ -800,9 +831,9 @@ ______________________() {
     echo -e "${GREEN}✅ Activation successful!${NC}"
     sleep 1
 
-    __________
+    set_timezone
     
-    read -p "$(echo -e ${RED}"Enter Your Subdomain ==>|ns-ex.elitex.sbs|: "${NC})" _domain
+    read -p "$(echo -e ${RED}"Enter Your Subdomain ==>|ns-ex.elitex.sbs|: "${NC})" domain
 
     echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
     echo -e "${GREEN}           NETWORK LOCATION OPTIMIZATION                          ${NC}"
@@ -814,28 +845,28 @@ ______________________() {
     echo -e "${PURPLE}  4. Asia (Auto-detect best MTU)${NC}"
     echo -e "${YELLOW}  5. Auto-detect everything${NC}"
     echo ""
-    read -p "$(echo -e ${GREEN}"Select location [1-5] [default: 1]: "${NC})" _loc
-    _loc=${_loc:-1}
+    read -p "$(echo -e ${GREEN}"Select location [1-5] [default: 1]: "${NC})" loc
+    loc=${loc:-1}
 
-    if [ "$_loc" = "1" ]; then
-        _mtu=1800
-        _selected="South Africa"
-        echo -e "${GREEN}✅ Using South Africa configuration (MTU: $_mtu)${NC}"
+    if [ "$loc" = "1" ]; then
+        mtu=1800
+        selected="South Africa"
+        echo -e "${GREEN}✅ Using South Africa configuration (MTU: $mtu)${NC}"
     else
-        _mtu=1400
-        case $_loc in
-            2) _selected="USA"; _need_usa=1 ;;
-            3) _selected="Europe"; _need_europe=1 ;;
-            4) _selected="Asia"; _need_asia=1 ;;
-            5) _selected="Auto-detect"; _need_auto=1 ;;
+        mtu=1400
+        case $loc in
+            2) selected="USA"; need_usa=1 ;;
+            3) selected="Europe"; need_europe=1 ;;
+            4) selected="Asia"; need_asia=1 ;;
+            5) selected="Auto-detect"; need_auto=1 ;;
         esac
     fi
 
-    echo "$_selected" > /etc/elite-x/location
-    echo "$_mtu" > /etc/elite-x/mtu
+    echo "$selected" > /etc/elite-x/location
+    echo "$mtu" > /etc/elite-x/mtu
 
-    _port=5300
-    _dns_port=53
+    port=5300
+    dns_port=53
 
     echo "==> ELITE-X INSTALLATION STARTING..."
 
@@ -845,7 +876,7 @@ ______________________() {
     fi
 
     mkdir -p /etc/elite-x/{banner,users,traffic}
-    echo "$_domain" > /etc/elite-x/subdomain
+    echo "$domain" > /etc/elite-x/subdomain
 
     cat > /etc/elite-x/banner/default <<'EOF'
 ===============================================
@@ -910,7 +941,7 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/dnstt-server -udp :${_port} -mtu ${_mtu} -privkey-file /etc/dnstt/server.key ${_domain} 127.0.0.1:22
+ExecStart=/usr/local/bin/dnstt-server -udp :${port} -mtu ${mtu} -privkey-file /etc/dnstt/server.key ${domain} 127.0.0.1:22
 Restart=no
 KillSignal=SIGTERM
 LimitNOFILE=1048576
@@ -990,23 +1021,26 @@ EOF
     systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
     systemctl start dnstt-elite-x.service dnstt-elite-x-proxy.service
 
-    __________________
-    ___________________
-    ____________________
-    _____________________
-    ________________
-    _________________
 
-    if [ ! -z "${_need_usa:-}" ]; then
+    create_traffic_monitor
+    create_speed_optimizer
+    create_auto_remover
+    create_updater
+    create_helper_scripts
+    create_user_manager
+
+# Apply location optimizations
+    if [ ! -z "${need_usa:-}" ]; then
         optimize_usa_halotel
-    elif [ ! -z "${_need_europe:-}" ]; then
+    elif [ ! -z "${need_europe:-}" ]; then
         optimize_europe_halotel
-    elif [ ! -z "${_need_asia:-}" ]; then
+    elif [ ! -z "${need_asia:-}" ]; then
         optimize_asia_halotel
-    elif [ ! -z "${_need_auto:-}" ]; then
+    elif [ ! -z "${need_auto:-}" ]; then
         auto_detect_best_settings
     fi
 
+   
     cat > /etc/cron.hourly/elite-x-expiry <<'EOF'
 #!/bin/bash
 if [ -f /usr/local/bin/elite-x ]; then
@@ -1015,49 +1049,31 @@ fi
 EOF
     chmod +x /etc/cron.hourly/elite-x-expiry
 
-    echo "Caching network information for fast login..."
-    _IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
-    echo "$_IP" > /etc/elite-x/cached_ip
+    
+    cache_network_info
+    
+  
+    create_autoshow
 
-    if [ "$_IP" != "Unknown" ]; then
-        _LOC_INFO=$(curl -s http://ip-api.com/json/$_IP 2>/dev/null)
-        echo "$_LOC_INFO" | jq -r '.city + ", " + .country' 2>/dev/null > /etc/elite-x/cached_location || echo "Unknown" > /etc/elite-x/cached_location
-        echo "$_LOC_INFO" | jq -r '.isp' 2>/dev/null > /etc/elite-x/cached_isp || echo "Unknown" > /etc/elite-x/cached_isp
-    else
-        echo "Unknown" > /etc/elite-x/cached_location
-        echo "Unknown" > /etc/elite-x/cached_isp
-    fi
-
-    cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
+  
+    cp "$0" /usr/local/bin/elite-x 2>/dev/null || cat > /usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
-    export ELITE_X_SHOWN=1
-    /usr/local/bin/elite-x
-fi
+# ELITE-X Main Menu - DO NOT MODIFY
 EOF
-    chmod +x /etc/profile.d/elite-x-dashboard.sh
+    chmod +x /usr/local/bin/elite-x
 
-    cat >> ~/.bashrc <<'EOF'
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
-    export ELITE_X_SHOWN=1
-    /usr/local/bin/elite-x
-fi
-EOF
-
-    echo "alias menu='elite-x'" >> ~/.bashrc
-    echo "alias elitex='elite-x'" >> ~/.bashrc
-
+    # Display success message
     echo "======================================"
     echo " ELITE-X INSTALLED SUCCESSFULLY "
     echo "======================================"
-    _EXP_INFO=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
-    _FINAL_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
-    _ACT_KEY=$(cat /etc/elite-x/key 2>/dev/null | cut -c1-4)****
-    echo "DOMAIN  : $_domain"
-    echo "LOCATION: $_selected"
-    echo "MTU     : $_FINAL_MTU"
-    echo "ACT KEY : $_ACT_KEY"
-    echo "EXPIRY  : $_EXP_INFO"
+    exp_info=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
+    final_mtu=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
+    act_key=$(cat /etc/elite-x/key 2>/dev/null || echo "$_a1")
+    echo "DOMAIN  : $domain"
+    echo "LOCATION: $selected"
+    echo "MTU     : $final_mtu"
+    echo "ACT KEY : $act_key"
+    echo "EXPIRY  : $exp_info"
     echo ""
     echo "PUBLIC KEY:"
     cat /etc/dnstt/server.pub
@@ -1067,9 +1083,22 @@ EOF
     echo -e "${YELLOW}No need to type 'elite-x' or 'menu' - it appears automatically!${NC}"
     echo "======================================"
 
-    read -p "Open menu now? (y/n): " _open
-    [ "$_open" = "y" ] && /usr/local/bin/elite-x
+    read -p "Open menu now? (y/n): " open
+    if [ "$open" = "y" ]; then
+    
+        source ~/.bashrc 2>/dev/null || true
+        /usr/local/bin/elite-x
+    fi
 }
 
-# ========== START INSTALLATION ==========
-______________________
+if [ "$0" = "/usr/local/bin/elite-x" ] || [ "$1" = "--check-expiry" ]; then
+    # This is being run as the menu
+    if [ "$1" = "--check-expiry" ]; then
+        check_expiry
+    else
+        main_menu
+    fi
+else
+    # This is the installer
+    main_installation
+fi
