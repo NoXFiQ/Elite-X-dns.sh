@@ -967,12 +967,21 @@ esac
 EOF
 chmod +x /usr/local/bin/elite-x-user
 
-# ========== MAIN MENU - FIXED: FAST LOADING AND ACTIVATION KEY VISIBLE ==========
+# ========== MAIN MENU - FIXED: NO BLINKING ==========
 cat >/usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
 
 RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m'
 PURPLE='\033[0;35m';WHITE='\033[1;37m';BOLD='\033[1m';NC='\033[0m'
+
+# Check if we're in a loop (prevent multiple instances)
+if [ -f /tmp/elite-x-running ]; then
+    exit 0
+fi
+touch /tmp/elite-x-running
+
+# Clean up on exit
+trap 'rm -f /tmp/elite-x-running' EXIT
 
 # Check expiry on menu start
 check_expiry_menu() {
@@ -1002,6 +1011,7 @@ check_expiry_menu() {
                 systemctl restart sshd
                 
                 echo -e "${GREEN}✅ ELITE-X has been uninstalled.${NC}"
+                rm -f /tmp/elite-x-running
                 exit 0
             fi
         fi
@@ -1074,6 +1084,7 @@ settings_menu() {
                 echo -e "${YELLOW}PUBLIC KEY (FULL):${NC}"
                 echo -e "${GREEN}$(cat /etc/dnstt/server.pub)${NC}"
                 echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                read -p "Press Enter to continue..."
                 ;;
             9)
                 echo "Current MTU: $(cat /etc/elite-x/mtu)"
@@ -1085,17 +1096,20 @@ settings_menu() {
                     systemctl restart dnstt-elite-x dnstt-elite-x-proxy
                     echo -e "${GREEN}✅ MTU updated${NC}"
                 } || echo -e "${RED}❌ Invalid${NC}"
+                read -p "Press Enter to continue..."
                 ;;
-            10) elite-x-speed manual ;;
-            11) elite-x-speed clean ;;
+            10) elite-x-speed manual; read -p "Press Enter to continue..." ;;
+            11) elite-x-speed clean; read -p "Press Enter to continue..." ;;
             12)
                 systemctl enable --now elite-x-cleaner.service
                 echo -e "${GREEN}✅ Auto remover started${NC}"
+                read -p "Press Enter to continue..."
                 ;;
-            13) elite-x-update ;;
+            13) elite-x-update; read -p "Press Enter to continue..." ;;
             14)
                 systemctl restart dnstt-elite-x dnstt-elite-x-proxy sshd
                 echo -e "${GREEN}✅ Services restarted${NC}"
+                read -p "Press Enter to continue..."
                 ;;
             15)
                 read -p "Reboot? (y/n): " c
@@ -1112,8 +1126,10 @@ settings_menu() {
                     sed -i '/^Banner/d' /etc/ssh/sshd_config
                     systemctl restart sshd
                     echo -e "${GREEN}✅ Uninstalled${NC}"
+                    rm -f /tmp/elite-x-running
                     exit 0
                 }
+                read -p "Press Enter to continue..."
                 ;;
             17)
                 echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
@@ -1143,11 +1159,11 @@ settings_menu() {
                     5) echo "Auto-detect" > /etc/elite-x/location
                        /usr/local/bin/elite-x-optimize-auto ;;
                 esac
+                read -p "Press Enter to continue..."
                 ;;
             0) return ;;
-            *) echo -e "${RED}Invalid option${NC}" ;;
+            *) echo -e "${RED}Invalid option${NC}"; read -p "Press Enter to continue..." ;;
         esac
-        read -p "Press Enter..."
     done
 }
 
@@ -1171,29 +1187,34 @@ main_menu() {
         read -p "$(echo -e $GREEN"Main menu option: "$NC)" ch
         
         case $ch in
-            1) elite-x-user add ;;
-            2) elite-x-user list ;;
-            3) elite-x-user lock ;;
-            4) elite-x-user unlock ;;
-            5) elite-x-user del ;;
+            1) elite-x-user add; read -p "Press Enter to continue..." ;;
+            2) elite-x-user list; read -p "Press Enter to continue..." ;;
+            3) elite-x-user lock; read -p "Press Enter to continue..." ;;
+            4) elite-x-user unlock; read -p "Press Enter to continue..." ;;
+            5) elite-x-user del; read -p "Press Enter to continue..." ;;
             6)
                 [ -f /etc/elite-x/banner/custom ] || cp /etc/elite-x/banner/default /etc/elite-x/banner/custom
                 nano /etc/elite-x/banner/custom
                 cp /etc/elite-x/banner/custom /etc/elite-x/banner/ssh-banner
                 systemctl restart sshd
                 echo -e "${GREEN}✅ Banner saved${NC}"
+                read -p "Press Enter to continue..."
                 ;;
             7)
                 rm -f /etc/elite-x/banner/custom
                 cp /etc/elite-x/banner/default /etc/elite-x/banner/ssh-banner
                 systemctl restart sshd
                 echo -e "${GREEN}✅ Banner deleted${NC}"
+                read -p "Press Enter to continue..."
                 ;;
             [Ss]) settings_menu ;;
-            00|0) exit 0 ;;
-            *) echo -e "${RED}Invalid option${NC}" ;;
+            00|0) 
+                rm -f /tmp/elite-x-running
+                echo -e "${GREEN}Goodbye!${NC}"
+                exit 0 
+                ;;
+            *) echo -e "${RED}Invalid option${NC}"; read -p "Press Enter to continue..." ;;
         esac
-        read -p "Press Enter..."
     done
 }
 
@@ -1216,25 +1237,28 @@ else
     echo "Unknown" > /etc/elite-x/cached_isp
 fi
 
-# ========== AUTO-SHOW DASHBOARD ON LOGIN ==========
+# ========== AUTO-SHOW DASHBOARD ON LOGIN (FIXED - NO BLINKING) ==========
 cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
 #!/bin/bash
-# Auto-show ELITE-X dashboard on login - but only once and with delay to not slow login
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
+# Auto-show ELITE-X dashboard only once per session
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -z "$SSH_CONNECTION" ]; then
     export ELITE_X_SHOWN=1
-    # Small delay to ensure login completes first
-    (sleep 1 && /usr/local/bin/elite-x) &
+    # Run in background with proper terminal handling - NO BLINKING
+    (sleep 2 && /usr/local/bin/elite-x </dev/null >/dev/null 2>&1 &)
 fi
 EOF
 chmod +x /etc/profile.d/elite-x-dashboard.sh
 
-# Also add to bashrc for SSH logins
+# Also add to bashrc for SSH logins (but with prevention of multiple instances)
 cat >> ~/.bashrc <<'EOF'
-# Auto-show ELITE-X dashboard
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -z "$ELITE_X_LOADED" ]; then
+# Auto-show ELITE-X dashboard (only once)
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -z "$ELITE_X_LOADED" ] && [ -z "$SSH_CONNECTION" ]; then
     export ELITE_X_SHOWN=1
     export ELITE_X_LOADED=1
-    /usr/local/bin/elite-x
+    # Check if not already running
+    if [ ! -f /tmp/elite-x-running ]; then
+        /usr/local/bin/elite-x
+    fi
 fi
 EOF
 
