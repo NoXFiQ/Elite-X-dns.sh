@@ -31,22 +31,183 @@ show_banner() {
 
 # ========== ACTIVATION SYSTEM ==========
 ACTIVATION_KEY="ELITEX-2026-DAN-4D-08"
+TEMP_KEY="ELITE-X-TEST-0208"
 ACTIVATION_FILE="/etc/elite-x/activated"
+ACTIVATION_TYPE_FILE="/etc/elite-x/activation_type"
+ACTIVATION_DATE_FILE="/etc/elite-x/activation_date"
+EXPIRY_DAYS_FILE="/etc/elite-x/expiry_days"
 TIMEZONE="Africa/Dar_es_Salaam"
 
 set_timezone() {
     timedatectl set-timezone $TIMEZONE 2>/dev/null || ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime 2>/dev/null || true
 }
 
+check_expiry() {
+    if [ -f "$ACTIVATION_TYPE_FILE" ] && [ -f "$ACTIVATION_DATE_FILE" ] && [ -f "$EXPIRY_DAYS_FILE" ]; then
+        local act_type=$(cat "$ACTIVATION_TYPE_FILE")
+        if [ "$act_type" = "temporary" ]; then
+            local act_date=$(cat "$ACTIVATION_DATE_FILE")
+            local expiry_days=$(cat "$EXPIRY_DAYS_FILE")
+            local current_date=$(date +%s)
+            local expiry_date=$(date -d "$act_date + $expiry_days days" +%s)
+            
+            if [ $current_date -ge $expiry_date ]; then
+                echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${YELLOW}⚠️  TRIAL PERIOD EXPIRED ⚠️${NC}"
+                echo -e "${RED}Your 2-day trial has ended.${NC}"
+                echo -e "${RED}Script will now uninstall itself...${NC}"
+                echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
+                sleep 3
+                
+                # Self uninstall
+                systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+                systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+                rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+                rm -rf /etc/dnstt /etc/elite-x
+                rm -f /usr/local/bin/{dnstt-*,elite-x*}
+                sed -i '/^Banner/d' /etc/ssh/sshd_config
+                systemctl restart sshd
+                
+                # Remove itself
+                rm -f "$0"
+                echo -e "${GREEN}✅ ELITE-X has been uninstalled.${NC}"
+                exit 0
+            else
+                local days_left=$(( (expiry_date - current_date) / 86400 ))
+                local hours_left=$(( ((expiry_date - current_date) % 86400) / 3600 ))
+                echo -e "${YELLOW}⚠️  Trial: $days_left days $hours_left hours remaining${NC}"
+            fi
+        fi
+    fi
+}
+
 activate_script() {
     local input_key="$1"
+    mkdir -p /etc/elite-x
+    
     if [ "$input_key" = "$ACTIVATION_KEY" ]; then
-        mkdir -p /etc/elite-x
         echo "$ACTIVATION_KEY" > "$ACTIVATION_FILE"
-        echo "$(date)" >> "$ACTIVATION_FILE"
+        echo "lifetime" > "$ACTIVATION_TYPE_FILE"
+        echo "Lifetime" > /etc/elite-x/expiry
+        return 0
+    elif [ "$input_key" = "$TEMP_KEY" ]; then
+        echo "$TEMP_KEY" > "$ACTIVATION_FILE"
+        echo "temporary" > "$ACTIVATION_TYPE_FILE"
+        echo "$(date +%Y-%m-%d)" > "$ACTIVATION_DATE_FILE"
+        echo "2" > "$EXPIRY_DAYS_FILE"
+        echo "2 Days Trial" > /etc/elite-x/expiry
         return 0
     fi
     return 1
+}
+
+# ========== LOCATION OPTIMIZATION FUNCTIONS (NEW - FOR NON-SA LOCATIONS) ==========
+# These functions only apply when user chooses non-South Africa locations
+# Your South Africa setup with MTU 1800 remains UNCHANGED
+
+optimize_usa_halotel() {
+    echo -e "${YELLOW}🔄 Optimizing USA → Halotel connection...${NC}"
+    
+    # USA-Tanzania specific optimizations
+    cat >> /etc/sysctl.conf <<EOF
+# ELITE-X USA Halotel Optimization
+net.ipv4.tcp_rmem = 4096 87380 67108864
+net.ipv4.tcp_wmem = 4096 65536 67108864
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_slow_start_after_idle = 0
+net.ipv4.tcp_mtu_probing = 1
+net.ipv4.tcp_window_scaling = 1
+net.ipv4.tcp_timestamps = 1
+net.ipv4.tcp_sack = 1
+net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_tw_reuse = 1
+net.ipv4.tcp_fin_timeout = 30
+net.ipv4.tcp_keepalive_time = 1200
+EOF
+
+    # Network interface optimization
+    for iface in $(ls /sys/class/net/ | grep -v lo); do
+        ethtool -K $iface tx off sg off tso off 2>/dev/null || true
+        ip link set dev $iface txqueuelen 10000 2>/dev/null || true
+    done
+
+    # DNS optimization
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf
+    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+    echo "options single-request-reopen" >> /etc/resolv.conf
+
+    sysctl -p
+    echo -e "${GREEN}✅ USA → Halotel optimization complete!${NC}"
+}
+
+optimize_europe_halotel() {
+    echo -e "${YELLOW}🔄 Optimizing Europe → Halotel connection...${NC}"
+    
+    # Europe-Tanzania specific optimizations
+    cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Europe Halotel Optimization
+net.ipv4.tcp_rmem = 4096 87380 33554432
+net.ipv4.tcp_wmem = 4096 65536 33554432
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_mtu_probing = 1
+net.ipv4.tcp_window_scaling = 1
+net.ipv4.tcp_fastopen = 3
+EOF
+
+    sysctl -p
+    echo -e "${GREEN}✅ Europe → Halotel optimization complete!${NC}"
+}
+
+optimize_asia_halotel() {
+    echo -e "${YELLOW}🔄 Optimizing Asia → Halotel connection...${NC}"
+    
+    # Asia-Tanzania specific optimizations
+    cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Asia Halotel Optimization
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 8192
+net.ipv4.tcp_mtu_probing = 1
+EOF
+
+    sysctl -p
+    echo -e "${GREEN}✅ Asia → Halotel optimization complete!${NC}"
+}
+
+auto_detect_best_settings() {
+    echo -e "${YELLOW}🔍 Auto-detecting best settings for your location...${NC}"
+    
+    # Test latency to different regions
+    echo "Testing latency to various regions..."
+    
+    usa_latency=$(ping -c 3 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    europe_latency=$(ping -c 3 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    asia_latency=$(ping -c 3 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    
+    echo "  USA: ${usa_latency:-Unknown}ms"
+    echo "  Europe: ${europe_latency:-Unknown}ms"
+    echo "  Asia: ${asia_latency:-Unknown}ms"
+    
+    # Apply based on lowest latency
+    if [ ! -z "$usa_latency" ] && [ $usa_latency -lt 200 ]; then
+        echo -e "${GREEN}✅ USA region detected, applying optimizations${NC}"
+        optimize_usa_halotel
+    elif [ ! -z "$europe_latency" ] && [ $europe_latency -lt 250 ]; then
+        echo -e "${GREEN}✅ Europe region detected, applying optimizations${NC}"
+        optimize_europe_halotel
+    elif [ ! -z "$asia_latency" ] && [ $asia_latency -lt 300 ]; then
+        echo -e "${GREEN}✅ Asia region detected, applying optimizations${NC}"
+        optimize_asia_halotel
+    else
+        echo -e "${YELLOW}⚠️  Could not determine region, applying default optimizations${NC}"
+        optimize_usa_halotel
+    fi
 }
 
 # ========== TRAFFIC MONITORING ==========
@@ -251,6 +412,10 @@ echo -e "${YELLOW}════════════════════�
 echo -e "${GREEN}                    ACTIVATION REQUIRED                          ${NC}"
 echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
 echo ""
+echo -e "${WHITE}Available Keys:${NC}"
+echo -e "${GREEN}  Lifetime : ELITEX-2026-DAN-4D-08${NC}"
+echo -e "${YELLOW}  Trial    : ELITE-X-TEST-0208 (2 days)${NC}"
+echo ""
 read -p "$(echo -e $CYAN"Activation Key: "$NC)" ACTIVATION_INPUT
 
 mkdir -p /etc/elite-x
@@ -262,9 +427,65 @@ fi
 echo -e "${GREEN}✅ Activation successful!${NC}"
 sleep 1
 
+# Check if trial and show expiry info
+if [ -f "$ACTIVATION_TYPE_FILE" ] && [ "$(cat "$ACTIVATION_TYPE_FILE")" = "temporary" ]; then
+    echo -e "${YELLOW}⚠️  Trial version activated - expires in 2 days${NC}"
+fi
+sleep 2
+
 set_timezone
 read -p "$(echo -e $RED"Enter Your Subdomain (e.g., ns-ex.elitex.sbs): "$NC)" TDOMAIN
+
+# ========== NEW: LOCATION OPTIMIZATION SELECTION ==========
+# Your South Africa settings with MTU 1800 remain DEFAULT and UNCHANGED
+echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+echo -e "${GREEN}           NETWORK LOCATION OPTIMIZATION                          ${NC}"
+echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+echo -e "${WHITE}Select your VPS location for optimal performance:${NC}"
+echo -e "${GREEN}  1. South Africa (Default - MTU 1800)${NC}"
+echo -e "${CYAN}  2. USA (Optimize for Halotel - keeps MTU 1800)${NC}"
+echo -e "${BLUE}  3. Europe (Optimize for Halotel - keeps MTU 1800)${NC}"
+echo -e "${PURPLE}  4. Asia (Optimize for Halotel - keeps MTU 1800)${NC}"
+echo -e "${YELLOW}  5. Auto-detect best settings (keeps MTU 1800)${NC}"
+echo ""
+read -p "$(echo -e $GREEN"Select location [1-5] [default: 1]: "$NC)" LOCATION_CHOICE
+LOCATION_CHOICE=${LOCATION_CHOICE:-1}
+
+# Your original MTU 1800 is preserved for ALL options
 MTU=1800
+SELECTED_LOCATION="South Africa"
+
+case $LOCATION_CHOICE in
+    1)
+        SELECTED_LOCATION="South Africa"
+        echo -e "${GREEN}✅ Using South Africa configuration (MTU: $MTU)${NC}"
+        # No additional optimizations needed for South Africa
+        ;;
+    2)
+        SELECTED_LOCATION="USA"
+        echo -e "${CYAN}✅ USA selected - will apply Halotel optimizations${NC}"
+        # Store that we need to apply USA optimizations after installation
+        NEED_USA_OPT=1
+        ;;
+    3)
+        SELECTED_LOCATION="Europe"
+        echo -e "${BLUE}✅ Europe selected - will apply Halotel optimizations${NC}"
+        NEED_EUROPE_OPT=1
+        ;;
+    4)
+        SELECTED_LOCATION="Asia"
+        echo -e "${PURPLE}✅ Asia selected - will apply Halotel optimizations${NC}"
+        NEED_ASIA_OPT=1
+        ;;
+    5)
+        SELECTED_LOCATION="Auto-detect"
+        echo -e "${YELLOW}✅ Auto-detect selected${NC}"
+        NEED_AUTO_OPT=1
+        ;;
+esac
+
+echo "$SELECTED_LOCATION" > /etc/elite-x/location
+
 DNSTT_PORT=5300
 DNS_PORT=53
 ############################
@@ -281,8 +502,6 @@ fi
 mkdir -p /etc/elite-x/{banner,users,traffic}
 echo "$TDOMAIN" > /etc/elite-x/subdomain
 echo "$MTU" > /etc/elite-x/mtu
-echo "$ACTIVATION_KEY" > /etc/elite-x/key
-echo "Lifetime" > /etc/elite-x/expiry
 
 # Create default banner
 cat > /etc/elite-x/banner/default <<'EOF'
@@ -328,7 +547,7 @@ fi
 # Dependencies
 echo "Installing dependencies..."
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool
 
 # Install dnstt-server
 echo "Installing dnstt-server..."
@@ -346,7 +565,7 @@ fi
 chmod 600 /etc/dnstt/server.key
 chmod 644 /etc/dnstt/server.pub
 
-# DNSTT service
+# DNSTT service (using MTU 1800 as per your original)
 echo "Creating dnstt-elite-x.service..."
 cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
@@ -444,6 +663,27 @@ setup_traffic_monitor
 setup_manual_speed
 setup_auto_remover
 setup_updater
+
+# ========== APPLY LOCATION-SPECIFIC OPTIMIZATIONS (ONLY IF NOT SA) ==========
+# Your South Africa configuration remains PURE and UNTOUCHED
+if [ ! -z "${NEED_USA_OPT:-}" ]; then
+    optimize_usa_halotel
+elif [ ! -z "${NEED_EUROPE_OPT:-}" ]; then
+    optimize_europe_halotel
+elif [ ! -z "${NEED_ASIA_OPT:-}" ]; then
+    optimize_asia_halotel
+elif [ ! -z "${NEED_AUTO_OPT:-}" ]; then
+    auto_detect_best_settings
+fi
+
+# Create expiry checker cron job
+cat > /etc/cron.hourly/elite-x-expiry <<EOF
+#!/bin/bash
+if [ -f /usr/local/bin/elite-x ]; then
+    /usr/local/bin/elite-x --check-expiry
+fi
+EOF
+chmod +x /etc/cron.hourly/elite-x-expiry
 
 # ========== USER MANAGEMENT ==========
 cat >/usr/local/bin/elite-x-user <<'EOF'
@@ -550,6 +790,43 @@ cat >/usr/local/bin/elite-x <<'EOF'
 RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m'
 PURPLE='\033[0;35m';WHITE='\033[1;37m';BOLD='\033[1m';NC='\033[0m'
 
+# Check expiry on menu start
+check_expiry_menu() {
+    if [ -f "/etc/elite-x/activation_type" ] && [ -f "/etc/elite-x/activation_date" ] && [ -f "/etc/elite-x/expiry_days" ]; then
+        local act_type=$(cat "/etc/elite-x/activation_type")
+        if [ "$act_type" = "temporary" ]; then
+            local act_date=$(cat "/etc/elite-x/activation_date")
+            local expiry_days=$(cat "/etc/elite-x/expiry_days")
+            local current_date=$(date +%s)
+            local expiry_date=$(date -d "$act_date + $expiry_days days" +%s)
+            
+            if [ $current_date -ge $expiry_date ]; then
+                echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${YELLOW}⚠️  TRIAL PERIOD EXPIRED ⚠️${NC}"
+                echo -e "${RED}Your 2-day trial has ended.${NC}"
+                echo -e "${RED}Script will now uninstall itself...${NC}"
+                echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
+                sleep 3
+                
+                # Self uninstall
+                systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+                systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+                rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+                rm -rf /etc/dnstt /etc/elite-x
+                rm -f /usr/local/bin/{dnstt-*,elite-x*}
+                sed -i '/^Banner/d' /etc/ssh/sshd_config
+                systemctl restart sshd
+                
+                echo -e "${GREEN}✅ ELITE-X has been uninstalled.${NC}"
+                exit 0
+            fi
+        fi
+    fi
+}
+
+# Run expiry check
+check_expiry_menu
+
 show_dashboard() {
     clear
     IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
@@ -557,7 +834,9 @@ show_dashboard() {
     ISP=$(curl -s http://ip-api.com/json/$IP 2>/dev/null | jq -r '.isp' 2>/dev/null || echo "Unknown")
     RAM=$(free -m | awk '/^Mem:/{print $3"/"$2"MB"}')
     SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
-    KEY=$(cat /etc/elite-x/key 2>/dev/null)
+    KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
+    EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Unknown")
+    LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
     
     DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
     PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
@@ -570,10 +849,12 @@ show_dashboard() {
     echo -e "${CYAN}║${WHITE}  Location  :${GREEN} $LOC${NC}"
     echo -e "${CYAN}║${WHITE}  ISP       :${GREEN} $ISP${NC}"
     echo -e "${CYAN}║${WHITE}  RAM       :${GREEN} $RAM${NC}"
+    echo -e "${CYAN}║${WHITE}  VPS Loc   :${GREEN} $LOCATION${NC}"
     echo -e "${CYAN}║${WHITE}  Services  : DNS:$DNS PRX:$PRX${NC}"
     echo -e "${CYAN}║${WHITE}  Developer :${PURPLE} ELITE-X TEAM${NC}"
     echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${CYAN}║${WHITE}  Key       :${YELLOW} $KEY${NC}"
+    echo -e "${CYAN}║${WHITE}  Expiry    :${YELLOW} $EXP${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -593,6 +874,7 @@ settings_menu() {
         echo -e "${CYAN}║${WHITE}  [14] Restart All Services${NC}"
         echo -e "${CYAN}║${WHITE}  [15] Reboot VPS${NC}"
         echo -e "${CYAN}║${WHITE}  [16] Uninstall Script${NC}"
+        echo -e "${CYAN}║${WHITE}  [17] 🌍 Re-apply Location Optimization${NC}"
         echo -e "${CYAN}║${WHITE}  [0]  Back to Main Menu${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
@@ -634,8 +916,8 @@ settings_menu() {
             16)
                 read -p "Uninstall? (YES): " c
                 [ "$c" = "YES" ] && {
-                    systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-cleaner
-                    systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-cleaner
+                    systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner
+                    systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner
                     rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
                     rm -rf /etc/dnstt /etc/elite-x
                     rm -f /usr/local/bin/{dnstt-*,elite-x*}
@@ -644,6 +926,31 @@ settings_menu() {
                     echo -e "${GREEN}✅ Uninstalled${NC}"
                     exit 0
                 }
+                ;;
+            17)
+                echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${GREEN}           RE-APPLY LOCATION OPTIMIZATION                        ${NC}"
+                echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${WHITE}Select your VPS location:${NC}"
+                echo -e "${GREEN}  1. South Africa (Default)${NC}"
+                echo -e "${CYAN}  2. USA (Optimize for Halotel)${NC}"
+                echo -e "${BLUE}  3. Europe (Optimize for Halotel)${NC}"
+                echo -e "${PURPLE}  4. Asia (Optimize for Halotel)${NC}"
+                echo -e "${YELLOW}  5. Auto-detect${NC}"
+                read -p "Choice: " opt_choice
+                
+                case $opt_choice in
+                    1) echo "South Africa" > /etc/elite-x/location
+                       echo -e "${GREEN}✅ South Africa selected${NC}" ;;
+                    2) echo "USA" > /etc/elite-x/location
+                       /usr/local/bin/elite-x-optimize-usa ;;
+                    3) echo "Europe" > /etc/elite-x/location
+                       /usr/local/bin/elite-x-optimize-europe ;;
+                    4) echo "Asia" > /etc/elite-x/location
+                       /usr/local/bin/elite-x-optimize-asia ;;
+                    5) echo "Auto-detect" > /etc/elite-x/location
+                       /usr/local/bin/elite-x-optimize-auto ;;
+                esac
                 ;;
             0) return ;;
             *) echo -e "${RED}Invalid option${NC}" ;;
@@ -702,6 +1009,79 @@ main_menu
 EOF
 chmod +x /usr/local/bin/elite-x
 
+# Create optimization helper scripts
+cat > /usr/local/bin/elite-x-optimize-usa <<'EOF'
+#!/bin/bash
+cat >> /etc/sysctl.conf <<EOF
+# ELITE-X USA Halotel Optimization
+net.ipv4.tcp_rmem = 4096 87380 67108864
+net.ipv4.tcp_wmem = 4096 65536 67108864
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_mtu_probing = 1
+net.ipv4.tcp_window_scaling = 1
+net.ipv4.tcp_fastopen = 3
+EOF
+sysctl -p
+echo -e "${GREEN}✅ USA optimizations applied${NC}"
+EOF
+
+cat > /usr/local/bin/elite-x-optimize-europe <<'EOF'
+#!/bin/bash
+cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Europe Halotel Optimization
+net.ipv4.tcp_rmem = 4096 87380 33554432
+net.ipv4.tcp_wmem = 4096 65536 33554432
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_mtu_probing = 1
+EOF
+sysctl -p
+echo -e "${GREEN}✅ Europe optimizations applied${NC}"
+EOF
+
+cat > /usr/local/bin/elite-x-optimize-asia <<'EOF'
+#!/bin/bash
+cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Asia Halotel Optimization
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 8192
+net.ipv4.tcp_mtu_probing = 1
+EOF
+sysctl -p
+echo -e "${GREEN}✅ Asia optimizations applied${NC}"
+EOF
+
+cat > /usr/local/bin/elite-x-optimize-auto <<'EOF'
+#!/bin/bash
+echo -e "${YELLOW}Auto-detecting best settings...${NC}"
+usa_latency=$(ping -c 3 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+europe_latency=$(ping -c 3 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+asia_latency=$(ping -c 3 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+
+[ ! -z "$usa_latency" ] && echo "USA: ${usa_latency}ms"
+[ ! -z "$europe_latency" ] && echo "Europe: ${europe_latency}ms"
+[ ! -z "$asia_latency" ] && echo "Asia: ${asia_latency}ms"
+
+if [ ! -z "$usa_latency" ] && [ $usa_latency -lt 200 ]; then
+    /usr/local/bin/elite-x-optimize-usa
+elif [ ! -z "$europe_latency" ] && [ $europe_latency -lt 250 ]; then
+    /usr/local/bin/elite-x-optimize-europe
+elif [ ! -z "$asia_latency" ] && [ $asia_latency -lt 300 ]; then
+    /usr/local/bin/elite-x-optimize-asia
+else
+    /usr/local/bin/elite-x-optimize-usa
+fi
+EOF
+
+chmod +x /usr/local/bin/elite-x-optimize-*
+chmod +x /usr/local/bin/elite-x-optimize-*
+
 # Aliases
 echo "alias menu='elite-x'" >> ~/.bashrc
 echo "alias elitex='elite-x'" >> ~/.bashrc
@@ -709,8 +1089,12 @@ echo "alias elitex='elite-x'" >> ~/.bashrc
 echo "======================================"
 echo " ELITE-X INSTALLED SUCCESSFULLY "
 echo "======================================"
+EXPIRY_INFO=$(cat /etc/elite-x/expiry)
 echo "DOMAIN  : ${TDOMAIN}"
-echo "MTU     : ${MTU}"
+echo "MTU     : ${MTU} (UNCHANGED - Your original setting)"
+echo "LOCATION: ${SELECTED_LOCATION}"
+echo "EXPIRY  : ${EXPIRY_INFO}"
+echo ""
 echo "PUBLIC KEY:"
 cat /etc/dnstt/server.pub
 echo "======================================"
