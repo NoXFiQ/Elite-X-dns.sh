@@ -967,7 +967,7 @@ esac
 EOF
 chmod +x /usr/local/bin/elite-x-user
 
-# ========== MAIN MENU - FIXED: NO BLINKING ==========
+# ========== MAIN MENU - FIXED: NO BLINKING WITH PROPER PAUSES ==========
 cat >/usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
 
@@ -1237,28 +1237,27 @@ else
     echo "Unknown" > /etc/elite-x/cached_isp
 fi
 
-# ========== AUTO-SHOW DASHBOARD ON LOGIN (FIXED - NO BLINKING) ==========
+# ========== AUTO-SHOW DASHBOARD ON LOGIN (FIXED - NOW SHOWS AUTOMATICALLY) ==========
 cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
 #!/bin/bash
-# Auto-show ELITE-X dashboard only once per session
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -z "$SSH_CONNECTION" ]; then
+# Auto-show ELITE-X dashboard on login - WORKS AUTOMATICALLY
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
     export ELITE_X_SHOWN=1
-    # Run in background with proper terminal handling - NO BLINKING
-    (sleep 2 && /usr/local/bin/elite-x </dev/null >/dev/null 2>&1 &)
+    # Clear any existing lock file
+    rm -f /tmp/elite-x-running 2>/dev/null
+    # Show the dashboard directly
+    /usr/local/bin/elite-x
 fi
 EOF
 chmod +x /etc/profile.d/elite-x-dashboard.sh
 
-# Also add to bashrc for SSH logins (but with prevention of multiple instances)
+# Also add to bashrc for SSH logins (simplified)
 cat >> ~/.bashrc <<'EOF'
-# Auto-show ELITE-X dashboard (only once)
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -z "$ELITE_X_LOADED" ] && [ -z "$SSH_CONNECTION" ]; then
+# Auto-show ELITE-X dashboard
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
     export ELITE_X_SHOWN=1
-    export ELITE_X_LOADED=1
-    # Check if not already running
-    if [ ! -f /tmp/elite-x-running ]; then
-        /usr/local/bin/elite-x
-    fi
+    rm -f /tmp/elite-x-running 2>/dev/null
+    /usr/local/bin/elite-x
 fi
 EOF
 
