@@ -101,24 +101,23 @@ activate_script() {
     return 1
 }
 
-# ========== MTU AUTO-DETECTION FUNCTION ==========
+# ========== FIXED MTU AUTO-DETECTION FUNCTION ==========
 detect_best_mtu() {
     echo -e "${YELLOW}🔍 Auto-detecting best MTU for your connection...${NC}"
     
-    # Test different MTU sizes to find the fastest
-    local test_mtus="1500 1450 1400 1350 1300 1800"
+    # Only test valid MTU sizes (standard max is 1500)
+    local test_mtus="1500 1450 1400 1350 1300"
     local best_mtu=1400
     local best_time=999999
     
     for mtu in $test_mtus; do
         echo -n "  Testing MTU $mtu... "
         
-        # Temporarily set MTU for test
-        ping -M do -c 3 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1
-        if [ $? -eq 0 ]; then
+        # Use timeout to prevent hanging
+        if timeout 2 ping -M do -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
             # Measure response time
-            local avg_time=$(ping -c 3 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-            if [ ! -z "$avg_time" ] && [ $avg_time -lt $best_time ]; then
+            local avg_time=$(ping -c 2 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+            if [ ! -z "$avg_time" ] && [ "$avg_time" -lt "$best_time" ]; then
                 best_time=$avg_time
                 best_mtu=$mtu
                 echo -e "${GREEN}✅ OK (${avg_time}ms)${NC}"
@@ -132,12 +131,12 @@ detect_best_mtu() {
     
     echo -e "${GREEN}✅ Best MTU selected: $best_mtu (${best_time}ms)${NC}"
     echo "$best_mtu" > /etc/elite-x/mtu
-    return $best_mtu
+    return 0
 }
 
 # ========== LOCATION OPTIMIZATION FUNCTIONS ==========
 optimize_usa_halotel() {
-    echo -e "${YELLOW}🔄 Optimizing USA → Halotel connection to perform like South Africa...${NC}"
+    echo -e "${YELLOW}🔄 Optimizing USA → Halotel connection...${NC}"
     
     # Auto-detect best MTU for this location
     detect_best_mtu
@@ -179,7 +178,7 @@ EOF
 }
 
 optimize_europe_halotel() {
-    echo -e "${YELLOW}🔄 Optimizing Europe → Halotel connection to perform like South Africa...${NC}"
+    echo -e "${YELLOW}🔄 Optimizing Europe → Halotel connection...${NC}"
     
     # Auto-detect best MTU for this location
     detect_best_mtu
@@ -209,7 +208,7 @@ EOF
 }
 
 optimize_asia_halotel() {
-    echo -e "${YELLOW}🔄 Optimizing Asia → Halotel connection to perform like South Africa...${NC}"
+    echo -e "${YELLOW}🔄 Optimizing Asia → Halotel connection...${NC}"
     
     # Auto-detect best MTU for this location
     detect_best_mtu
@@ -242,9 +241,9 @@ auto_detect_best_settings() {
     # Test latency to different regions
     echo "Testing latency to various regions..."
     
-    usa_latency=$(ping -c 3 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-    europe_latency=$(ping -c 3 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-    asia_latency=$(ping -c 3 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    usa_latency=$(ping -c 2 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    europe_latency=$(ping -c 2 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    asia_latency=$(ping -c 2 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
     
     echo "  USA: ${usa_latency:-Unknown}ms"
     echo "  Europe: ${europe_latency:-Unknown}ms"
@@ -254,13 +253,13 @@ auto_detect_best_settings() {
     detect_best_mtu
     
     # Apply based on lowest latency
-    if [ ! -z "$usa_latency" ] && [ $usa_latency -lt 200 ]; then
+    if [ ! -z "${usa_latency:-}" ] && [ "${usa_latency:-999}" -lt 200 ]; then
         echo -e "${GREEN}✅ USA region detected, applying optimizations${NC}"
         optimize_usa_halotel
-    elif [ ! -z "$europe_latency" ] && [ $europe_latency -lt 250 ]; then
+    elif [ ! -z "${europe_latency:-}" ] && [ "${europe_latency:-999}" -lt 250 ]; then
         echo -e "${GREEN}✅ Europe region detected, applying optimizations${NC}"
         optimize_europe_halotel
-    elif [ ! -z "$asia_latency" ] && [ $asia_latency -lt 300 ]; then
+    elif [ ! -z "${asia_latency:-}" ] && [ "${asia_latency:-999}" -lt 300 ]; then
         echo -e "${GREEN}✅ Asia region detected, applying optimizations${NC}"
         optimize_asia_halotel
     else
@@ -517,7 +516,7 @@ if [ "$LOCATION_CHOICE" = "1" ]; then
     echo -e "${GREEN}✅ Using South Africa configuration (MTU: $MTU)${NC}"
 else
     # For other locations, MTU will be auto-detected
-    MTU=0 # Will be set by detection function
+    MTU=1400 # Temporary default
     case $LOCATION_CHOICE in
         2)
             SELECTED_LOCATION="USA"
@@ -730,10 +729,9 @@ best_mtu=1400
 best_time=999999
 for mtu in 1500 1450 1400 1350 1300; do
     echo -n "  Testing MTU $mtu... "
-    ping -M do -c 3 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        avg_time=$(ping -c 3 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-        if [ ! -z "$avg_time" ] && [ $avg_time -lt $best_time ]; then
+    if timeout 2 ping -M do -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
+        avg_time=$(ping -c 2 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+        if [ ! -z "$avg_time" ] && [ "$avg_time" -lt "$best_time" ]; then
             best_time=$avg_time
             best_mtu=$mtu
             echo -e "\033[0;32m✅ OK (${avg_time}ms)\033[0m"
@@ -765,10 +763,9 @@ best_mtu=1400
 best_time=999999
 for mtu in 1500 1450 1400 1350 1300; do
     echo -n "  Testing MTU $mtu... "
-    ping -M do -c 3 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        avg_time=$(ping -c 3 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-        if [ ! -z "$avg_time" ] && [ $avg_time -lt $best_time ]; then
+    if timeout 2 ping -M do -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
+        avg_time=$(ping -c 2 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+        if [ ! -z "$avg_time" ] && [ "$avg_time" -lt "$best_time" ]; then
             best_time=$avg_time
             best_mtu=$mtu
             echo -e "\033[0;32m✅ OK (${avg_time}ms)\033[0m"
@@ -800,10 +797,9 @@ best_mtu=1400
 best_time=999999
 for mtu in 1500 1450 1400 1350 1300; do
     echo -n "  Testing MTU $mtu... "
-    ping -M do -c 3 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        avg_time=$(ping -c 3 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-        if [ ! -z "$avg_time" ] && [ $avg_time -lt $best_time ]; then
+    if timeout 2 ping -M do -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
+        avg_time=$(ping -c 2 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+        if [ ! -z "$avg_time" ] && [ "$avg_time" -lt "$best_time" ]; then
             best_time=$avg_time
             best_mtu=$mtu
             echo -e "\033[0;32m✅ OK (${avg_time}ms)\033[0m"
@@ -831,17 +827,17 @@ EOL
 cat > /usr/local/bin/elite-x-optimize-auto <<'EOL'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best location and MTU...\033[0m"
-usa_latency=$(ping -c 3 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-europe_latency=$(ping -c 3 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-asia_latency=$(ping -c 3 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+usa_latency=$(ping -c 2 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+europe_latency=$(ping -c 2 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+asia_latency=$(ping -c 2 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
 [ ! -z "$usa_latency" ] && echo "USA: ${usa_latency}ms"
 [ ! -z "$europe_latency" ] && echo "Europe: ${europe_latency}ms"
 [ ! -z "$asia_latency" ] && echo "Asia: ${asia_latency}ms"
-if [ ! -z "$usa_latency" ] && [ $usa_latency -lt 200 ]; then
+if [ ! -z "${usa_latency:-}" ] && [ "${usa_latency:-999}" -lt 200 ]; then
     /usr/local/bin/elite-x-optimize-usa
-elif [ ! -z "$europe_latency" ] && [ $europe_latency -lt 250 ]; then
+elif [ ! -z "${europe_latency:-}" ] && [ "${europe_latency:-999}" -lt 250 ]; then
     /usr/local/bin/elite-x-optimize-europe
-elif [ ! -z "$asia_latency" ] && [ $asia_latency -lt 300 ]; then
+elif [ ! -z "${asia_latency:-}" ] && [ "${asia_latency:-999}" -lt 300 ]; then
     /usr/local/bin/elite-x-optimize-asia
 else
     /usr/local/bin/elite-x-optimize-usa
