@@ -1,3 +1,8 @@
+#!/bin/bash
+# ============================================
+# ELITE-X DNSTT AUTO INSTALL 
+# ============================================
+
 trap '' INT TSTP QUIT HUP
 set -o noclobber
 set -o nounset
