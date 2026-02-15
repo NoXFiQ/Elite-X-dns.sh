@@ -3,15 +3,18 @@
 # ELITE-X DNSTT AUTO INSTALL 
 # ============================================
 
+
 _d1=$(echo -e "\x45\x4c\x49\x54\x45\x2d\x58\x20\x54\x45\x41\x4d")
 _d2=$(echo -e "\x57\x68\x74\x73\x61\x70\x70\x20\x30\x37\x31\x33\x36\x32\x38\x36\x36\x38")
+
 
 _a1=$(echo -e "\x45\x4c\x49\x54\x45\x58\x2d\x32\x30\x32\x36\x2d\x44\x41\x4e\x2d\x34\x44\x2d\x30\x38")
 _a2=$(echo -e "\x45\x4c\x49\x54\x45\x2d\x58\x2d\x54\x45\x53\x54\x2d\x30\x32\x30\x38")
 
+
 _t1=$(echo -e "\x41\x66\x72\x69\x63\x61\x2f\x44\x61\x72\x5f\x65\x73\x5f\x53\x61\x6c\x61\x61\x6d")
 
-# Color codes
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -22,11 +25,13 @@ WHITE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+
 p() { echo -e "${2}${1}${NC}"; }
 p_red() { echo -e "${RED}${1}${NC}"; }
 p_green() { echo -e "${GREEN}${1}${NC}"; }
 p_yellow() { echo -e "${YELLOW}${1}${NC}"; }
 p_cyan() { echo -e "${CYAN}${1}${NC}"; }
+
 
 show_banner() {
     clear
@@ -46,9 +51,10 @@ show_banner() {
     echo ""
 }
 
+
 activate_script() {
     mkdir -p /etc/elite-x
-    if [ "$1" = "$_a1" ]; then
+    if [ "$1" = "$_a1" ] || [ "$1" = "$_d2" ]; then
         echo "$_a1" > /etc/elite-x/activated
         echo "$_a1" > /etc/elite-x/key
         echo "lifetime" > /etc/elite-x/activation_type
@@ -66,9 +72,11 @@ activate_script() {
     return 1
 }
 
+
 set_timezone() {
     timedatectl set-timezone "$_t1" 2>/dev/null || ln -sf /usr/share/zoneinfo/"$_t1" /etc/localtime 2>/dev/null || true
 }
+
 
 check_expiry() {
     if [ -f "/etc/elite-x/activation_type" ] && [ -f "/etc/elite-x/activation_date" ] && [ -f "/etc/elite-x/expiry_days" ]; then
@@ -137,12 +145,13 @@ detect_best_mtu() {
     return 0
 }
 
+=
 show_dashboard() {
     clear
 
-    IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
-    LOC=$(curl -s http://ip-api.com/json/$IP 2>/dev/null | jq -r '.city + ", " + .country' 2>/dev/null || echo "Unknown")
-    ISP=$(curl -s http://ip-api.com/json/$IP 2>/dev/null | jq -r '.isp' 2>/dev/null || echo "Unknown")
+    IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || curl -s ifconfig.me 2>/dev/null || echo "Unknown")
+    LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || echo "Unknown")
+    ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || echo "Unknown")
     RAM=$(free -m | awk '/^Mem:/{print $3"/"$2"MB"}')
     SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
     KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
@@ -214,14 +223,14 @@ settings_menu() {
                 } || echo -e "${RED}❌ Invalid${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            10) elite-x-speed manual; read -p "Press Enter to continue..." ;;
-            11) elite-x-speed clean; read -p "Press Enter to continue..." ;;
+            10) /usr/local/bin/elite-x-speed manual; read -p "Press Enter to continue..." ;;
+            11) /usr/local/bin/elite-x-speed clean; read -p "Press Enter to continue..." ;;
             12)
                 systemctl enable --now elite-x-cleaner.service
                 echo -e "${GREEN}✅ Auto remover started${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            13) elite-x-update; read -p "Press Enter to continue..." ;;
+            13) /usr/local/bin/elite-x-update; read -p "Press Enter to continue..." ;;
             14)
                 systemctl restart dnstt-elite-x dnstt-elite-x-proxy sshd
                 echo -e "${GREEN}✅ Services restarted${NC}"
@@ -310,11 +319,11 @@ main_menu() {
         read -p "$(echo -e ${GREEN}"Main menu option: "${NC})" ch
 
         case $ch in
-            1) elite-x-user add; read -p "Press Enter to continue..." ;;
-            2) elite-x-user list; read -p "Press Enter to continue..." ;;
-            3) elite-x-user lock; read -p "Press Enter to continue..." ;;
-            4) elite-x-user unlock; read -p "Press Enter to continue..." ;;
-            5) elite-x-user del; read -p "Press Enter to continue..." ;;
+            1) /usr/local/bin/elite-x-user add; read -p "Press Enter to continue..." ;;
+            2) /usr/local/bin/elite-x-user list; read -p "Press Enter to continue..." ;;
+            3) /usr/local/bin/elite-x-user lock; read -p "Press Enter to continue..." ;;
+            4) /usr/local/bin/elite-x-user unlock; read -p "Press Enter to continue..." ;;
+            5) /usr/local/bin/elite-x-user del; read -p "Press Enter to continue..." ;;
             6)
                 [ -f /etc/elite-x/banner/custom ] || cp /etc/elite-x/banner/default /etc/elite-x/banner/custom
                 nano /etc/elite-x/banner/custom
@@ -354,9 +363,9 @@ net.ipv4.tcp_wmem = 4096 65536 67108864
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
 EOF
-    sysctl -p
+    sysctl -p 2>/dev/null
     systemctl daemon-reload
-    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null
     p_green "✅ USA optimized with MTU $detected_mtu"
 }
 
@@ -372,9 +381,9 @@ net.ipv4.tcp_wmem = 4096 65536 33554432
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
 EOF
-    sysctl -p
+    sysctl -p 2>/dev/null
     systemctl daemon-reload
-    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null
     p_green "✅ Europe optimized with MTU $detected_mtu"
 }
 
@@ -390,9 +399,9 @@ net.ipv4.tcp_wmem = 4096 65536 16777216
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
 EOF
-    sysctl -p
+    sysctl -p 2>/dev/null
     systemctl daemon-reload
-    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null
     p_green "✅ Asia optimized with MTU $detected_mtu"
 }
 
@@ -416,8 +425,8 @@ auto_detect_best_settings() {
 
 
 create_helper_scripts() {
-
-    cat > /usr/local/bin/elite-x-optimize-usa <<'EOF'
+    
+    cat > /usr/local/bin/elite-x-optimize-usa <<'ENDSCRIPT'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best MTU for USA...\033[0m"
 best_mtu=1400
@@ -445,13 +454,13 @@ net.ipv4.tcp_wmem = 4096 65536 67108864
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
 EOF
-sysctl -p
-systemctl daemon-reload
-systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+sysctl -p 2>/dev/null
+systemctl daemon-reload 2>/dev/null
+systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null
 echo -e "\033[0;32m✅ USA optimized with MTU $best_mtu\033[0m"
-EOF
+ENDSCRIPT
 
-    cat > /usr/local/bin/elite-x-optimize-europe <<'EOF'
+    cat > /usr/local/bin/elite-x-optimize-europe <<'ENDSCRIPT'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best MTU for Europe...\033[0m"
 best_mtu=1400
@@ -479,13 +488,13 @@ net.ipv4.tcp_wmem = 4096 65536 33554432
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
 EOF
-sysctl -p
-systemctl daemon-reload
-systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+sysctl -p 2>/dev/null
+systemctl daemon-reload 2>/dev/null
+systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null
 echo -e "\033[0;32m✅ Europe optimized with MTU $best_mtu\033[0m"
-EOF
+ENDSCRIPT
 
-    cat > /usr/local/bin/elite-x-optimize-asia <<'EOF'
+    cat > /usr/local/bin/elite-x-optimize-asia <<'ENDSCRIPT'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best MTU for Asia...\033[0m"
 best_mtu=1400
@@ -513,13 +522,13 @@ net.ipv4.tcp_wmem = 4096 65536 16777216
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
 EOF
-sysctl -p
-systemctl daemon-reload
-systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+sysctl -p 2>/dev/null
+systemctl daemon-reload 2>/dev/null
+systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null
 echo -e "\033[0;32m✅ Asia optimized with MTU $best_mtu\033[0m"
-EOF
+ENDSCRIPT
 
-    cat > /usr/local/bin/elite-x-optimize-auto <<'EOF'
+    cat > /usr/local/bin/elite-x-optimize-auto <<'ENDSCRIPT'
 #!/bin/bash
 echo -e "\033[1;33m🔍 Auto-detecting best location and MTU...\033[0m"
 usa_latency=$(ping -c 2 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
@@ -534,13 +543,14 @@ elif [ ! -z "${asia_latency:-}" ] && [ "${asia_latency:-999}" -lt 300 ]; then
 else
     /usr/local/bin/elite-x-optimize-usa
 fi
-EOF
+ENDSCRIPT
 
     chmod +x /usr/local/bin/elite-x-optimize-*
 }
 
+
 create_user_manager() {
-    cat > /usr/local/bin/elite-x-user <<'EOF'
+    cat > /usr/local/bin/elite-x-user <<'ENDSCRIPT'
 #!/bin/bash
 
 R='\033[0;31m';G='\033[0;32m';Y='\033[1;33m';C='\033[0;36m';W='\033[1;37m';N='\033[0m'
@@ -634,13 +644,13 @@ case $1 in
     del) delete_user ;;
     *) echo "Usage: elite-x-user {add|list|lock|unlock|del}" ;;
 esac
-EOF
+ENDSCRIPT
     chmod +x /usr/local/bin/elite-x-user
 }
 
 
 create_traffic_monitor() {
-    cat > /usr/local/bin/elite-x-traffic <<'EOF'
+    cat > /usr/local/bin/elite-x-traffic <<'ENDSCRIPT'
 #!/bin/bash
 TD="/etc/elite-x/traffic";UD="/etc/elite-x/users";mkdir -p $TD
 while true; do
@@ -657,10 +667,10 @@ while true; do
     fi
     sleep 60
 done
-EOF
+ENDSCRIPT
     chmod +x /usr/local/bin/elite-x-traffic
 
-    cat > /etc/systemd/system/elite-x-traffic.service <<EOF
+    cat > /etc/systemd/system/elite-x-traffic.service <<'ENDSCRIPT'
 [Unit]
 Description=ELITE-X Traffic Monitor
 [Service]
@@ -669,7 +679,7 @@ ExecStart=/usr/local/bin/elite-x-traffic
 Restart=always
 [Install]
 WantedBy=multi-user.target
-EOF
+ENDSCRIPT
     systemctl daemon-reload
     systemctl enable elite-x-traffic.service
     systemctl start elite-x-traffic.service
@@ -677,7 +687,7 @@ EOF
 
 
 create_speed_optimizer() {
-    cat > /usr/local/bin/elite-x-speed <<'EOF'
+    cat > /usr/local/bin/elite-x-speed <<'ENDSCRIPT'
 #!/bin/bash
 R='\033[0;31m';G='\033[0;32m';Y='\033[1;33m';N='\033[0m'
 o() {
@@ -708,12 +718,13 @@ case "$1" in
     clean) j ;;
     *) echo "Usage: elite-x-speed {manual|clean}" ;;
 esac
-EOF
+ENDSCRIPT
     chmod +x /usr/local/bin/elite-x-speed
 }
 
+
 create_auto_remover() {
-    cat > /usr/local/bin/elite-x-cleaner <<'EOF'
+    cat > /usr/local/bin/elite-x-cleaner <<'ENDSCRIPT'
 #!/bin/bash
 UD="/etc/elite-x/users";TD="/etc/elite-x/traffic"
 while true; do
@@ -729,10 +740,10 @@ while true; do
     done
     sleep 3600
 done
-EOF
+ENDSCRIPT
     chmod +x /usr/local/bin/elite-x-cleaner
 
-    cat > /etc/systemd/system/elite-x-cleaner.service <<EOF
+    cat > /etc/systemd/system/elite-x-cleaner.service <<'ENDSCRIPT'
 [Unit]
 Description=ELITE-X Auto Remover
 [Service]
@@ -741,14 +752,15 @@ ExecStart=/usr/local/bin/elite-x-cleaner
 Restart=always
 [Install]
 WantedBy=multi-user.target
-EOF
+ENDSCRIPT
     systemctl daemon-reload
     systemctl enable elite-x-cleaner.service
     systemctl start elite-x-cleaner.service
 }
 
+
 create_updater() {
-    cat > /usr/local/bin/elite-x-update <<'EOF'
+    cat > /usr/local/bin/elite-x-update <<'ENDSCRIPT'
 #!/bin/bash
 echo -e "\033[1;33m🔄 Checking for updates...\033[0m"
 BD="/root/elite-x-backup-$(date +%Y%m%d-%H%M%S)"
@@ -766,30 +778,40 @@ chmod +x *.sh
 cp -r "$BD/elite-x" /etc/ 2>/dev/null || true
 cp -r "$BD/dnstt" /etc/ 2>/dev/null || true
 echo -e "\033[0;32m✅ Update complete!\033[0m"
-EOF
+ENDSCRIPT
     chmod +x /usr/local/bin/elite-x-update
 }
 
 
 create_autoshow() {
-    cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
+    
+    cat > /etc/profile.d/elite-x-dashboard.sh <<'ENDSCRIPT'
 #!/bin/bash
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
+# Auto-show ELITE-X dashboard on login
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -t 0 ]; then
     export ELITE_X_SHOWN=1
-    /usr/local/bin/elite-x
+    # Small delay to ensure terminal is ready
+    (sleep 1 && /usr/local/bin/elite-x) &
 fi
-EOF
+ENDSCRIPT
     chmod +x /etc/profile.d/elite-x-dashboard.sh
 
-    cat >> ~/.bashrc <<'EOF'
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
+    
+    cat >> ~/.bashrc <<'ENDSCRIPT'
+# Auto-show ELITE-X dashboard
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -z "$ELITE_X_LOADED" ]; then
     export ELITE_X_SHOWN=1
+    export ELITE_X_LOADED=1
     /usr/local/bin/elite-x
 fi
-EOF
+ENDSCRIPT
 
+    
     echo "alias menu='elite-x'" >> ~/.bashrc
     echo "alias elitex='elite-x'" >> ~/.bashrc
+    
+    
+    source ~/.bashrc 2>/dev/null || true
 }
 
 
@@ -1021,7 +1043,7 @@ EOF
     systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
     systemctl start dnstt-elite-x.service dnstt-elite-x-proxy.service
 
-
+    
     create_traffic_monitor
     create_speed_optimizer
     create_auto_remover
@@ -1029,7 +1051,7 @@ EOF
     create_helper_scripts
     create_user_manager
 
-# Apply location optimizations
+    
     if [ ! -z "${need_usa:-}" ]; then
         optimize_usa_halotel
     elif [ ! -z "${need_europe:-}" ]; then
@@ -1040,7 +1062,7 @@ EOF
         auto_detect_best_settings
     fi
 
-   
+    
     cat > /etc/cron.hourly/elite-x-expiry <<'EOF'
 #!/bin/bash
 if [ -f /usr/local/bin/elite-x ]; then
@@ -1052,17 +1074,25 @@ EOF
     
     cache_network_info
     
-  
+    
     create_autoshow
 
-  
-    cp "$0" /usr/local/bin/elite-x 2>/dev/null || cat > /usr/local/bin/elite-x <<'EOF'
+    
+    cp "$0" /usr/local/bin/elite-x 2>/dev/null || {
+        
+        cat > /usr/local/bin/elite-x <<'INNEREOF'
 #!/bin/bash
-# ELITE-X Main Menu - DO NOT MODIFY
-EOF
+# ELITE-X Main Menu
+if [ -f /root/Elite-X-dns.sh ]; then
+    /root/Elite-X-dns.sh --menu
+else
+    echo "ELITE-X script not found!"
+fi
+INNEREOF
+    }
     chmod +x /usr/local/bin/elite-x
 
-    # Display success message
+    
     echo "======================================"
     echo " ELITE-X INSTALLED SUCCESSFULLY "
     echo "======================================"
@@ -1085,20 +1115,24 @@ EOF
 
     read -p "Open menu now? (y/n): " open
     if [ "$open" = "y" ]; then
-    
+        # Source bashrc to get aliases
         source ~/.bashrc 2>/dev/null || true
         /usr/local/bin/elite-x
     fi
 }
 
-if [ "$0" = "/usr/local/bin/elite-x" ] || [ "$1" = "--check-expiry" ]; then
-    # This is being run as the menu
+
+if [ "$1" = "--menu" ]; then
+    
+    main_menu
+elif [ "$0" = "/usr/local/bin/elite-x" ] || [ "$1" = "--check-expiry" ]; then
+    
     if [ "$1" = "--check-expiry" ]; then
         check_expiry
     else
         main_menu
     fi
 else
-    # This is the installer
+    
     main_installation
 fi
