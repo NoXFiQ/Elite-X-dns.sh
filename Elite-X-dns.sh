@@ -101,14 +101,52 @@ activate_script() {
     return 1
 }
 
-# ========== LOCATION OPTIMIZATION FUNCTIONS (NEW - FOR NON-SA LOCATIONS) ==========
-# These functions only apply when user chooses non-South Africa locations
-# Your South Africa setup with MTU 1800 remains UNCHANGED
-
-optimize_usa_halotel() {
-    echo -e "${YELLOW}🔄 Optimizing USA → Halotel connection...${NC}"
+# ========== MTU AUTO-DETECTION FUNCTION ==========
+detect_best_mtu() {
+    echo -e "${YELLOW}🔍 Auto-detecting best MTU for your connection...${NC}"
     
-    # USA-Tanzania specific optimizations
+    # Test different MTU sizes to find the fastest
+    local test_mtus="1500 1450 1400 1350 1300 1800"
+    local best_mtu=1400
+    local best_time=999999
+    
+    for mtu in $test_mtus; do
+        echo -n "  Testing MTU $mtu... "
+        
+        # Temporarily set MTU for test
+        ping -M do -c 3 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            # Measure response time
+            local avg_time=$(ping -c 3 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+            if [ ! -z "$avg_time" ] && [ $avg_time -lt $best_time ]; then
+                best_time=$avg_time
+                best_mtu=$mtu
+                echo -e "${GREEN}✅ OK (${avg_time}ms)${NC}"
+            else
+                echo -e "${GREEN}✅ OK${NC}"
+            fi
+        else
+            echo -e "${RED}❌ FAILED${NC}"
+        fi
+    done
+    
+    echo -e "${GREEN}✅ Best MTU selected: $best_mtu (${best_time}ms)${NC}"
+    echo "$best_mtu" > /etc/elite-x/mtu
+    return $best_mtu
+}
+
+# ========== LOCATION OPTIMIZATION FUNCTIONS ==========
+optimize_usa_halotel() {
+    echo -e "${YELLOW}🔄 Optimizing USA → Halotel connection to perform like South Africa...${NC}"
+    
+    # Auto-detect best MTU for this location
+    detect_best_mtu
+    local detected_mtu=$(cat /etc/elite-x/mtu)
+    
+    # Update DNSTT service with detected MTU
+    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
+    
+    # Apply USA-specific TCP optimizations
     cat >> /etc/sysctl.conf <<EOF
 # ELITE-X USA Halotel Optimization
 net.ipv4.tcp_rmem = 4096 87380 67108864
@@ -133,19 +171,24 @@ EOF
         ip link set dev $iface txqueuelen 10000 2>/dev/null || true
     done
 
-    # DNS optimization
-    echo "nameserver 8.8.8.8" > /etc/resolv.conf
-    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-    echo "options single-request-reopen" >> /etc/resolv.conf
-
     sysctl -p
-    echo -e "${GREEN}✅ USA → Halotel optimization complete!${NC}"
+    systemctl daemon-reload
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+    
+    echo -e "${GREEN}✅ USA optimized with MTU $detected_mtu (auto-detected)${NC}"
 }
 
 optimize_europe_halotel() {
-    echo -e "${YELLOW}🔄 Optimizing Europe → Halotel connection...${NC}"
+    echo -e "${YELLOW}🔄 Optimizing Europe → Halotel connection to perform like South Africa...${NC}"
     
-    # Europe-Tanzania specific optimizations
+    # Auto-detect best MTU for this location
+    detect_best_mtu
+    local detected_mtu=$(cat /etc/elite-x/mtu)
+    
+    # Update DNSTT service with detected MTU
+    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
+    
+    # Apply Europe-specific TCP optimizations
     cat >> /etc/sysctl.conf <<EOF
 # ELITE-X Europe Halotel Optimization
 net.ipv4.tcp_rmem = 4096 87380 33554432
@@ -159,13 +202,23 @@ net.ipv4.tcp_fastopen = 3
 EOF
 
     sysctl -p
-    echo -e "${GREEN}✅ Europe → Halotel optimization complete!${NC}"
+    systemctl daemon-reload
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+    
+    echo -e "${GREEN}✅ Europe optimized with MTU $detected_mtu (auto-detected)${NC}"
 }
 
 optimize_asia_halotel() {
-    echo -e "${YELLOW}🔄 Optimizing Asia → Halotel connection...${NC}"
+    echo -e "${YELLOW}🔄 Optimizing Asia → Halotel connection to perform like South Africa...${NC}"
     
-    # Asia-Tanzania specific optimizations
+    # Auto-detect best MTU for this location
+    detect_best_mtu
+    local detected_mtu=$(cat /etc/elite-x/mtu)
+    
+    # Update DNSTT service with detected MTU
+    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
+    
+    # Apply Asia-specific TCP optimizations
     cat >> /etc/sysctl.conf <<EOF
 # ELITE-X Asia Halotel Optimization
 net.ipv4.tcp_rmem = 4096 87380 16777216
@@ -177,7 +230,10 @@ net.ipv4.tcp_mtu_probing = 1
 EOF
 
     sysctl -p
-    echo -e "${GREEN}✅ Asia → Halotel optimization complete!${NC}"
+    systemctl daemon-reload
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+    
+    echo -e "${GREEN}✅ Asia optimized with MTU $detected_mtu (auto-detected)${NC}"
 }
 
 auto_detect_best_settings() {
@@ -194,6 +250,9 @@ auto_detect_best_settings() {
     echo "  Europe: ${europe_latency:-Unknown}ms"
     echo "  Asia: ${asia_latency:-Unknown}ms"
     
+    # Auto-detect MTU first
+    detect_best_mtu
+    
     # Apply based on lowest latency
     if [ ! -z "$usa_latency" ] && [ $usa_latency -lt 200 ]; then
         echo -e "${GREEN}✅ USA region detected, applying optimizations${NC}"
@@ -205,7 +264,7 @@ auto_detect_best_settings() {
         echo -e "${GREEN}✅ Asia region detected, applying optimizations${NC}"
         optimize_asia_halotel
     else
-        echo -e "${YELLOW}⚠️  Could not determine region, applying default optimizations${NC}"
+        echo -e "${YELLOW}⚠️  Could not determine region, applying USA optimizations${NC}"
         optimize_usa_halotel
     fi
 }
@@ -436,55 +495,55 @@ sleep 2
 set_timezone
 read -p "$(echo -e $RED"Enter Your Subdomain (e.g., ns-ex.elitex.sbs): "$NC)" TDOMAIN
 
-# ========== NEW: LOCATION OPTIMIZATION SELECTION ==========
-# Your South Africa settings with MTU 1800 remain DEFAULT and UNCHANGED
+# ========== LOCATION OPTIMIZATION SELECTION ==========
+# South Africa default MTU 1800 - UNCHANGED
 echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
 echo -e "${GREEN}           NETWORK LOCATION OPTIMIZATION                          ${NC}"
 echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
-echo -e "${WHITE}Select your VPS location for optimal performance:${NC}"
+echo -e "${WHITE}Select your VPS location:${NC}"
 echo -e "${GREEN}  1. South Africa (Default - MTU 1800)${NC}"
-echo -e "${CYAN}  2. USA (Optimize for Halotel - keeps MTU 1800)${NC}"
-echo -e "${BLUE}  3. Europe (Optimize for Halotel - keeps MTU 1800)${NC}"
-echo -e "${PURPLE}  4. Asia (Optimize for Halotel - keeps MTU 1800)${NC}"
-echo -e "${YELLOW}  5. Auto-detect best settings (keeps MTU 1800)${NC}"
+echo -e "${CYAN}  2. USA (Auto-detect best MTU)${NC}"
+echo -e "${BLUE}  3. Europe (Auto-detect best MTU)${NC}"
+echo -e "${PURPLE}  4. Asia (Auto-detect best MTU)${NC}"
+echo -e "${YELLOW}  5. Auto-detect everything${NC}"
 echo ""
 read -p "$(echo -e $GREEN"Select location [1-5] [default: 1]: "$NC)" LOCATION_CHOICE
 LOCATION_CHOICE=${LOCATION_CHOICE:-1}
 
-# Your original MTU 1800 is preserved for ALL options
-MTU=1800
-SELECTED_LOCATION="South Africa"
-
-case $LOCATION_CHOICE in
-    1)
-        SELECTED_LOCATION="South Africa"
-        echo -e "${GREEN}✅ Using South Africa configuration (MTU: $MTU)${NC}"
-        # No additional optimizations needed for South Africa
-        ;;
-    2)
-        SELECTED_LOCATION="USA"
-        echo -e "${CYAN}✅ USA selected - will apply Halotel optimizations${NC}"
-        # Store that we need to apply USA optimizations after installation
-        NEED_USA_OPT=1
-        ;;
-    3)
-        SELECTED_LOCATION="Europe"
-        echo -e "${BLUE}✅ Europe selected - will apply Halotel optimizations${NC}"
-        NEED_EUROPE_OPT=1
-        ;;
-    4)
-        SELECTED_LOCATION="Asia"
-        echo -e "${PURPLE}✅ Asia selected - will apply Halotel optimizations${NC}"
-        NEED_ASIA_OPT=1
-        ;;
-    5)
-        SELECTED_LOCATION="Auto-detect"
-        echo -e "${YELLOW}✅ Auto-detect selected${NC}"
-        NEED_AUTO_OPT=1
-        ;;
-esac
+# Set default MTU for South Africa
+if [ "$LOCATION_CHOICE" = "1" ]; then
+    MTU=1800
+    SELECTED_LOCATION="South Africa"
+    echo -e "${GREEN}✅ Using South Africa configuration (MTU: $MTU)${NC}"
+else
+    # For other locations, MTU will be auto-detected
+    MTU=0 # Will be set by detection function
+    case $LOCATION_CHOICE in
+        2)
+            SELECTED_LOCATION="USA"
+            echo -e "${CYAN}✅ USA selected - will auto-detect best MTU${NC}"
+            NEED_USA_OPT=1
+            ;;
+        3)
+            SELECTED_LOCATION="Europe"
+            echo -e "${BLUE}✅ Europe selected - will auto-detect best MTU${NC}"
+            NEED_EUROPE_OPT=1
+            ;;
+        4)
+            SELECTED_LOCATION="Asia"
+            echo -e "${PURPLE}✅ Asia selected - will auto-detect best MTU${NC}"
+            NEED_ASIA_OPT=1
+            ;;
+        5)
+            SELECTED_LOCATION="Auto-detect"
+            echo -e "${YELLOW}✅ Auto-detect selected${NC}"
+            NEED_AUTO_OPT=1
+            ;;
+    esac
+fi
 
 echo "$SELECTED_LOCATION" > /etc/elite-x/location
+echo "$MTU" > /etc/elite-x/mtu
 
 DNSTT_PORT=5300
 DNS_PORT=53
@@ -501,7 +560,6 @@ fi
 # Create directories
 mkdir -p /etc/elite-x/{banner,users,traffic}
 echo "$TDOMAIN" > /etc/elite-x/subdomain
-echo "$MTU" > /etc/elite-x/mtu
 
 # Create default banner
 cat > /etc/elite-x/banner/default <<'EOF'
@@ -565,7 +623,7 @@ fi
 chmod 600 /etc/dnstt/server.key
 chmod 644 /etc/dnstt/server.pub
 
-# DNSTT service (using MTU 1800 as per your original)
+# DNSTT service - MTU will be updated later for non-SA locations
 echo "Creating dnstt-elite-x.service..."
 cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
@@ -583,7 +641,7 @@ LimitNOFILE=1048576
 WantedBy=multi-user.target
 EOF
 
-# EDNS proxy (minified for stability)
+# EDNS proxy
 echo "Installing EDNS proxy..."
 cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
@@ -664,65 +722,121 @@ setup_manual_speed
 setup_auto_remover
 setup_updater
 
-# ========== CREATE OPTIMIZATION HELPER SCRIPTS (FIXED EOF) ==========
+# ========== CREATE OPTIMIZATION HELPER SCRIPTS ==========
 cat > /usr/local/bin/elite-x-optimize-usa <<'EOL'
 #!/bin/bash
+echo -e "\033[1;33m🔍 Auto-detecting best MTU for USA...\033[0m"
+best_mtu=1400
+best_time=999999
+for mtu in 1500 1450 1400 1350 1300; do
+    echo -n "  Testing MTU $mtu... "
+    ping -M do -c 3 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        avg_time=$(ping -c 3 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+        if [ ! -z "$avg_time" ] && [ $avg_time -lt $best_time ]; then
+            best_time=$avg_time
+            best_mtu=$mtu
+            echo -e "\033[0;32m✅ OK (${avg_time}ms)\033[0m"
+        else
+            echo -e "\033[0;32m✅ OK\033[0m"
+        fi
+    else
+        echo -e "\033[0;31m❌ FAILED\033[0m"
+    fi
+done
+echo "$best_mtu" > /etc/elite-x/mtu
+sed -i "s/-mtu [0-9]*/-mtu $best_mtu/" /etc/systemd/system/dnstt-elite-x.service
 cat >> /etc/sysctl.conf <<EOF
-# ELITE-X USA Halotel Optimization
 net.ipv4.tcp_rmem = 4096 87380 67108864
 net.ipv4.tcp_wmem = 4096 65536 67108864
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 16384
-net.ipv4.tcp_mtu_probing = 1
-net.ipv4.tcp_window_scaling = 1
-net.ipv4.tcp_fastopen = 3
 EOF
 sysctl -p
-echo -e "\033[0;32m✅ USA optimizations applied\033[0m"
+systemctl daemon-reload
+systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+echo -e "\033[0;32m✅ USA optimized with MTU $best_mtu\033[0m"
 EOL
 
 cat > /usr/local/bin/elite-x-optimize-europe <<'EOL'
 #!/bin/bash
+echo -e "\033[1;33m🔍 Auto-detecting best MTU for Europe...\033[0m"
+best_mtu=1400
+best_time=999999
+for mtu in 1500 1450 1400 1350 1300; do
+    echo -n "  Testing MTU $mtu... "
+    ping -M do -c 3 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        avg_time=$(ping -c 3 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+        if [ ! -z "$avg_time" ] && [ $avg_time -lt $best_time ]; then
+            best_time=$avg_time
+            best_mtu=$mtu
+            echo -e "\033[0;32m✅ OK (${avg_time}ms)\033[0m"
+        else
+            echo -e "\033[0;32m✅ OK\033[0m"
+        fi
+    else
+        echo -e "\033[0;31m❌ FAILED\033[0m"
+    fi
+done
+echo "$best_mtu" > /etc/elite-x/mtu
+sed -i "s/-mtu [0-9]*/-mtu $best_mtu/" /etc/systemd/system/dnstt-elite-x.service
 cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Europe Halotel Optimization
 net.ipv4.tcp_rmem = 4096 87380 33554432
 net.ipv4.tcp_wmem = 4096 65536 33554432
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 16384
-net.ipv4.tcp_mtu_probing = 1
 EOF
 sysctl -p
-echo -e "\033[0;32m✅ Europe optimizations applied\033[0m"
+systemctl daemon-reload
+systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+echo -e "\033[0;32m✅ Europe optimized with MTU $best_mtu\033[0m"
 EOL
 
 cat > /usr/local/bin/elite-x-optimize-asia <<'EOL'
 #!/bin/bash
+echo -e "\033[1;33m🔍 Auto-detecting best MTU for Asia...\033[0m"
+best_mtu=1400
+best_time=999999
+for mtu in 1500 1450 1400 1350 1300; do
+    echo -n "  Testing MTU $mtu... "
+    ping -M do -c 3 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        avg_time=$(ping -c 3 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+        if [ ! -z "$avg_time" ] && [ $avg_time -lt $best_time ]; then
+            best_time=$avg_time
+            best_mtu=$mtu
+            echo -e "\033[0;32m✅ OK (${avg_time}ms)\033[0m"
+        else
+            echo -e "\033[0;32m✅ OK\033[0m"
+        fi
+    else
+        echo -e "\033[0;31m❌ FAILED\033[0m"
+    fi
+done
+echo "$best_mtu" > /etc/elite-x/mtu
+sed -i "s/-mtu [0-9]*/-mtu $best_mtu/" /etc/systemd/system/dnstt-elite-x.service
 cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Asia Halotel Optimization
 net.ipv4.tcp_rmem = 4096 87380 16777216
 net.ipv4.tcp_wmem = 4096 65536 16777216
 net.ipv4.tcp_congestion_control = bbr
 net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 8192
-net.ipv4.tcp_mtu_probing = 1
 EOF
 sysctl -p
-echo -e "\033[0;32m✅ Asia optimizations applied\033[0m"
+systemctl daemon-reload
+systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+echo -e "\033[0;32m✅ Asia optimized with MTU $best_mtu\033[0m"
 EOL
 
 cat > /usr/local/bin/elite-x-optimize-auto <<'EOL'
 #!/bin/bash
-echo -e "\033[1;33mAuto-detecting best settings...\033[0m"
+echo -e "\033[1;33m🔍 Auto-detecting best location and MTU...\033[0m"
 usa_latency=$(ping -c 3 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
 europe_latency=$(ping -c 3 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
 asia_latency=$(ping -c 3 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-
 [ ! -z "$usa_latency" ] && echo "USA: ${usa_latency}ms"
 [ ! -z "$europe_latency" ] && echo "Europe: ${europe_latency}ms"
 [ ! -z "$asia_latency" ] && echo "Asia: ${asia_latency}ms"
-
 if [ ! -z "$usa_latency" ] && [ $usa_latency -lt 200 ]; then
     /usr/local/bin/elite-x-optimize-usa
 elif [ ! -z "$europe_latency" ] && [ $europe_latency -lt 250 ]; then
@@ -736,8 +850,7 @@ EOL
 
 chmod +x /usr/local/bin/elite-x-optimize-*
 
-# ========== APPLY LOCATION-SPECIFIC OPTIMIZATIONS (ONLY IF NOT SA) ==========
-# Your South Africa configuration remains PURE and UNTOUCHED
+# ========== APPLY LOCATION-SPECIFIC OPTIMIZATIONS ==========
 if [ ! -z "${NEED_USA_OPT:-}" ]; then
     optimize_usa_halotel
 elif [ ! -z "${NEED_EUROPE_OPT:-}" ]; then
@@ -909,6 +1022,7 @@ show_dashboard() {
     KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
     EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Unknown")
     LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
+    CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
     
     DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
     PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
@@ -922,6 +1036,7 @@ show_dashboard() {
     echo -e "${CYAN}║${WHITE}  ISP       :${GREEN} $ISP${NC}"
     echo -e "${CYAN}║${WHITE}  RAM       :${GREEN} $RAM${NC}"
     echo -e "${CYAN}║${WHITE}  VPS Loc   :${GREEN} $LOCATION${NC}"
+    echo -e "${CYAN}║${WHITE}  MTU       :${GREEN} $CURRENT_MTU${NC}"
     echo -e "${CYAN}║${WHITE}  Services  : DNS:$DNS PRX:$PRX${NC}"
     echo -e "${CYAN}║${WHITE}  Developer :${PURPLE} ELITE-X TEAM${NC}"
     echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
@@ -938,7 +1053,7 @@ settings_menu() {
         echo -e "${CYAN}║${YELLOW}${BOLD}                      SETTINGS MENU                              ${CYAN}║${NC}"
         echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
         echo -e "${CYAN}║${WHITE}  [8]  🔑 View Public Key${NC}"
-        echo -e "${CYAN}║${WHITE}  [9]  Change MTU Value${NC}"
+        echo -e "${CYAN}║${WHITE}  [9]  Change MTU Value (Manual)${NC}"
         echo -e "${CYAN}║${WHITE}  [10] ⚡ Manual Speed Optimization${NC}"
         echo -e "${CYAN}║${WHITE}  [11] 🧹 Clean Junk Files${NC}"
         echo -e "${CYAN}║${WHITE}  [12] 🔄 Auto Expired Account Remover${NC}"
@@ -1004,16 +1119,20 @@ settings_menu() {
                 echo -e "${GREEN}           RE-APPLY LOCATION OPTIMIZATION                        ${NC}"
                 echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
                 echo -e "${WHITE}Select your VPS location:${NC}"
-                echo -e "${GREEN}  1. South Africa (Default)${NC}"
-                echo -e "${CYAN}  2. USA (Optimize for Halotel)${NC}"
-                echo -e "${BLUE}  3. Europe (Optimize for Halotel)${NC}"
-                echo -e "${PURPLE}  4. Asia (Optimize for Halotel)${NC}"
-                echo -e "${YELLOW}  5. Auto-detect${NC}"
+                echo -e "${GREEN}  1. South Africa (MTU 1800)${NC}"
+                echo -e "${CYAN}  2. USA (Auto-detect best MTU)${NC}"
+                echo -e "${BLUE}  3. Europe (Auto-detect best MTU)${NC}"
+                echo -e "${PURPLE}  4. Asia (Auto-detect best MTU)${NC}"
+                echo -e "${YELLOW}  5. Auto-detect everything${NC}"
                 read -p "Choice: " opt_choice
                 
                 case $opt_choice in
                     1) echo "South Africa" > /etc/elite-x/location
-                       echo -e "${GREEN}✅ South Africa selected${NC}" ;;
+                       echo "1800" > /etc/elite-x/mtu
+                       sed -i "s/-mtu [0-9]*/-mtu 1800/" /etc/systemd/system/dnstt-elite-x.service
+                       systemctl daemon-reload
+                       systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+                       echo -e "${GREEN}✅ South Africa selected (MTU 1800)${NC}" ;;
                     2) echo "USA" > /etc/elite-x/location
                        /usr/local/bin/elite-x-optimize-usa ;;
                     3) echo "Europe" > /etc/elite-x/location
@@ -1089,9 +1208,10 @@ echo "======================================"
 echo " ELITE-X INSTALLED SUCCESSFULLY "
 echo "======================================"
 EXPIRY_INFO=$(cat /etc/elite-x/expiry)
+FINAL_MTU=$(cat /etc/elite-x/mtu)
 echo "DOMAIN  : ${TDOMAIN}"
-echo "MTU     : ${MTU} (UNCHANGED - Your original setting)"
 echo "LOCATION: ${SELECTED_LOCATION}"
+echo "MTU     : ${FINAL_MTU} $( [ "$SELECTED_LOCATION" = "South Africa" ] && echo "(Default)" || echo "(Auto-detected)" )"
 echo "EXPIRY  : ${EXPIRY_INFO}"
 echo ""
 echo "PUBLIC KEY:"
