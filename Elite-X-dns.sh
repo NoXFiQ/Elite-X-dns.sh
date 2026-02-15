@@ -964,7 +964,7 @@ esac
 EOF
 chmod +x /usr/local/bin/elite-x-user
 
-# ========== MAIN MENU ==========
+# ========== MAIN MENU - FIXED: FAST LOADING AND ACTIVATION KEY VISIBLE ==========
 cat >/usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
 
@@ -1010,12 +1010,14 @@ check_expiry_menu
 
 show_dashboard() {
     clear
-    IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
-    LOC=$(curl -s http://ip-api.com/json/$IP 2>/dev/null | jq -r '.city + ", " + .country' 2>/dev/null || echo "Unknown")
-    ISP=$(curl -s http://ip-api.com/json/$IP 2>/dev/null | jq -r '.isp' 2>/dev/null || echo "Unknown")
+    
+    # Get cached system information (no network calls)
+    IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || curl -s ifconfig.me 2>/dev/null || echo "Unknown")
+    LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || echo "Unknown")
+    ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || echo "Unknown")
     RAM=$(free -m | awk '/^Mem:/{print $3"/"$2"MB"}')
     SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
-    KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
+    ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
     EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Unknown")
     LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
     CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
@@ -1036,7 +1038,7 @@ show_dashboard() {
     echo -e "${CYAN}║${WHITE}  Services  : DNS:$DNS PRX:$PRX${NC}"
     echo -e "${CYAN}║${WHITE}  Developer :${PURPLE} ELITE-X TEAM${NC}"
     echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${CYAN}║${WHITE}  Key       :${YELLOW} $KEY${NC}"
+    echo -e "${CYAN}║${WHITE}  Act Key   :${YELLOW} $ACTIVATION_KEY${NC}"
     echo -e "${CYAN}║${WHITE}  Expiry    :${YELLOW} $EXP${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -1196,13 +1198,29 @@ main_menu
 EOF
 chmod +x /usr/local/bin/elite-x
 
+# ========== CACHE NETWORK INFO FOR FAST LOADING ==========
+# Get and cache network information
+echo "Caching network information for fast login..."
+IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
+echo "$IP" > /etc/elite-x/cached_ip
+
+if [ "$IP" != "Unknown" ]; then
+    LOCATION_INFO=$(curl -s http://ip-api.com/json/$IP 2>/dev/null)
+    echo "$LOCATION_INFO" | jq -r '.city + ", " + .country' 2>/dev/null > /etc/elite-x/cached_location || echo "Unknown" > /etc/elite-x/cached_location
+    echo "$LOCATION_INFO" | jq -r '.isp' 2>/dev/null > /etc/elite-x/cached_isp || echo "Unknown" > /etc/elite-x/cached_isp
+else
+    echo "Unknown" > /etc/elite-x/cached_location
+    echo "Unknown" > /etc/elite-x/cached_isp
+fi
+
 # ========== AUTO-SHOW DASHBOARD ON LOGIN ==========
-# This is the key change - removes elite-x/menu requirement
 cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
 #!/bin/bash
-# Auto-show ELITE-X dashboard on login
-if [ -f /usr/local/bin/elite-x ]; then
-    /usr/local/bin/elite-x
+# Auto-show ELITE-X dashboard on login - but only once and with delay to not slow login
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
+    export ELITE_X_SHOWN=1
+    # Small delay to ensure login completes first
+    (sleep 1 && /usr/local/bin/elite-x) &
 fi
 EOF
 chmod +x /etc/profile.d/elite-x-dashboard.sh
@@ -1210,13 +1228,14 @@ chmod +x /etc/profile.d/elite-x-dashboard.sh
 # Also add to bashrc for SSH logins
 cat >> ~/.bashrc <<'EOF'
 # Auto-show ELITE-X dashboard
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_LOADED" ]; then
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ] && [ -z "$ELITE_X_LOADED" ]; then
+    export ELITE_X_SHOWN=1
     export ELITE_X_LOADED=1
     /usr/local/bin/elite-x
 fi
 EOF
 
-# Aliases (still available but not needed)
+# Aliases
 echo "alias menu='elite-x'" >> ~/.bashrc
 echo "alias elitex='elite-x'" >> ~/.bashrc
 
@@ -1225,9 +1244,11 @@ echo " ELITE-X INSTALLED SUCCESSFULLY "
 echo "======================================"
 EXPIRY_INFO=$(cat /etc/elite-x/expiry)
 FINAL_MTU=$(cat /etc/elite-x/mtu)
+ACTIVATION_KEY=$(cat /etc/elite-x/key)
 echo "DOMAIN  : ${TDOMAIN}"
 echo "LOCATION: ${SELECTED_LOCATION}"
 echo "MTU     : ${FINAL_MTU} $( [ "$SELECTED_LOCATION" = "South Africa" ] && echo "(Default)" || echo "(Auto-detected)" )"
+echo "ACT KEY : ${ACTIVATION_KEY}"
 echo "EXPIRY  : ${EXPIRY_INFO}"
 echo ""
 echo "PUBLIC KEY:"
