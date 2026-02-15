@@ -36,6 +36,7 @@ ACTIVATION_FILE="/etc/elite-x/activated"
 ACTIVATION_TYPE_FILE="/etc/elite-x/activation_type"
 ACTIVATION_DATE_FILE="/etc/elite-x/activation_date"
 EXPIRY_DAYS_FILE="/etc/elite-x/expiry_days"
+KEY_FILE="/etc/elite-x/key"
 TIMEZONE="Africa/Dar_es_Salaam"
 
 set_timezone() {
@@ -87,11 +88,13 @@ activate_script() {
     
     if [ "$input_key" = "$ACTIVATION_KEY" ]; then
         echo "$ACTIVATION_KEY" > "$ACTIVATION_FILE"
+        echo "$ACTIVATION_KEY" > "$KEY_FILE"
         echo "lifetime" > "$ACTIVATION_TYPE_FILE"
         echo "Lifetime" > /etc/elite-x/expiry
         return 0
     elif [ "$input_key" = "$TEMP_KEY" ]; then
         echo "$TEMP_KEY" > "$ACTIVATION_FILE"
+        echo "$TEMP_KEY" > "$KEY_FILE"
         echo "temporary" > "$ACTIVATION_TYPE_FILE"
         echo "$(date +%Y-%m-%d)" > "$ACTIVATION_DATE_FILE"
         echo "2" > "$EXPIRY_DAYS_FILE"
@@ -1239,12 +1242,22 @@ EOF
 echo "alias menu='elite-x'" >> ~/.bashrc
 echo "alias elitex='elite-x'" >> ~/.bashrc
 
+# Ensure key file exists before displaying
+if [ ! -f /etc/elite-x/key ]; then
+    # If key file doesn't exist, create it from activation
+    if [ -f "$ACTIVATION_FILE" ]; then
+        cp "$ACTIVATION_FILE" /etc/elite-x/key
+    else
+        echo "$ACTIVATION_KEY" > /etc/elite-x/key
+    fi
+fi
+
 echo "======================================"
 echo " ELITE-X INSTALLED SUCCESSFULLY "
 echo "======================================"
-EXPIRY_INFO=$(cat /etc/elite-x/expiry)
-FINAL_MTU=$(cat /etc/elite-x/mtu)
-ACTIVATION_KEY=$(cat /etc/elite-x/key)
+EXPIRY_INFO=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
+FINAL_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
+ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "ELITEX-2026-DAN-4D-08")
 echo "DOMAIN  : ${TDOMAIN}"
 echo "LOCATION: ${SELECTED_LOCATION}"
 echo "MTU     : ${FINAL_MTU} $( [ "$SELECTED_LOCATION" = "South Africa" ] && echo "(Default)" || echo "(Auto-detected)" )"
