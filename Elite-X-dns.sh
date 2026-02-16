@@ -104,7 +104,7 @@ activate_script() {
     return 1
 }
 
-# ========== ULTRA MTU DETECTION (NEW - UP TO 5000) ==========
+# ========== ULTRA MTU DETECTION (UP TO 5000) ==========
 detect_best_mtu() {
     echo -e "${YELLOW}🔍 Auto-detecting best MTU for your connection...${NC}"
     
@@ -280,7 +280,7 @@ EOF
     echo -e "${GREEN}✅ Enhanced EDNS proxy created${NC}"
 }
 
-# ========== LOCATION OPTIMIZATION FUNCTIONS (UPDATED WITH ULTRA MTU) ==========
+# ========== LOCATION OPTIMIZATION FUNCTIONS ==========
 optimize_usa_halotel() {
     echo -e "${YELLOW}🔄 Optimizing USA → Halotel connection (Ultra MTU mode)...${NC}"
     
@@ -1322,5 +1322,12 @@ echo -e "${GREEN}✅ DASHBOARD WILL NOW SHOW AUTOMATICALLY ON LOGIN${NC}"
 echo -e "${YELLOW}No need to type 'elite-x' or 'menu' - it appears automatically!${NC}"
 echo "======================================"
 
+# Ask to open menu after installation
 read -p "Open menu now? (y/n): " open
-[ "$open" = "y" ] && /usr/local/bin/elite-x
+if [ "$open" = "y" ]; then
+    echo -e "${GREEN}Opening dashboard...${NC}"
+    sleep 1
+    /usr/local/bin/elite-x
+else
+    echo -e "${YELLOW}You can type 'menu' or 'elite-x' anytime to open the dashboard.${NC}"
+fi
