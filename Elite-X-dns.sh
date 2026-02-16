@@ -2,7 +2,7 @@
 # ============================================
 # ELITE-X DNSTT AUTO INSTALL (STABLE EDITION)
 # Stable • Clean • Production ready
-# ULTRA MTU DETECTION UP TO 5000
+# NO AUTO RESTART • NO AUTO REBOOT
 # ============================================
 set -euo pipefail
 
@@ -19,16 +19,6 @@ NC='\033[0m'
 
 print_color() { echo -e "${2}${1}${NC}"; }
 
-# Function to show banner
-show_banner() {
-    clear
-    echo -e "${RED}"
-    figlet -f slant "ELITE-X" 2>/dev/null || echo "======== ELITE-X SLOWDNS ========"
-    echo -e "${GREEN}           Version 3.0 - Ultra MTU Edition${NC}"
-    echo -e "${YELLOW}================================================${NC}"
-    echo ""
-}
-
 # Function to show quote
 show_quote() {
     echo ""
@@ -37,6 +27,20 @@ show_quote() {
     echo -e "${CYAN}║${WHITE}            Always Remember ELITE-X when you see X            ${CYAN}║${NC}"
     echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+# Function to show banner with box
+show_banner() {
+    clear
+    echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║${YELLOW}${BOLD}                                                               ${RED}║${NC}"
+    figlet -f slant "ELITE-X" 2>/dev/null | while read line; do
+        printf "${RED}║${YELLOW}%-63s${RED}║${NC}\n" "$line"
+    done
+    echo -e "${RED}║${GREEN}${BOLD}           Version 3.0 - Stable Edition                         ${RED}║${NC}"
+    echo -e "${RED}║${YELLOW}${BOLD}                                                               ${RED}║${NC}"
+    echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
@@ -116,24 +120,24 @@ activate_script() {
     return 1
 }
 
-# ========== CHECK SUBDOMAIN POINTING ==========
+# ========== CHECK SUBDOMAIN POINTING (IPv4 ONLY) ==========
 check_subdomain() {
     local subdomain="$1"
-    local vps_ip=$(curl -s ifconfig.me 2>/dev/null || echo "")
+    local vps_ip=$(curl -4 -s ifconfig.me 2>/dev/null || echo "")
     
-    echo -e "${YELLOW}🔍 Checking if subdomain points to this VPS...${NC}"
+    echo -e "${YELLOW}🔍 Checking if subdomain points to this VPS (IPv4)...${NC}"
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${CYAN}║${WHITE}  Subdomain: $subdomain${NC}"
-    echo -e "${CYAN}║${WHITE}  VPS IP   : $vps_ip${NC}"
+    echo -e "${CYAN}║${WHITE}  VPS IPv4 : $vps_ip${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     
     if [ -z "$vps_ip" ]; then
-        echo -e "${YELLOW}⚠️  Could not detect VPS IP, continuing anyway...${NC}"
+        echo -e "${YELLOW}⚠️  Could not detect VPS IPv4, continuing anyway...${NC}"
         return 0
     fi
     
-    # Try to resolve subdomain
-    local resolved_ip=$(dig +short "$subdomain" 2>/dev/null | head -1)
+    # Try to resolve subdomain (IPv4 only)
+    local resolved_ip=$(dig +short -4 "$subdomain" 2>/dev/null | head -1)
     
     if [ -z "$resolved_ip" ]; then
         echo -e "${YELLOW}⚠️  Could not resolve subdomain, continuing anyway...${NC}"
@@ -152,489 +156,6 @@ check_subdomain() {
             exit 1
         fi
     fi
-}
-
-# ========== ULTRA MTU DETECTION (FIXED - NOW CONTINUES) ==========
-detect_best_mtu() {
-    echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${YELLOW}║${WHITE}           ULTRA MTU DETECTION (Testing up to 5000)               ${YELLOW}║${NC}"
-    echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    
-    # Comprehensive MTU test list
-    local test_mtus="5000 4800 4600 4400 4200 4000 3800 3600 3400 3200 3000 2800 2600 2400 2200 2000 1800 1500 1400"
-    local best_mtu=1500
-    local best_time=999999
-    local working_mtus=""
-    local working_count=0
-    local total_tests=0
-
-    echo -e "${WHITE}Testing various MTU values for maximum throughput...${NC}"
-    echo ""
-    
-    for mtu in $test_mtus; do
-        total_tests=$((total_tests + 1))
-        echo -n "  Testing MTU $mtu... "
-        
-        # First test with fragmentation allowed (more permissive)
-        if timeout 2 ping -M dont -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
-            # Now test with DF set (no fragmentation) for speed
-            if timeout 2 ping -M do -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
-                # Measure average response time
-                local avg_time=$(ping -c 2 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-                avg_time=${avg_time:-100}
-                
-                if [ "$avg_time" -lt "$best_time" ]; then
-                    best_time=$avg_time
-                    best_mtu=$mtu
-                    echo -e "${GREEN}✅ OK (${avg_time}ms)${NC}"
-                else
-                    echo -e "${GREEN}✅ OK${NC}"
-                fi
-                working_mtus="$working_mtus $mtu"
-                working_count=$((working_count + 1))
-            else
-                # Works with fragmentation only
-                echo -e "${YELLOW}⚠️  Works with fragmentation${NC}"
-                working_mtus="$working_mtus $mtu"
-                working_count=$((working_count + 1))
-            fi
-        else
-            echo -e "${RED}❌ FAILED${NC}"
-        fi
-    done
-    
-    echo ""
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${GREEN}           MTU DETECTION COMPLETE                                  ${CYAN}║${NC}"
-    echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${CYAN}║${WHITE}  Total tested : $total_tests${NC}"
-    echo -e "${CYAN}║${WHITE}  Working found: $working_count${NC}"
-    echo -e "${CYAN}║${WHITE}  Best MTU     : $best_mtu (${best_time}ms)${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    
-    # Save the best MTU
-    echo "$best_mtu" > /etc/elite-x/mtu
-    
-    # Also save all working MTUs for reference
-    echo "$working_mtus" > /etc/elite-x/working_mtus
-    
-    return 0
-}
-
-# ========== APPLY MSS CLAMPING FOR LARGE MTU ==========
-apply_mss_clamping() {
-    echo -e "${YELLOW}🔧 Applying MSS clamping for large MTU support...${NC}"
-    
-    # Clear existing rules to avoid duplicates
-    iptables -t mangle -F 2>/dev/null || true
-    
-    # Add MSS clamping rules for all traffic
-    iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
-    iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
-    iptables -t mangle -A OUTPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
-    iptables -t mangle -A INPUT -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true
-    
-    echo -e "${GREEN}✅ MSS clamping applied${NC}"
-}
-
-# ========== ENHANCED EDNS PROXY FOR LARGE MTU ==========
-create_enhanced_edns_proxy() {
-    echo -e "${YELLOW}📡 Creating enhanced EDNS proxy for large MTU...${NC}"
-    
-    cat > /usr/local/bin/dnstt-edns-proxy.py <<'EOF'
-#!/usr/bin/env python3
-import socket, threading, struct, time
-
-LISTEN_HOST = "0.0.0.0"
-LISTEN_PORT = 53
-UPSTREAM_HOST = "127.0.0.1"
-UPSTREAM_PORT = 5300
-
-# Ultra-large buffer sizes for MTU up to 5000
-EXTERNAL_EDNS_SIZE = 8192
-INTERNAL_EDNS_SIZE = 8192
-SOCKET_BUFFER_SIZE = 4194304  # 4MB buffer
-MAX_PACKET_SIZE = 65535
-
-# Connection pool for better performance
-class ConnectionPool:
-    def __init__(self, max_size=50):
-        self.pool = []
-        self.max_size = max_size
-        self.lock = threading.Lock()
-    
-    def get(self):
-        with self.lock:
-            if self.pool:
-                return self.pool.pop()
-        return self.create_socket()
-    
-    def put(self, sock):
-        with self.lock:
-            if len(self.pool) < self.max_size:
-                self.pool.append(sock)
-            else:
-                sock.close()
-    
-    def create_socket(self):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCKET_BUFFER_SIZE)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SOCKET_BUFFER_SIZE)
-        return sock
-
-pool = ConnectionPool()
-
-def patch_edns(data, size):
-    if len(data) < 12:
-        return data
-    
-    try:
-        qd, an, ns, ar = struct.unpack("!HHHH", data[4:12])
-    except:
-        return data
-    
-    offset = 12
-    
-    def skip_name(b, off):
-        while off < len(b):
-            l = b[off]
-            off += 1
-            if l == 0:
-                break
-            if l & 0xC0 == 0xC0:
-                off += 1
-                break
-            off += l
-        return off
-    
-    # Skip questions
-    for _ in range(qd):
-        offset = skip_name(data, offset)
-        offset += 4
-    
-    # Skip answers and authority
-    for _ in range(an + ns):
-        offset = skip_name(data, offset)
-        if offset + 10 > len(data):
-            return data
-        _, _, _, rdlength = struct.unpack("!HHIH", data[offset:offset + 10])
-        offset += 10 + rdlength
-    
-    # Modify EDNS
-    new_data = bytearray(data)
-    for _ in range(ar):
-        offset = skip_name(data, offset)
-        if offset + 10 > len(data):
-            return data
-        t, = struct.unpack("!H", data[offset:offset + 2])
-        if t == 41:  # EDNS option
-            new_data[offset + 2:offset + 4] = struct.pack("!H", size)
-            return bytes(new_data)
-        _, _, rdlength = struct.unpack("!HIH", data[offset + 2:offset + 10])
-        offset += 10 + rdlength
-    
-    return data
-
-def handle_client(data, addr):
-    u = pool.get()
-    u.settimeout(5)
-    
-    try:
-        # Send with ultra-large EDNS
-        u.sendto(patch_edns(data, INTERNAL_EDNS_SIZE), (UPSTREAM_HOST, UPSTREAM_PORT))
-        
-        # Receive with large buffer
-        response, _ = u.recvfrom(MAX_PACKET_SIZE)
-        
-        # Send response with ultra-large EDNS
-        client_sock = pool.create_socket()
-        client_sock.sendto(patch_edns(response, EXTERNAL_EDNS_SIZE), addr)
-        client_sock.close()
-        
-    except socket.timeout:
-        pass
-    except Exception as e:
-        print(f"Error: {e}")
-    finally:
-        pool.put(u)
-
-def main():
-    server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, SOCKET_BUFFER_SIZE)
-    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, SOCKET_BUFFER_SIZE)
-    server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    if hasattr(socket, 'SO_REUSEPORT'):
-        server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-    
-    server_sock.bind((LISTEN_HOST, LISTEN_PORT))
-    
-    print(f"✅ Ultra EDNS Proxy running - supports MTU up to 5000")
-    
-    while True:
-        try:
-            data, addr = server_sock.recvfrom(MAX_PACKET_SIZE)
-            thread = threading.Thread(target=handle_client, args=(data, addr))
-            thread.daemon = True
-            thread.start()
-        except Exception as e:
-            print(f"Server error: {e}")
-            time.sleep(1)
-
-if __name__ == "__main__":
-    main()
-EOF
-    chmod +x /usr/local/bin/dnstt-edns-proxy.py
-    echo -e "${GREEN}✅ Enhanced EDNS proxy created${NC}"
-}
-
-# ========== ENHANCE KERNEL FOR ULTRA MTU ==========
-enhance_kernel_for_ultra_mtu() {
-    echo -e "${YELLOW}⚙️  Enhancing kernel for Ultra MTU...${NC}"
-    
-    cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Ultra MTU Kernel Optimizations
-net.core.rmem_max = 268435456
-net.core.wmem_max = 268435456
-net.ipv4.tcp_rmem = 4096 87380 268435456
-net.ipv4.tcp_wmem = 4096 65536 268435456
-net.core.netdev_max_backlog = 10000
-net.ipv4.tcp_congestion_control = bbr
-net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 32768
-net.ipv4.tcp_slow_start_after_idle = 0
-net.ipv4.tcp_mtu_probing = 2
-net.ipv4.tcp_base_mss = 1460
-net.ipv4.tcp_mtu_probing_floor = 1024
-net.ipv4.tcp_timestamps = 1
-net.ipv4.tcp_sack = 1
-net.ipv4.tcp_window_scaling = 1
-net.ipv4.tcp_adv_win_scale = 2
-net.ipv4.tcp_moderate_rcvbuf = 1
-net.core.optmem_max = 25165824
-net.core.rmem_default = 134217728
-net.core.wmem_default = 134217728
-EOF
-
-    sysctl -p 2>/dev/null
-    echo -e "${GREEN}✅ Kernel enhanced for Ultra MTU${NC}"
-}
-
-# ========== LOCATION OPTIMIZATION FUNCTIONS ==========
-optimize_usa_halotel() {
-    echo -e "${YELLOW}🔄 Optimizing USA → Halotel connection (Ultra MTU mode)...${NC}"
-    
-    # Apply kernel enhancements
-    enhance_kernel_for_ultra_mtu
-    
-    # Apply MSS clamping
-    apply_mss_clamping
-    
-    # Create enhanced EDNS proxy
-    create_enhanced_edns_proxy
-    
-    # Auto-detect best MTU for this location (now up to 5000)
-    detect_best_mtu
-    local detected_mtu=$(cat /etc/elite-x/mtu)
-    
-    # Update DNSTT service with detected MTU
-    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
-    
-    # Apply USA-specific TCP optimizations with larger buffers
-    cat >> /etc/sysctl.conf <<EOF
-# ELITE-X USA Halotel Ultra Optimization
-net.ipv4.tcp_rmem = 4096 87380 268435456
-net.ipv4.tcp_wmem = 4096 65536 268435456
-net.ipv4.tcp_congestion_control = bbr
-net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 32768
-net.ipv4.tcp_slow_start_after_idle = 0
-net.ipv4.tcp_mtu_probing = 2
-EOF
-
-    # Network interface optimization
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx off sg off tso off 2>/dev/null || true
-        ip link set dev $iface txqueuelen 10000 2>/dev/null || true
-        # Try to increase interface MTU
-        ip link set dev $iface mtu 9000 2>/dev/null || ip link set dev $iface mtu 5000 2>/dev/null || true
-    done
-
-    sysctl -p
-    systemctl daemon-reload
-    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
-    
-    echo -e "${GREEN}✅ USA optimized with ULTRA MTU: $detected_mtu${NC}"
-}
-
-optimize_europe_halotel() {
-    echo -e "${YELLOW}🔄 Optimizing Europe → Halotel connection (Ultra MTU mode)...${NC}"
-    
-    # Apply kernel enhancements
-    enhance_kernel_for_ultra_mtu
-    
-    # Apply MSS clamping
-    apply_mss_clamping
-    
-    # Create enhanced EDNS proxy
-    create_enhanced_edns_proxy
-    
-    # Auto-detect best MTU for this location (now up to 5000)
-    detect_best_mtu
-    local detected_mtu=$(cat /etc/elite-x/mtu)
-    
-    # Update DNSTT service with detected MTU
-    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
-    
-    # Apply Europe-specific TCP optimizations
-    cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Europe Halotel Ultra Optimization
-net.ipv4.tcp_rmem = 4096 87380 134217728
-net.ipv4.tcp_wmem = 4096 65536 134217728
-net.ipv4.tcp_congestion_control = bbr
-net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 16384
-net.ipv4.tcp_mtu_probing = 2
-EOF
-
-    # Network interface optimization
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx off sg off tso off 2>/dev/null || true
-        ip link set dev $iface txqueuelen 10000 2>/dev/null || true
-        ip link set dev $iface mtu 9000 2>/dev/null || ip link set dev $iface mtu 5000 2>/dev/null || true
-    done
-
-    sysctl -p
-    systemctl daemon-reload
-    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
-    
-    echo -e "${GREEN}✅ Europe optimized with ULTRA MTU: $detected_mtu${NC}"
-}
-
-optimize_asia_halotel() {
-    echo -e "${YELLOW}🔄 Optimizing Asia → Halotel connection (Ultra MTU mode)...${NC}"
-    
-    # Apply kernel enhancements
-    enhance_kernel_for_ultra_mtu
-    
-    # Apply MSS clamping
-    apply_mss_clamping
-    
-    # Create enhanced EDNS proxy
-    create_enhanced_edns_proxy
-    
-    # Auto-detect best MTU for this location (now up to 5000)
-    detect_best_mtu
-    local detected_mtu=$(cat /etc/elite-x/mtu)
-    
-    # Update DNSTT service with detected MTU
-    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
-    
-    # Apply Asia-specific TCP optimizations
-    cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Asia Halotel Ultra Optimization
-net.ipv4.tcp_rmem = 4096 87380 67108864
-net.ipv4.tcp_wmem = 4096 65536 67108864
-net.ipv4.tcp_congestion_control = bbr
-net.core.default_qdisc = fq
-net.ipv4.tcp_notsent_lowat = 8192
-net.ipv4.tcp_mtu_probing = 2
-EOF
-
-    # Network interface optimization
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx off sg off tso off 2>/dev/null || true
-        ip link set dev $iface txqueuelen 10000 2>/dev/null || true
-        ip link set dev $iface mtu 9000 2>/dev/null || ip link set dev $iface mtu 5000 2>/dev/null || true
-    done
-
-    sysctl -p
-    systemctl daemon-reload
-    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
-    
-    echo -e "${GREEN}✅ Asia optimized with ULTRA MTU: $detected_mtu${NC}"
-}
-
-auto_detect_best_settings() {
-    echo -e "${YELLOW}🔍 Auto-detecting best location with ULTRA MTU...${NC}"
-    
-    # Test latency to different regions
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${WHITE}              TESTING LATENCY TO VARIOUS REGIONS                ${CYAN}║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    
-    usa_latency=$(ping -c 2 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-    europe_latency=$(ping -c 2 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-    asia_latency=$(ping -c 2 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-    
-    echo -e "  ${WHITE}USA    :${GREEN} ${usa_latency:-Unknown} ms${NC}"
-    echo -e "  ${WHITE}Europe :${GREEN} ${europe_latency:-Unknown} ms${NC}"
-    echo -e "  ${WHITE}Asia   :${GREEN} ${asia_latency:-Unknown} ms${NC}"
-    echo ""
-    
-    # Apply kernel enhancements first
-    enhance_kernel_for_ultra_mtu
-    
-    # Apply MSS clamping
-    apply_mss_clamping
-    
-    # Create enhanced EDNS proxy
-    create_enhanced_edns_proxy
-    
-    # Run ultra MTU detection
-    detect_best_mtu
-    local detected_mtu=$(cat /etc/elite-x/mtu)
-    
-    # Update DNSTT service with detected MTU
-    sed -i "s/-mtu [0-9]*/-mtu $detected_mtu/" /etc/systemd/system/dnstt-elite-x.service
-    
-    # Apply optimizations based on lowest latency
-    if [ ! -z "${usa_latency:-}" ] && [ "${usa_latency:-999}" -lt 200 ]; then
-        echo -e "${GREEN}✅ USA region detected (${usa_latency}ms)${NC}"
-        # Apply USA optimizations
-        cat >> /etc/sysctl.conf <<EOF
-# ELITE-X USA Ultra Optimization
-net.ipv4.tcp_rmem = 4096 87380 268435456
-net.ipv4.tcp_wmem = 4096 65536 268435456
-net.ipv4.tcp_notsent_lowat = 32768
-EOF
-    elif [ ! -z "${europe_latency:-}" ] && [ "${europe_latency:-999}" -lt 250 ]; then
-        echo -e "${GREEN}✅ Europe region detected (${europe_latency}ms)${NC}"
-        cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Europe Ultra Optimization
-net.ipv4.tcp_rmem = 4096 87380 134217728
-net.ipv4.tcp_wmem = 4096 65536 134217728
-net.ipv4.tcp_notsent_lowat = 16384
-EOF
-    elif [ ! -z "${asia_latency:-}" ] && [ "${asia_latency:-999}" -lt 300 ]; then
-        echo -e "${GREEN}✅ Asia region detected (${asia_latency}ms)${NC}"
-        cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Asia Ultra Optimization
-net.ipv4.tcp_rmem = 4096 87380 67108864
-net.ipv4.tcp_wmem = 4096 65536 67108864
-net.ipv4.tcp_notsent_lowat = 8192
-EOF
-    else
-        echo -e "${YELLOW}⚠️  Could not determine region, applying balanced optimizations${NC}"
-        cat >> /etc/sysctl.conf <<EOF
-# ELITE-X Balanced Ultra Optimization
-net.ipv4.tcp_rmem = 4096 87380 134217728
-net.ipv4.tcp_wmem = 4096 65536 134217728
-net.ipv4.tcp_notsent_lowat = 16384
-EOF
-    fi
-
-    # Network interface optimization
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx off sg off tso off 2>/dev/null || true
-        ip link set dev $iface txqueuelen 10000 2>/dev/null || true
-        ip link set dev $iface mtu 9000 2>/dev/null || ip link set dev $iface mtu 5000 2>/dev/null || true
-    done
-
-    sysctl -p
-    systemctl daemon-reload
-    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
-    
-    echo -e "${GREEN}✅ Auto-detection complete! ULTRA MTU: $detected_mtu${NC}"
 }
 
 # ========== TRAFFIC MONITORING ==========
@@ -683,7 +204,7 @@ EOF
     systemctl start elite-x-traffic.service
 }
 
-# ========== MANUAL SPEED OPTIMIZATION ==========
+# ========== MANUAL SPEED OPTIMIZATION ONLY (NO AUTO) ==========
 setup_manual_speed() {
     cat > /usr/local/bin/elite-x-speed <<'EOF'
 #!/bin/bash
@@ -696,14 +217,13 @@ NC='\033[0m'
 optimize_network() {
     echo -e "${YELLOW}⚡ Optimizing network for maximum speed...${NC}"
     
-    sysctl -w net.core.rmem_max=268435456 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=268435456 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_rmem="4096 87380 268435456" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_wmem="4096 65536 268435456" >/dev/null 2>&1
-    sysctl -w net.core.netdev_max_backlog=10000 >/dev/null 2>&1
+    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
+    sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
     sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_mtu_probing=2 >/dev/null 2>&1
     
     echo -e "${GREEN}✅ Network optimized!${NC}"
 }
@@ -878,54 +398,54 @@ echo -e "${CYAN}║${WHITE}  You entered: ${GREEN}$TDOMAIN${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Check if subdomain points to this VPS
+# Check if subdomain points to this VPS (IPv4 only)
 check_subdomain "$TDOMAIN"
 
 # ========== LOCATION OPTIMIZATION SELECTION ==========
 echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${YELLOW}║${GREEN}           ULTRA MTU LOCATION OPTIMIZATION                       ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${GREEN}           NETWORK LOCATION OPTIMIZATION                          ${YELLOW}║${NC}"
 echo -e "${YELLOW}╠═══════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${YELLOW}║${WHITE}  1. South Africa (Default - MTU 1800)                        ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${CYAN}  2. USA (Ultra MTU up to 5000)                                 ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${BLUE}  3. Europe (Ultra MTU up to 5000)                               ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${PURPLE}  4. Asia (Ultra MTU up to 5000)                                 ${YELLOW}║${NC}"
-echo -e "${YELLOW}║${YELLOW}  5. Auto-detect everything (Ultra MTU up to 5000)               ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${WHITE}  Select your VPS location:                                    ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${GREEN}  1. South Africa (Default - MTU 1800)                        ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${CYAN}  2. USA                                                       ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${BLUE}  3. Europe                                                    ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${PURPLE}  4. Asia                                                      ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${YELLOW}  5. Auto-detect                                                ${YELLOW}║${NC}"
 echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 read -p "$(echo -e $GREEN"Select location [1-5] [default: 1]: "$NC)" LOCATION_CHOICE
 LOCATION_CHOICE=${LOCATION_CHOICE:-1}
 
-# Set default MTU for South Africa
-if [ "$LOCATION_CHOICE" = "1" ]; then
-    MTU=1800
-    SELECTED_LOCATION="South Africa"
-    echo -e "${GREEN}✅ Using South Africa configuration (MTU: $MTU)${NC}"
-else
-    # For other locations, MTU will be auto-detected up to 5000
-    MTU=1500
-    case $LOCATION_CHOICE in
-        2)
-            SELECTED_LOCATION="USA"
-            echo -e "${CYAN}✅ USA selected - Ultra MTU mode (up to 5000)${NC}"
-            NEED_USA_OPT=1
-            ;;
-        3)
-            SELECTED_LOCATION="Europe"
-            echo -e "${BLUE}✅ Europe selected - Ultra MTU mode (up to 5000)${NC}"
-            NEED_EUROPE_OPT=1
-            ;;
-        4)
-            SELECTED_LOCATION="Asia"
-            echo -e "${PURPLE}✅ Asia selected - Ultra MTU mode (up to 5000)${NC}"
-            NEED_ASIA_OPT=1
-            ;;
-        5)
-            SELECTED_LOCATION="Auto-detect"
-            echo -e "${YELLOW}✅ Auto-detect selected - Ultra MTU mode${NC}"
-            NEED_AUTO_OPT=1
-            ;;
-    esac
-fi
+# Set default MTU (always 1800 - no testing)
+MTU=1800
+SELECTED_LOCATION="South Africa"
+
+case $LOCATION_CHOICE in
+    2)
+        SELECTED_LOCATION="USA"
+        echo -e "${CYAN}✅ USA selected${NC}"
+        NEED_USA_OPT=1
+        ;;
+    3)
+        SELECTED_LOCATION="Europe"
+        echo -e "${BLUE}✅ Europe selected${NC}"
+        NEED_EUROPE_OPT=1
+        ;;
+    4)
+        SELECTED_LOCATION="Asia"
+        echo -e "${PURPLE}✅ Asia selected${NC}"
+        NEED_ASIA_OPT=1
+        ;;
+    5)
+        SELECTED_LOCATION="Auto-detect"
+        echo -e "${YELLOW}✅ Auto-detect selected${NC}"
+        NEED_AUTO_OPT=1
+        ;;
+    *)
+        SELECTED_LOCATION="South Africa"
+        echo -e "${GREEN}✅ Using South Africa configuration${NC}"
+        ;;
+esac
 
 echo "$SELECTED_LOCATION" > /etc/elite-x/location
 echo "$MTU" > /etc/elite-x/mtu
@@ -934,7 +454,7 @@ DNSTT_PORT=5300
 DNS_PORT=53
 ############################
 
-echo "==> ELITE-X ULTRA MTU INSTALLATION STARTING..."
+echo "==> ELITE-X INSTALLATION STARTING..."
 
 # Root check
 if [ "$(id -u)" -ne 0 ]; then
@@ -1008,7 +528,7 @@ fi
 chmod 600 /etc/dnstt/server.key
 chmod 644 /etc/dnstt/server.pub
 
-# DNSTT service - MTU will be updated later for non-SA locations
+# DNSTT service - using original MTU 1800
 echo "Creating dnstt-elite-x.service..."
 cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
@@ -1025,6 +545,58 @@ LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 EOF
+
+# EDNS proxy - ORIGINAL SOURCE CODE (FIXED)
+echo "Installing EDNS proxy..."
+cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
+#!/usr/bin/env python3
+import socket,threading,struct
+L=5300
+def p(d,s):
+ if len(d)<12:return d
+ try:q,a,n,r=struct.unpack("!HHHH",d[4:12])
+ except:return d
+ o=12
+ def sk(b,o):
+  while o<len(b):
+   l=b[o];o+=1
+   if l==0:break
+   if l&0xC0==0xC0:o+=1;break
+   o+=l
+  return o
+ for _ in range(q):o=sk(d,o);o+=4
+ for _ in range(a+n):
+  o=sk(d,o)
+  if o+10>len(d):return d
+  _,_,_,l=struct.unpack("!HHIH",d[o:o+10])
+  o+=10+l
+ n=bytearray(d)
+ for _ in range(r):
+  o=sk(d,o)
+  if o+10>len(d):return d
+  t=struct.unpack("!H",d[o:o+2])[0]
+  if t==41:
+   n[o+2:o+4]=struct.pack("!H",s)
+   return bytes(n)
+  _,_,l=struct.unpack("!HIH",d[o+2:o+10])
+  o+=10+l
+ return d
+def h(sk,d,ad):
+ u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+ u.settimeout(5)
+ try:
+  u.sendto(p(d,1800),('127.0.0.1',L))
+  r,_=u.recvfrom(4096)
+  sk.sendto(p(r,512),ad)
+ except:pass
+ finally:u.close()
+s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+s.bind(('0.0.0.0',53))
+while True:
+ d,a=s.recvfrom(4096)
+ threading.Thread(target=h,args=(s,d,a),daemon=True).start()
+EOF
+chmod +x /usr/local/bin/dnstt-edns-proxy.py
 
 # Proxy service
 cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
@@ -1055,16 +627,81 @@ setup_manual_speed
 setup_auto_remover
 setup_updater
 
-# ========== APPLY LOCATION-SPECIFIC OPTIMIZATIONS ==========
+# ========== LOCATION-SPECIFIC OPTIMIZATIONS ==========
+# Using standard MTU 1800 for all locations (no testing)
 if [ ! -z "${NEED_USA_OPT:-}" ]; then
-    optimize_usa_halotel
+    echo -e "${YELLOW}🔄 Applying USA optimizations...${NC}"
+    cat >> /etc/sysctl.conf <<EOF
+# ELITE-X USA Optimization
+net.ipv4.tcp_rmem = 4096 87380 67108864
+net.ipv4.tcp_wmem = 4096 65536 67108864
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_slow_start_after_idle = 0
+net.ipv4.tcp_mtu_probing = 1
+EOF
+    sysctl -p
+    echo -e "${GREEN}✅ USA optimizations applied${NC}"
 elif [ ! -z "${NEED_EUROPE_OPT:-}" ]; then
-    optimize_europe_halotel
+    echo -e "${YELLOW}🔄 Applying Europe optimizations...${NC}"
+    cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Europe Optimization
+net.ipv4.tcp_rmem = 4096 87380 33554432
+net.ipv4.tcp_wmem = 4096 65536 33554432
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_mtu_probing = 1
+EOF
+    sysctl -p
+    echo -e "${GREEN}✅ Europe optimizations applied${NC}"
 elif [ ! -z "${NEED_ASIA_OPT:-}" ]; then
-    optimize_asia_halotel
+    echo -e "${YELLOW}🔄 Applying Asia optimizations...${NC}"
+    cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Asia Optimization
+net.ipv4.tcp_rmem = 4096 87380 16777216
+net.ipv4.tcp_wmem = 4096 65536 16777216
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+net.ipv4.tcp_notsent_lowat = 8192
+net.ipv4.tcp_mtu_probing = 1
+EOF
+    sysctl -p
+    echo -e "${GREEN}✅ Asia optimizations applied${NC}"
 elif [ ! -z "${NEED_AUTO_OPT:-}" ]; then
-    auto_detect_best_settings
+    echo -e "${YELLOW}🔄 Applying auto-detected optimizations...${NC}"
+    # Simple latency test
+    usa_latency=$(ping -c 2 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    if [ ! -z "$usa_latency" ] && [ "$usa_latency" -lt 200 ]; then
+        cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Auto USA Optimization
+net.ipv4.tcp_rmem = 4096 87380 67108864
+net.ipv4.tcp_wmem = 4096 65536 67108864
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+EOF
+    else
+        cat >> /etc/sysctl.conf <<EOF
+# ELITE-X Auto Default Optimization
+net.ipv4.tcp_rmem = 4096 87380 33554432
+net.ipv4.tcp_wmem = 4096 65536 33554432
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+EOF
+    fi
+    sysctl -p
+    echo -e "${GREEN}✅ Auto optimizations applied${NC}"
 fi
+
+# Network interface optimization
+for iface in $(ls /sys/class/net/ | grep -v lo); do
+    ethtool -K $iface tx off sg off tso off 2>/dev/null || true
+    ip link set dev $iface txqueuelen 10000 2>/dev/null || true
+done
+
+systemctl daemon-reload
+systemctl restart dnstt-elite-x dnstt-elite-x-proxy
 
 # Create expiry checker cron job
 cat > /etc/cron.hourly/elite-x-expiry <<'EOF'
@@ -1270,7 +907,7 @@ show_dashboard() {
     echo -e "${CYAN}║${WHITE}  ISP       :${GREEN} $ISP${NC}"
     echo -e "${CYAN}║${WHITE}  RAM       :${GREEN} $RAM${NC}"
     echo -e "${CYAN}║${WHITE}  VPS Loc   :${GREEN} $LOCATION${NC}"
-    echo -e "${CYAN}║${WHITE}  MTU       :${GREEN} $CURRENT_MTU ${YELLOW}$([ "$CURRENT_MTU" -gt 1800 ] && echo "⚡ ULTRA MODE" || echo "")${NC}"
+    echo -e "${CYAN}║${WHITE}  MTU       :${GREEN} $CURRENT_MTU${NC}"
     echo -e "${CYAN}║${WHITE}  Services  : DNS:$DNS PRX:$PRX${NC}"
     echo -e "${CYAN}║${WHITE}  Developer :${PURPLE} ELITE-X TEAM${NC}"
     echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
@@ -1296,7 +933,6 @@ settings_menu() {
         echo -e "${CYAN}║${WHITE}  [15] Reboot VPS${NC}"
         echo -e "${CYAN}║${WHITE}  [16] Uninstall Script${NC}"
         echo -e "${CYAN}║${WHITE}  [17] 🌍 Re-apply Location Optimization${NC}"
-        echo -e "${CYAN}║${WHITE}  [18] ⚡ Ultra MTU Detection (up to 5000)${NC}"
         echo -e "${CYAN}║${WHITE}  [0]  Back to Main Menu${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
@@ -1362,10 +998,10 @@ settings_menu() {
                 echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
                 echo -e "${WHITE}Select your VPS location:${NC}"
                 echo -e "${GREEN}  1. South Africa (MTU 1800)${NC}"
-                echo -e "${CYAN}  2. USA (Ultra MTU up to 5000)${NC}"
-                echo -e "${BLUE}  3. Europe (Ultra MTU up to 5000)${NC}"
-                echo -e "${PURPLE}  4. Asia (Ultra MTU up to 5000)${NC}"
-                echo -e "${YELLOW}  5. Auto-detect everything (Ultra MTU)${NC}"
+                echo -e "${CYAN}  2. USA${NC}"
+                echo -e "${BLUE}  3. Europe${NC}"
+                echo -e "${PURPLE}  4. Asia${NC}"
+                echo -e "${YELLOW}  5. Auto-detect${NC}"
                 read -p "Choice: " opt_choice
                 
                 case $opt_choice in
@@ -1376,19 +1012,14 @@ settings_menu() {
                        systemctl restart dnstt-elite-x dnstt-elite-x-proxy
                        echo -e "${GREEN}✅ South Africa selected (MTU 1800)${NC}" ;;
                     2) echo "USA" > /etc/elite-x/location
-                       /usr/local/bin/elite-x-optimize-usa ;;
+                       echo -e "${GREEN}✅ USA selected${NC}" ;;
                     3) echo "Europe" > /etc/elite-x/location
-                       /usr/local/bin/elite-x-optimize-europe ;;
+                       echo -e "${GREEN}✅ Europe selected${NC}" ;;
                     4) echo "Asia" > /etc/elite-x/location
-                       /usr/local/bin/elite-x-optimize-asia ;;
+                       echo -e "${GREEN}✅ Asia selected${NC}" ;;
                     5) echo "Auto-detect" > /etc/elite-x/location
-                       /usr/local/bin/elite-x-optimize-auto ;;
+                       echo -e "${GREEN}✅ Auto-detect selected${NC}" ;;
                 esac
-                read -p "Press Enter to continue..."
-                ;;
-            18)
-                echo -e "${YELLOW}⚡ Running Ultra MTU Detection (up to 5000)...${NC}"
-                /usr/local/bin/elite-x-optimize-auto
                 read -p "Press Enter to continue..."
                 ;;
             0) return ;;
@@ -1455,7 +1086,7 @@ chmod +x /usr/local/bin/elite-x
 
 # ========== CACHE NETWORK INFO FOR FAST LOADING ==========
 echo "Caching network information for fast login..."
-IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
+IP=$(curl -4 -s ifconfig.me 2>/dev/null || echo "Unknown")
 echo "$IP" > /etc/elite-x/cached_ip
 
 if [ "$IP" != "Unknown" ]; then
@@ -1505,14 +1136,14 @@ if [ ! -f /etc/elite-x/key ]; then
 fi
 
 echo "======================================"
-echo " ELITE-X ULTRA MTU INSTALLED SUCCESSFULLY "
+echo " ELITE-X INSTALLED SUCCESSFULLY "
 echo "======================================"
 EXPIRY_INFO=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
 FINAL_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
 ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "ELITEX-2026-DAN-4D-08")
 echo "DOMAIN  : ${TDOMAIN}"
 echo "LOCATION: ${SELECTED_LOCATION}"
-echo "MTU     : ${FINAL_MTU} $( [ "$FINAL_MTU" -gt 1800 ] && echo "⚡ ULTRA MODE" || echo "")"
+echo "MTU     : ${FINAL_MTU}"
 echo "ACT KEY : ${ACTIVATION_KEY}"
 echo "EXPIRY  : ${EXPIRY_INFO}"
 echo ""
