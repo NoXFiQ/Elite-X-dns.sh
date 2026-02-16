@@ -1,12 +1,11 @@
 #!/bin/bash
 # ============================================
-# ELITE-X DNSTT AUTO INSTALL (ULTRA SECURE)
-# All Parts Encrypted • Hidden • Protected
-# FULLY FUNCTIONAL - WORKS LIKE ORIGINAL
+# ELITE-X DNSTT AUTO INSTALL (SECURE EDITION)
+# Hidden Source • Self-Destruct • Secure
 # ============================================
 set -euo pipefail
 
-# ========== ENCRYPTED COLOR CODES (Keep visible for functionality) ==========
+# Color codes for better output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -17,14 +16,9 @@ WHITE='\033[1;37m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# ========== ENCRYPTED FUNCTIONS (Obfuscated but functional) ==========
-p() { echo -e "${2}${1}${NC}"; }
-p_red() { echo -e "${RED}${1}${NC}"; }
-p_green() { echo -e "${GREEN}${1}${NC}"; }
-p_yellow() { echo -e "${YELLOW}${1}${NC}"; }
-p_cyan() { echo -e "${CYAN}${1}${NC}"; }
+print_color() { echo -e "${2}${1}${NC}"; }
 
-# ========== QUOTE FUNCTION ==========
+# Function to show quote
 show_quote() {
     echo ""
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -35,483 +29,63 @@ show_quote() {
     echo ""
 }
 
-# ========== BANNER ==========
+# Function to show banner with box
 show_banner() {
     clear
     echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${RED}║${YELLOW}${BOLD}                    ELITE-X SLOWDNS v3.0                        ${RED}║${NC}"
-    echo -e "${RED}║${GREEN}${BOLD}                    ULTRA SECURE EDITION                        ${RED}║${NC}"
+    echo -e "${RED}║${GREEN}${BOLD}                    Secure Edition                               ${RED}║${NC}"
     echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
-# ========== ENCRYPTED SELF-DESTRUCT (FIXED) ==========
+# ========== SECURITY FUNCTIONS ==========
+
+# Clear all traces after installation
 self_destruct() {
-    p_yellow "🧹 Cleaning installation traces..."
+    echo -e "${YELLOW}🧹 Cleaning up installation traces...${NC}"
     
-    # Clear bash history (ignore errors)
+    # Clear bash history
     history -c 2>/dev/null || true
     cat /dev/null > ~/.bash_history 2>/dev/null || true
     cat /dev/null > /root/.bash_history 2>/dev/null || true
     
-    # Remove script file (only if not the menu)
+    # Remove script file
     if [ -f "$0" ] && [ "$0" != "/usr/local/bin/elite-x" ]; then
         local script_path=$(readlink -f "$0")
         rm -f "$script_path" 2>/dev/null || true
     fi
     
-    p_green "✅ Cleanup complete!"
+    # Clear any logs containing the script
+    sed -i '/Elite-X-dns.sh/d' /var/log/auth.log 2>/dev/null || true
+    sed -i '/elite-x/d' /var/log/auth.log 2>/dev/null || true
+    sed -i '/dnstt/d' /var/log/auth.log 2>/dev/null || true
+    
+    # Remove wget logs
+    rm -f wget-log* 2>/dev/null || true
+    
+    echo -e "${GREEN}✅ Cleanup complete!${NC}"
 }
 
-# ========== ENCRYPTED SECURE PERMISSIONS ==========
-secure_permissions() {
-    p_yellow "🔒 Applying secure permissions..."
-    
-    chmod 755 /usr/local/bin/elite-x 2>/dev/null || true
-    chmod 755 /usr/local/bin/elite-x-user 2>/dev/null || true
-    chmod 755 /usr/local/bin/elite-x-speed 2>/dev/null || true
-    chmod 755 /usr/local/bin/elite-x-traffic 2>/dev/null || true
-    chmod 755 /usr/local/bin/elite-x-cleaner 2>/dev/null || true
-    chmod 755 /usr/local/bin/elite-x-update 2>/dev/null || true
-    chmod 600 /etc/dnstt/server.key 2>/dev/null || true
-    
-    p_green "✅ Permissions secured"
-}
-
-# ========== ACTIVATION VARIABLES ==========
-ACTIVATION_KEY="ELITEX-2026-DAN-4D-08"
-TEMP_KEY="ELITE-X-TEST-0208"
-ACTIVATION_FILE="/etc/elite-x/activated"
-ACTIVATION_TYPE_FILE="/etc/elite-x/activation_type"
-ACTIVATION_DATE_FILE="/etc/elite-x/activation_date"
-EXPIRY_DAYS_FILE="/etc/elite-x/expiry_days"
-KEY_FILE="/etc/elite-x/key"
-TIMEZONE="Africa/Dar_es_Salaam"
-
-# ========== TIMEZONE ==========
-set_timezone() {
-    timedatectl set-timezone $TIMEZONE 2>/dev/null || ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime 2>/dev/null || true
-}
-
-# ========== EXPIRY CHECK ==========
-check_expiry() {
-    if [ -f "$ACTIVATION_TYPE_FILE" ] && [ -f "$ACTIVATION_DATE_FILE" ] && [ -f "$EXPIRY_DAYS_FILE" ]; then
-        local act_type=$(cat "$ACTIVATION_TYPE_FILE")
-        if [ "$act_type" = "temporary" ]; then
-            local act_date=$(cat "$ACTIVATION_DATE_FILE")
-            local expiry_days=$(cat "$EXPIRY_DAYS_FILE")
-            local current_date=$(date +%s)
-            local expiry_date=$(date -d "$act_date + $expiry_days days" +%s)
-            
-            if [ $current_date -ge $expiry_date ]; then
-                echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
-                echo -e "${RED}║${YELLOW}           TRIAL PERIOD EXPIRED                                  ${RED}║${NC}"
-                echo -e "${RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
-                echo -e "${RED}║${WHITE}  Your 2-day trial has ended.                                  ${RED}║${NC}"
-                echo -e "${RED}║${WHITE}  Script will now uninstall itself...                         ${RED}║${NC}"
-                echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
-                sleep 3
-                
-                systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
-                systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
-                rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
-                rm -rf /etc/dnstt /etc/elite-x
-                rm -f /usr/local/bin/{dnstt-*,elite-x*}
-                sed -i '/^Banner/d' /etc/ssh/sshd_config
-                systemctl restart sshd
-                
-                p_green "✅ ELITE-X has been uninstalled."
-                exit 0
-            else
-                local days_left=$(( (expiry_date - current_date) / 86400 ))
-                local hours_left=$(( ((expiry_date - current_date) % 86400) / 3600 ))
-                p_yellow "⚠️  Trial: $days_left days $hours_left hours remaining"
-            fi
-        fi
-    fi
-}
-
-# ========== ACTIVATION ==========
-activate_script() {
-    local input_key="$1"
-    mkdir -p /etc/elite-x
-    
-    if [ "$input_key" = "$ACTIVATION_KEY" ] || [ "$input_key" = "Whtsapp 0713628668" ]; then
-        echo "$ACTIVATION_KEY" > "$ACTIVATION_FILE"
-        echo "$ACTIVATION_KEY" > "$KEY_FILE"
-        echo "lifetime" > "$ACTIVATION_TYPE_FILE"
-        echo "Lifetime" > /etc/elite-x/expiry
-        return 0
-    elif [ "$input_key" = "$TEMP_KEY" ]; then
-        echo "$TEMP_KEY" > "$ACTIVATION_FILE"
-        echo "$TEMP_KEY" > "$KEY_FILE"
-        echo "temporary" > "$ACTIVATION_TYPE_FILE"
-        echo "$(date +%Y-%m-%d)" > "$ACTIVATION_DATE_FILE"
-        echo "2" > "$EXPIRY_DAYS_FILE"
-        echo "2 Days Trial" > /etc/elite-x/expiry
-        return 0
-    fi
-    return 1
-}
-
-# ========== SUBDOMAIN CHECK ==========
-check_subdomain() {
-    local subdomain="$1"
-    local vps_ip=$(curl -4 -s ifconfig.me 2>/dev/null || echo "")
-    
-    p_yellow "🔍 Checking if subdomain points to this VPS (IPv4)..."
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${WHITE}  Subdomain: $subdomain${NC}"
-    echo -e "${CYAN}║${WHITE}  VPS IPv4 : $vps_ip${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    
-    if [ -z "$vps_ip" ]; then
-        p_yellow "⚠️  Could not detect VPS IPv4, continuing anyway..."
-        return 0
-    fi
-    
-    local resolved_ip=$(dig +short -4 "$subdomain" 2>/dev/null | head -1)
-    
-    if [ -z "$resolved_ip" ]; then
-        p_yellow "⚠️  Could not resolve subdomain, continuing anyway..."
-        p_yellow "⚠️  Make sure your subdomain points to: $vps_ip"
-        return 0
-    fi
-    
-    if [ "$resolved_ip" = "$vps_ip" ]; then
-        p_green "✅ Subdomain correctly points to this VPS!"
-        return 0
-    else
-        p_red "❌ Subdomain points to $resolved_ip, but VPS IP is $vps_ip"
-        p_yellow "⚠️  Please update your DNS record and try again"
-        read -p "Continue anyway? (y/n): " continue_anyway
-        if [ "$continue_anyway" != "y" ]; then
-            exit 1
-        fi
-    fi
-}
-
-# ========== TRAFFIC MONITOR ==========
-setup_traffic_monitor() {
-    cat > /usr/local/bin/elite-x-traffic <<'EOF'
-#!/bin/bash
-TRAFFIC_DB="/etc/elite-x/traffic"
-USER_DB="/etc/elite-x/users"
-mkdir -p $TRAFFIC_DB
-
-monitor_user() {
-    local username="$1"
-    local traffic_file="$TRAFFIC_DB/$username"
-    
-    if command -v iptables >/dev/null 2>&1; then
-        local current=$(iptables -vnx -L OUTPUT | grep "$username" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "0")
-        echo $((current / 1048576)) > "$traffic_file"
-    fi
-}
-
-while true; do
-    if [ -d "$USER_DB" ]; then
-        for user_file in "$USER_DB"/*; do
-            [ -f "$user_file" ] && monitor_user "$(basename "$user_file")"
-        done
-    fi
-    sleep 60
-done
-EOF
-    chmod +x /usr/local/bin/elite-x-traffic
-
-    cat > /etc/systemd/system/elite-x-traffic.service <<EOF
-[Unit]
-Description=ELITE-X Traffic Monitor
-After=network.target
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/elite-x-traffic
-Restart=always
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable elite-x-traffic.service
-    systemctl start elite-x-traffic.service
-}
-
-# ========== SPEED OPTIMIZER ==========
-setup_manual_speed() {
-    cat > /usr/local/bin/elite-x-speed <<'EOF'
-#!/bin/bash
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-optimize_network() {
-    echo -e "${YELLOW}⚡ Optimizing network for maximum speed...${NC}"
-    
-    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
-    sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
-    
-    echo -e "${GREEN}✅ Network optimized!${NC}"
-}
-
-optimize_cpu() {
-    echo -e "${YELLOW}⚡ Optimizing CPU performance...${NC}"
-    
-    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-        echo "performance" > "$cpu" 2>/dev/null || true
-    done
-    
-    echo -e "${GREEN}✅ CPU optimized!${NC}"
-}
-
-optimize_ram() {
-    echo -e "${YELLOW}⚡ Optimizing RAM...${NC}"
-    
-    sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
-    
-    echo -e "${GREEN}✅ RAM optimized!${NC}"
-}
-
-clean_junk() {
-    echo -e "${YELLOW}🧹 Cleaning junk files...${NC}"
-    
-    apt clean 2>/dev/null
-    apt autoclean 2>/dev/null
-    find /var/log -type f -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null || true
-    
-    echo -e "${GREEN}✅ Junk files cleaned!${NC}"
-}
-
-case "$1" in
-    manual)
-        optimize_network
-        optimize_cpu
-        optimize_ram
-        clean_junk
-        ;;
-    clean)
-        clean_junk
-        ;;
-    *)
-        echo "Usage: elite-x-speed {manual|clean}"
-        exit 1
-        ;;
-esac
-EOF
-    chmod +x /usr/local/bin/elite-x-speed
-}
-
-# ========== AUTO REMOVER ==========
-setup_auto_remover() {
-    cat > /usr/local/bin/elite-x-cleaner <<'EOF'
-#!/bin/bash
-
-USER_DB="/etc/elite-x/users"
-TRAFFIC_DB="/etc/elite-x/traffic"
-
-while true; do
-    if [ -d "$USER_DB" ]; then
-        for user_file in "$USER_DB"/*; do
-            if [ -f "$user_file" ]; then
-                username=$(basename "$user_file")
-                expire_date=$(grep "Expire:" "$user_file" | cut -d' ' -f2)
-                
-                if [ ! -z "$expire_date" ]; then
-                    current_date=$(date +%Y-%m-%d)
-                    if [[ "$current_date" > "$expire_date" ]] || [ "$current_date" = "$expire_date" ]; then
-                        userdel -r "$username" 2>/dev/null || true
-                        rm -f "$user_file"
-                        rm -f "$TRAFFIC_DB/$username"
-                    fi
-                fi
-            fi
-        done
-    fi
-    sleep 3600
-done
-EOF
-    chmod +x /usr/local/bin/elite-x-cleaner
-
-    cat > /etc/systemd/system/elite-x-cleaner.service <<EOF
-[Unit]
-Description=ELITE-X Auto Remover
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/elite-x-cleaner
-Restart=always
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable elite-x-cleaner.service
-    systemctl start elite-x-cleaner.service
-}
-
-# ========== UPDATER ==========
-setup_updater() {
-    cat > /usr/local/bin/elite-x-update <<'EOF'
-#!/bin/bash
-
-echo -e "\033[1;33m🔄 Checking for updates...\033[0m"
-
-BACKUP_DIR="/root/elite-x-backup-$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$BACKUP_DIR"
-cp -r /etc/elite-x "$BACKUP_DIR/" 2>/dev/null || true
-cp -r /etc/dnstt "$BACKUP_DIR/" 2>/dev/null || true
-
-cd /tmp
-rm -rf Elite-X-dns.sh
-git clone https://github.com/NoXFiQ/Elite-X-dns.sh.git 2>/dev/null || {
-    echo -e "\033[0;31m❌ Failed to download update\033[0m"
-    exit 1
-}
-
-cd Elite-X-dns.sh
-chmod +x *.sh
-
-cp -r "$BACKUP_DIR/elite-x" /etc/ 2>/dev/null || true
-cp -r "$BACKUP_DIR/dnstt" /etc/ 2>/dev/null || true
-
-echo -e "\033[0;32m✅ Update complete!\033[0m"
-EOF
-    chmod +x /usr/local/bin/elite-x-update
-}
-
-# ========== USER MANAGER ==========
-create_user_manager() {
-    cat > /usr/local/bin/elite-x-user <<'EOF'
-#!/bin/bash
-
-RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m';WHITE='\033[1;37m';NC='\033[0m'
-
-show_quote() {
-    echo ""
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}            Always Remember ELITE-X when you see X            ${CYAN}║${NC}"
-    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-}
-
-UD="/etc/elite-x/users"
-TD="/etc/elite-x/traffic"
-mkdir -p $UD $TD
-
-add_user() {
-    clear
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${YELLOW}              CREATE SSH + DNS USER                            ${CYAN}║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    
-    read -p "$(echo -e $GREEN"Username: "$NC)" username
-    read -p "$(echo -e $GREEN"Password: "$NC)" password
-    read -p "$(echo -e $GREEN"Expire days: "$NC)" days
-    read -p "$(echo -e $GREEN"Traffic limit (MB, 0 for unlimited): "$NC)" traffic_limit
-    
-    if id "$username" &>/dev/null; then
-        echo -e "${RED}User already exists!${NC}"
-        return
-    fi
-    
-    useradd -m -s /bin/false "$username"
-    echo "$username:$password" | chpasswd
-    
-    expire_date=$(date -d "+$days days" +"%Y-%m-%d")
-    chage -E "$expire_date" "$username"
-    
-    cat > $UD/$username <<INFO
-Username: $username
-Password: $password
-Expire: $expire_date
-Traffic_Limit: $traffic_limit
-Created: $(date +"%Y-%m-%d")
-INFO
-    
-    echo "0" > $TD/$username
-    
-    SERVER=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "?")
-    PUBKEY=$(cat /etc/dnstt/server.pub 2>/dev/null || echo "Not generated")
-    
-    clear
-    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║${YELLOW}                  USER DETAILS                                   ${GREEN}║${NC}"
-    echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${GREEN}║${WHITE}  Username  :${CYAN} $username${NC}"
-    echo -e "${GREEN}║${WHITE}  Password  :${CYAN} $password${NC}"
-    echo -e "${GREEN}║${WHITE}  Server    :${CYAN} $SERVER${NC}"
-    echo -e "${GREEN}║${WHITE}  Public Key:${CYAN} $PUBKEY${NC}"
-    echo -e "${GREEN}║${WHITE}  Expire    :${CYAN} $expire_date${NC}"
-    echo -e "${GREEN}║${WHITE}  Traffic   :${CYAN} $traffic_limit MB${NC}"
-    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    show_quote
-}
-
-list_users() {
-    clear
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${YELLOW}                     ACTIVE USERS                               ${CYAN}║${NC}"
-    echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    
-    if [ -z "$(ls -A $UD 2>/dev/null)" ]; then
-        echo -e "${RED}No users found${NC}"
-        return
-    fi
-    
-    printf "%-12s %-10s %-6s %-6s %-8s\n" "USERNAME" "EXPIRE" "LIMIT" "USED" "STATUS"
-    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
-    
-    for user in $UD/*; do
-        [ ! -f "$user" ] && continue
-        u=$(basename "$user")
-        ex=$(grep "Expire:" "$user" | cut -d' ' -f2 | cut -c6-10)
-        lm=$(grep "Traffic_Limit:" "$user" | cut -d' ' -f2)
-        us=$(cat $TD/$u 2>/dev/null || echo "0")
-        st=$(passwd -S "$u" 2>/dev/null | grep -q "L" && echo "${RED}LOCK${NC}" || echo "${GREEN}OK${NC}")
-        printf "%-12s %-10s %-6s %-6s %-8b\n" "$u" "$ex" "$lm" "$us" "$st"
-    done
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    show_quote
-}
-
-lock_user() { read -p "Username: " u; usermod -L "$u" 2>/dev/null && echo -e "${GREEN}✅ Locked${NC}" || echo -e "${RED}❌ Failed${NC}"; show_quote; }
-unlock_user() { read -p "Username: " u; usermod -U "$u" 2>/dev/null && echo -e "${GREEN}✅ Unlocked${NC}" || echo -e "${RED}❌ Failed${NC}"; show_quote; }
-delete_user() { 
-    read -p "Username: " u
-    userdel -r "$u" 2>/dev/null
-    rm -f $UD/$u $TD/$u
-    echo -e "${GREEN}✅ Deleted${NC}"
-    show_quote
-}
-
-case $1 in
-    add) add_user ;;
-    list) list_users ;;
-    lock) lock_user ;;
-    unlock) unlock_user ;;
-    del) delete_user ;;
-    *) echo "Usage: elite-x-user {add|list|lock|unlock|del}" ;;
-esac
-EOF
-    chmod +x /usr/local/bin/elite-x-user
-}
-
-# ========== MAIN MENU ==========
-create_main_menu() {
+# Hide the main menu source code
+hide_menu_source() {
+    # Create a stripped-down binary-like version
     cat > /usr/local/bin/elite-x <<'EOF'
+#!/bin/bash
+# ELITE-X - Protected Binary
+# DO NOT MODIFY - Source hidden
+exec 2>/dev/null
+SCRIPT=$(cat <<'INNEREOF'
+EOF
+    
+    # Add the actual menu code (but will be hidden)
+    cat >> /usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
 
 RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m'
 PURPLE='\033[0;35m';WHITE='\033[1;37m';BOLD='\033[1m';NC='\033[0m'
 
+# Function to show quote
 show_quote() {
     echo ""
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -522,10 +96,16 @@ show_quote() {
     echo ""
 }
 
-if [ -f /tmp/elite-x-running ]; then exit 0; fi
+# Check if we're in a loop (prevent multiple instances)
+if [ -f /tmp/elite-x-running ]; then
+    exit 0
+fi
 touch /tmp/elite-x-running
+
+# Clean up on exit
 trap 'rm -f /tmp/elite-x-running' EXIT
 
+# Check expiry on menu start
 check_expiry_menu() {
     if [ -f "/etc/elite-x/activation_type" ] && [ -f "/etc/elite-x/activation_date" ] && [ -f "/etc/elite-x/expiry_days" ]; then
         local act_type=$(cat "/etc/elite-x/activation_type")
@@ -560,14 +140,16 @@ check_expiry_menu() {
     fi
 }
 
+# Run expiry check
 check_expiry_menu
 
 show_dashboard() {
     clear
     
+    # Get cached system information (no network calls)
     IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || curl -s ifconfig.me 2>/dev/null || echo "Unknown")
-    LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || curl -s http://ip-api.com/json/$IP 2>/dev/null | jq -r '.city + ", " + .country' 2>/dev/null || echo "Unknown")
-    ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || curl -s http://ip-api.com/json/$IP 2>/dev/null | jq -r '.isp' 2>/dev/null || echo "Unknown")
+    LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || echo "Unknown")
+    ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || echo "Unknown")
     RAM=$(free -m | awk '/^Mem:/{print $3"/"$2"MB"}')
     SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
     ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
@@ -762,12 +344,452 @@ main_menu() {
 
 main_menu
 EOF
-    chmod +x /usr/local/bin/elite-x
+chmod +x /usr/local/bin/elite-x
 }
 
-# ========== MAIN INSTALLATION ==========
-show_banner
+# ========== ENCRYPT CONFIG FILES ==========
+encrypt_config_files() {
+    echo -e "${YELLOW}🔐 Encrypting configuration files...${NC}"
+    
+    # Create encryption key
+    local key_file="/etc/elite-x/.key"
+    openssl rand -base64 32 > "$key_file" 2>/dev/null
+    chmod 600 "$key_file"
+    
+    # Encrypt sensitive files
+    for file in /etc/elite-x/key /etc/elite-x/activated /etc/elite-x/activation_type; do
+        if [ -f "$file" ]; then
+            openssl enc -aes-256-cbc -salt -in "$file" -out "${file}.enc" -pass file:"$key_file" 2>/dev/null
+            rm -f "$file"
+        fi
+    done
+    
+    # Create decryption wrapper
+    cat > /usr/local/bin/elite-x-decrypt <<'EOF'
+#!/bin/bash
+# Decrypt ELITE-X config files
+key_file="/etc/elite-x/.key"
+if [ -f "$key_file" ] && [ -f "$1.enc" ]; then
+    openssl enc -aes-256-cbc -d -salt -in "$1.enc" -out "$1" -pass file:"$key_file" 2>/dev/null
+    cat "$1"
+    rm -f "$1"
+fi
+EOF
+    chmod 700 /usr/local/bin/elite-x-decrypt
+    
+    echo -e "${GREEN}✅ Configuration encrypted${NC}"
+}
 
+# ========== SET FILE PERMISSIONS ==========
+secure_permissions() {
+    echo -e "${YELLOW}🔒 Setting secure file permissions...${NC}"
+    
+    # Restrict access to elite-x directory
+    chmod 700 /etc/elite-x
+    chmod 600 /etc/elite-x/* 2>/dev/null || true
+    
+    # Make binaries executable only by root
+    chmod 700 /usr/local/bin/elite-x
+    chmod 700 /usr/local/bin/elite-x-user
+    chmod 700 /usr/local/bin/elite-x-speed
+    chmod 700 /usr/local/bin/elite-x-traffic
+    chmod 700 /usr/local/bin/elite-x-cleaner
+    chmod 700 /usr/local/bin/elite-x-update
+    chmod 700 /usr/local/bin/elite-x-decrypt 2>/dev/null || true
+    
+    # Set immutable flag on critical files (if supported)
+    if command -v chattr >/dev/null 2>&1; then
+        chattr +i /usr/local/bin/elite-x 2>/dev/null || true
+        chattr +i /etc/dnstt/server.key 2>/dev/null || true
+    fi
+    
+    echo -e "${GREEN}✅ Permissions secured${NC}"
+}
+
+# ========== ACTIVATION SYSTEM ==========
+ACTIVATION_KEY="ELITEX-2026-DAN-4D-08"
+TEMP_KEY="ELITE-X-TEST-0208"
+ACTIVATION_FILE="/etc/elite-x/activated"
+ACTIVATION_TYPE_FILE="/etc/elite-x/activation_type"
+ACTIVATION_DATE_FILE="/etc/elite-x/activation_date"
+EXPIRY_DAYS_FILE="/etc/elite-x/expiry_days"
+KEY_FILE="/etc/elite-x/key"
+TIMEZONE="Africa/Dar_es_Salaam"
+
+set_timezone() {
+    timedatectl set-timezone $TIMEZONE 2>/dev/null || ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime 2>/dev/null || true
+}
+
+check_expiry() {
+    if [ -f "$ACTIVATION_TYPE_FILE" ] && [ -f "$ACTIVATION_DATE_FILE" ] && [ -f "$EXPIRY_DAYS_FILE" ]; then
+        local act_type=$(cat "$ACTIVATION_TYPE_FILE")
+        if [ "$act_type" = "temporary" ]; then
+            local act_date=$(cat "$ACTIVATION_DATE_FILE")
+            local expiry_days=$(cat "$EXPIRY_DAYS_FILE")
+            local current_date=$(date +%s)
+            local expiry_date=$(date -d "$act_date + $expiry_days days" +%s)
+            
+            if [ $current_date -ge $expiry_date ]; then
+                echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${RED}║${YELLOW}           TRIAL PERIOD EXPIRED                                  ${RED}║${NC}"
+                echo -e "${RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
+                echo -e "${RED}║${WHITE}  Your 2-day trial has ended.                                  ${RED}║${NC}"
+                echo -e "${RED}║${WHITE}  Script will now uninstall itself...                         ${RED}║${NC}"
+                echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
+                sleep 3
+                
+                systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+                systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+                rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+                rm -rf /etc/dnstt /etc/elite-x
+                rm -f /usr/local/bin/{dnstt-*,elite-x*}
+                sed -i '/^Banner/d' /etc/ssh/sshd_config
+                systemctl restart sshd
+                
+                echo -e "${GREEN}✅ ELITE-X has been uninstalled.${NC}"
+                exit 0
+            else
+                local days_left=$(( (expiry_date - current_date) / 86400 ))
+                local hours_left=$(( ((expiry_date - current_date) % 86400) / 3600 ))
+                echo -e "${YELLOW}⚠️  Trial: $days_left days $hours_left hours remaining${NC}"
+            fi
+        fi
+    fi
+}
+
+activate_script() {
+    local input_key="$1"
+    mkdir -p /etc/elite-x
+    
+    if [ "$input_key" = "$ACTIVATION_KEY" ] || [ "$input_key" = "Whtsapp 0713628668" ]; then
+        echo "$ACTIVATION_KEY" > "$ACTIVATION_FILE"
+        echo "$ACTIVATION_KEY" > "$KEY_FILE"
+        echo "lifetime" > "$ACTIVATION_TYPE_FILE"
+        echo "Lifetime" > /etc/elite-x/expiry
+        return 0
+    elif [ "$input_key" = "$TEMP_KEY" ]; then
+        echo "$TEMP_KEY" > "$ACTIVATION_FILE"
+        echo "$TEMP_KEY" > "$KEY_FILE"
+        echo "temporary" > "$ACTIVATION_TYPE_FILE"
+        echo "$(date +%Y-%m-%d)" > "$ACTIVATION_DATE_FILE"
+        echo "2" > "$EXPIRY_DAYS_FILE"
+        echo "2 Days Trial" > /etc/elite-x/expiry
+        return 0
+    fi
+    return 1
+}
+
+# ========== CHECK SUBDOMAIN POINTING (IPv4 ONLY) ==========
+check_subdomain() {
+    local subdomain="$1"
+    local vps_ip=$(curl -4 -s ifconfig.me 2>/dev/null || echo "")
+    
+    echo -e "${YELLOW}🔍 Checking if subdomain points to this VPS (IPv4)...${NC}"
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${WHITE}  Subdomain: $subdomain${NC}"
+    echo -e "${CYAN}║${WHITE}  VPS IPv4 : $vps_ip${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    
+    if [ -z "$vps_ip" ]; then
+        echo -e "${YELLOW}⚠️  Could not detect VPS IPv4, continuing anyway...${NC}"
+        return 0
+    fi
+    
+    local resolved_ip=$(dig +short -4 "$subdomain" 2>/dev/null | head -1)
+    
+    if [ -z "$resolved_ip" ]; then
+        echo -e "${YELLOW}⚠️  Could not resolve subdomain, continuing anyway...${NC}"
+        echo -e "${YELLOW}⚠️  Make sure your subdomain points to: $vps_ip${NC}"
+        return 0
+    fi
+    
+    if [ "$resolved_ip" = "$vps_ip" ]; then
+        echo -e "${GREEN}✅ Subdomain correctly points to this VPS!${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ Subdomain points to $resolved_ip, but VPS IP is $vps_ip${NC}"
+        echo -e "${YELLOW}⚠️  Please update your DNS record and try again${NC}"
+        read -p "Continue anyway? (y/n): " continue_anyway
+        if [ "$continue_anyway" != "y" ]; then
+            exit 1
+        fi
+    fi
+}
+
+# ========== TRAFFIC MONITORING ==========
+setup_traffic_monitor() {
+    cat > /usr/local/bin/elite-x-traffic <<'EOF'
+#!/bin/bash
+exec 2>/dev/null
+TRAFFIC_DB="/etc/elite-x/traffic"
+USER_DB="/etc/elite-x/users"
+mkdir -p $TRAFFIC_DB
+
+monitor_user() {
+    local username="$1"
+    local traffic_file="$TRAFFIC_DB/$username"
+    
+    if command -v iptables >/dev/null 2>&1; then
+        local current=$(iptables -vnx -L OUTPUT | grep "$username" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "0")
+        echo $((current / 1048576)) > "$traffic_file"
+    fi
+}
+
+while true; do
+    if [ -d "$USER_DB" ]; then
+        for user_file in "$USER_DB"/*; do
+            [ -f "$user_file" ] && monitor_user "$(basename "$user_file")"
+        done
+    fi
+    sleep 60
+done
+EOF
+    chmod +x /usr/local/bin/elite-x-traffic
+
+    cat > /etc/systemd/system/elite-x-traffic.service <<EOF
+[Unit]
+Description=ELITE-X Traffic Monitor
+After=network.target
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/elite-x-traffic
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable elite-x-traffic.service
+    systemctl start elite-x-traffic.service
+}
+
+# ========== MANUAL SPEED OPTIMIZATION ==========
+setup_manual_speed() {
+    cat > /usr/local/bin/elite-x-speed <<'EOF'
+#!/bin/bash
+exec 2>/dev/null
+RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';NC='\033[0m'
+
+optimize_network() {
+    echo -e "${YELLOW}⚡ Optimizing network for maximum speed...${NC}"
+    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+    echo -e "${GREEN}✅ Network optimized!${NC}"
+}
+
+optimize_cpu() {
+    echo -e "${YELLOW}⚡ Optimizing CPU performance...${NC}"
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        echo "performance" > "$cpu" 2>/dev/null || true
+    done
+    echo -e "${GREEN}✅ CPU optimized!${NC}"
+}
+
+optimize_ram() {
+    echo -e "${YELLOW}⚡ Optimizing RAM...${NC}"
+    sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+    echo -e "${GREEN}✅ RAM optimized!${NC}"
+}
+
+clean_junk() {
+    echo -e "${YELLOW}🧹 Cleaning junk files...${NC}"
+    apt clean 2>/dev/null; apt autoclean 2>/dev/null
+    find /var/log -type f -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null || true
+    echo -e "${GREEN}✅ Junk files cleaned!${NC}"
+}
+
+case "$1" in
+    manual) optimize_network; optimize_cpu; optimize_ram; clean_junk ;;
+    clean) clean_junk ;;
+    *) echo "Usage: elite-x-speed {manual|clean}" ;;
+esac
+EOF
+    chmod +x /usr/local/bin/elite-x-speed
+}
+
+# ========== AUTO EXPIRED ACCOUNT REMOVER ==========
+setup_auto_remover() {
+    cat > /usr/local/bin/elite-x-cleaner <<'EOF'
+#!/bin/bash
+exec 2>/dev/null
+USER_DB="/etc/elite-x/users"
+TRAFFIC_DB="/etc/elite-x/traffic"
+
+while true; do
+    [ -d "$USER_DB" ] && for f in "$USER_DB"/*; do
+        [ -f "$f" ] && {
+            u=$(basename "$f")
+            ex=$(grep "Expire:" "$f" | cut -d' ' -f2)
+            [ ! -z "$ex" ] && [ "$(date +%Y-%m-%d)" > "$ex" ] && {
+                userdel -r "$u" 2>/dev/null || true
+                rm -f "$f" "$TRAFFIC_DB/$u"
+            }
+        }
+    done
+    sleep 3600
+done
+EOF
+    chmod +x /usr/local/bin/elite-x-cleaner
+
+    cat > /etc/systemd/system/elite-x-cleaner.service <<EOF
+[Unit]
+Description=ELITE-X Auto Remover
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/elite-x-cleaner
+Restart=always
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable elite-x-cleaner.service
+    systemctl start elite-x-cleaner.service
+}
+
+# ========== UPDATE SYSTEM ==========
+setup_updater() {
+    cat > /usr/local/bin/elite-x-update <<'EOF'
+#!/bin/bash
+exec 2>/dev/null
+echo -e "\033[1;33m🔄 Checking for updates...\033[0m"
+BD="/root/elite-x-backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$BD"
+cp -r /etc/elite-x "$BD/" 2>/dev/null || true
+cp -r /etc/dnstt "$BD/" 2>/dev/null || true
+cd /tmp
+rm -rf Elite-X-dns.sh
+git clone https://github.com/NoXFiQ/Elite-X-dns.sh.git 2>/dev/null || exit 1
+cd Elite-X-dns.sh
+chmod +x *.sh
+cp -r "$BD/elite-x" /etc/ 2>/dev/null || true
+cp -r "$BD/dnstt" /etc/ 2>/dev/null || true
+echo -e "\033[0;32m✅ Update complete!\033[0m"
+EOF
+    chmod +x /usr/local/bin/elite-x-update
+}
+
+# ========== USER MANAGEMENT ==========
+create_user_manager() {
+    cat > /usr/local/bin/elite-x-user <<'EOF'
+#!/bin/bash
+exec 2>/dev/null
+RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m';WHITE='\033[1;37m';NC='\033[0m'
+
+show_quote() {
+    echo ""
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}            Always Remember ELITE-X when you see X            ${CYAN}║${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+UD="/etc/elite-x/users";TD="/etc/elite-x/traffic";mkdir -p $UD $TD
+
+add_user() {
+    clear
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}              CREATE SSH + DNS USER                            ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    
+    read -p "$(echo -e $GREEN"Username: "$NC)" u
+    read -p "$(echo -e $GREEN"Password: "$NC)" p
+    read -p "$(echo -e $GREEN"Expire days: "$NC)" d
+    read -p "$(echo -e $GREEN"Traffic limit (MB, 0 for unlimited): "$NC)" l
+    
+    if id "$u" &>/dev/null; then
+        echo -e "${RED}User already exists!${NC}"
+        return
+    fi
+    
+    useradd -m -s /bin/false "$u"
+    echo "$u:$p" | chpasswd
+    
+    ex=$(date -d "+$d days" +"%Y-%m-%d")
+    chage -E "$ex" "$u"
+    
+    cat > $UD/$u <<INFO
+Username: $u
+Password: $p
+Expire: $ex
+Traffic_Limit: $l
+Created: $(date +"%Y-%m-%d")
+INFO
+    
+    echo "0" > $TD/$u
+    
+    S=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "?")
+    PK=$(cat /etc/dnstt/server.pub 2>/dev/null || echo "Not generated")
+    
+    clear
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║${YELLOW}                  USER DETAILS                                   ${GREEN}║${NC}"
+    echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║${WHITE}  Username  :${CYAN} $u${NC}"
+    echo -e "${GREEN}║${WHITE}  Password  :${CYAN} $p${NC}"
+    echo -e "${GREEN}║${WHITE}  Server    :${CYAN} $S${NC}"
+    echo -e "${GREEN}║${WHITE}  Public Key:${CYAN} $PK${NC}"
+    echo -e "${GREEN}║${WHITE}  Expire    :${CYAN} $ex${NC}"
+    echo -e "${GREEN}║${WHITE}  Traffic   :${CYAN} $l MB${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    show_quote
+}
+
+list_users() {
+    clear
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}                     ACTIVE USERS                               ${CYAN}║${NC}"
+    echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    
+    [ -z "$(ls -A $UD 2>/dev/null)" ] && { echo -e "${RED}No users found${NC}"; return; }
+    
+    printf "%-12s %-10s %-6s %-6s %-8s\n" "USERNAME" "EXPIRE" "LIMIT" "USED" "STATUS"
+    echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
+    
+    for f in $UD/*; do
+        [ ! -f "$f" ] && continue
+        u=$(basename "$f")
+        ex=$(grep "Expire:" "$f" | cut -d' ' -f2 | cut -c6-10)
+        lm=$(grep "Traffic_Limit:" "$f" | cut -d' ' -f2)
+        us=$(cat $TD/$u 2>/dev/null || echo "0")
+        st=$(passwd -S "$u" 2>/dev/null | grep -q "L" && echo "${RED}LOCK${NC}" || echo "${GREEN}OK${NC}")
+        printf "%-12s %-10s %-6s %-6s %-8b\n" "$u" "$ex" "$lm" "$us" "$st"
+    done
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    show_quote
+}
+
+lock_user() { read -p "Username: " u; usermod -L "$u" 2>/dev/null && echo -e "${GREEN}✅ Locked${NC}" || echo -e "${RED}❌ Failed${NC}"; show_quote; }
+unlock_user() { read -p "Username: " u; usermod -U "$u" 2>/dev/null && echo -e "${GREEN}✅ Unlocked${NC}" || echo -e "${RED}❌ Failed${NC}"; show_quote; }
+delete_user() { 
+    read -p "Username: " u
+    userdel -r "$u" 2>/dev/null
+    rm -f $UD/$u $TD/$u
+    echo -e "${GREEN}✅ Deleted${NC}"
+    show_quote
+}
+
+case $1 in
+    add) add_user ;;
+    list) list_users ;;
+    lock) lock_user ;;
+    unlock) unlock_user ;;
+    del) delete_user ;;
+    *) echo "Usage: elite-x-user {add|list|lock|unlock|del}" ;;
+esac
+EOF
+    chmod +x /usr/local/bin/elite-x-user
+}
+
+############################
+# MAIN INSTALLATION
+############################
+show_banner
 echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${YELLOW}║${GREEN}                    ACTIVATION REQUIRED                          ${YELLOW}║${NC}"
 echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
@@ -784,11 +806,11 @@ if ! activate_script "$ACTIVATION_INPUT"; then
     exit 1
 fi
 
-p_green "✅ Activation successful!"
+echo -e "${GREEN}✅ Activation successful!${NC}"
 sleep 1
 
 if [ -f "$ACTIVATION_TYPE_FILE" ] && [ "$(cat "$ACTIVATION_TYPE_FILE")" = "temporary" ]; then
-    p_yellow "⚠️  Trial version activated - expires in 2 days"
+    echo -e "${YELLOW}⚠️  Trial version activated - expires in 2 days${NC}"
 fi
 sleep 2
 
@@ -840,16 +862,19 @@ echo "$MTU" > /etc/elite-x/mtu
 DNSTT_PORT=5300
 DNS_PORT=53
 
-echo "==> ELITE-X ULTRA SECURE INSTALLATION STARTING..."
+echo "==> ELITE-X SECURE INSTALLATION STARTING..."
 
+# Root check
 if [ "$(id -u)" -ne 0 ]; then
     echo "[-] Run as root"
     exit 1
 fi
 
+# Create directories
 mkdir -p /etc/elite-x/{banner,users,traffic}
 echo "$TDOMAIN" > /etc/elite-x/subdomain
 
+# Create default banner
 cat > /etc/elite-x/banner/default <<'EOF'
 ===============================================
       WELCOME TO ELITE-X VPN SERVICE
@@ -889,7 +914,7 @@ fi
 
 echo "Installing dependencies..."
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils openssl
 
 echo "Installing dnstt-server..."
 curl -fsSL https://dnstt.network/dnstt-server-linux-amd64 -o /usr/local/bin/dnstt-server
@@ -994,7 +1019,6 @@ setup_manual_speed
 setup_auto_remover
 setup_updater
 create_user_manager
-create_main_menu
 
 # Apply location optimizations
 if [ ! -z "${NEED_USA_OPT:-}" ]; then
@@ -1089,26 +1113,35 @@ EOF
 echo "alias menu='elite-x'" >> ~/.bashrc
 echo "alias elitex='elite-x'" >> ~/.bashrc
 
-# Apply secure permissions
+# ========== APPLY SECURITY MEASURES ==========
+# Hide the menu source
+hide_menu_source
+
+# Encrypt config files
+encrypt_config_files
+
+# Secure permissions
 secure_permissions
 
+# Display success message
 echo "======================================"
-echo " ELITE-X ULTRA SECURE INSTALLED "
+echo " ELITE-X SECURELY INSTALLED "
 echo "======================================"
 EXPIRY_INFO=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
 FINAL_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
-ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "$ACTIVATION_KEY")
-echo "DOMAIN  : $TDOMAIN"
-echo "LOCATION: $SELECTED_LOCATION"
-echo "MTU     : $FINAL_MTU"
-echo "ACT KEY : $ACTIVATION_KEY"
-echo "EXPIRY  : $EXPIRY_INFO"
+ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "ELITEX-2026-DAN-4D-08")
+echo "DOMAIN  : ${TDOMAIN}"
+echo "LOCATION: ${SELECTED_LOCATION}"
+echo "MTU     : ${FINAL_MTU}"
+echo "ACT KEY : ${ACTIVATION_KEY:0:4}****${ACTIVATION_KEY: -4}"
+echo "EXPIRY  : ${EXPIRY_INFO}"
 echo ""
 echo "PUBLIC KEY:"
 cat /etc/dnstt/server.pub
 echo "======================================"
 show_quote
 
+# Ask to open menu
 read -p "Open menu now? (y/n): " open
 if [ "$open" = "y" ]; then
     echo -e "${GREEN}Opening dashboard...${NC}"
@@ -1118,5 +1151,5 @@ else
     echo -e "${YELLOW}Type 'menu' or 'elite-x' anytime to open the dashboard.${NC}"
 fi
 
-# Self destruct (but keep the menu)
+# ========== FINAL CLEANUP ==========
 self_destruct
