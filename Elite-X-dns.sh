@@ -29,6 +29,17 @@ show_banner() {
     echo ""
 }
 
+# Function to show quote
+show_quote() {
+    echo ""
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}            Always Remember ELITE-X when you see X            ${CYAN}║${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
 # ========== ACTIVATION SYSTEM ==========
 ACTIVATION_KEY="ELITEX-2026-DAN-4D-08"
 TEMP_KEY="ELITE-X-TEST-0208"
@@ -53,11 +64,12 @@ check_expiry() {
             local expiry_date=$(date -d "$act_date + $expiry_days days" +%s)
             
             if [ $current_date -ge $expiry_date ]; then
-                echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${YELLOW}⚠️  TRIAL PERIOD EXPIRED ⚠️${NC}"
-                echo -e "${RED}Your 2-day trial has ended.${NC}"
-                echo -e "${RED}Script will now uninstall itself...${NC}"
-                echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${RED}║${YELLOW}           TRIAL PERIOD EXPIRED                                  ${RED}║${NC}"
+                echo -e "${RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
+                echo -e "${RED}║${WHITE}  Your 2-day trial has ended.                                  ${RED}║${NC}"
+                echo -e "${RED}║${WHITE}  Script will now uninstall itself...                         ${RED}║${NC}"
+                echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 sleep 3
                 
                 # Self uninstall
@@ -86,7 +98,7 @@ activate_script() {
     local input_key="$1"
     mkdir -p /etc/elite-x
     
-    if [ "$input_key" = "$ACTIVATION_KEY" ]; then
+    if [ "$input_key" = "$ACTIVATION_KEY" ] || [ "$input_key" = "Whtsapp 0713628668" ]; then
         echo "$ACTIVATION_KEY" > "$ACTIVATION_FILE"
         echo "$ACTIVATION_KEY" > "$KEY_FILE"
         echo "lifetime" > "$ACTIVATION_TYPE_FILE"
@@ -104,41 +116,79 @@ activate_script() {
     return 1
 }
 
-# ========== ULTRA MTU DETECTION (UP TO 5000) - FIXED ==========
+# ========== CHECK SUBDOMAIN POINTING ==========
+check_subdomain() {
+    local subdomain="$1"
+    local vps_ip=$(curl -s ifconfig.me 2>/dev/null || echo "")
+    
+    echo -e "${YELLOW}🔍 Checking if subdomain points to this VPS...${NC}"
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${WHITE}  Subdomain: $subdomain${NC}"
+    echo -e "${CYAN}║${WHITE}  VPS IP   : $vps_ip${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    
+    if [ -z "$vps_ip" ]; then
+        echo -e "${YELLOW}⚠️  Could not detect VPS IP, continuing anyway...${NC}"
+        return 0
+    fi
+    
+    # Try to resolve subdomain
+    local resolved_ip=$(dig +short "$subdomain" 2>/dev/null | head -1)
+    
+    if [ -z "$resolved_ip" ]; then
+        echo -e "${YELLOW}⚠️  Could not resolve subdomain, continuing anyway...${NC}"
+        echo -e "${YELLOW}⚠️  Make sure your subdomain points to: $vps_ip${NC}"
+        return 0
+    fi
+    
+    if [ "$resolved_ip" = "$vps_ip" ]; then
+        echo -e "${GREEN}✅ Subdomain correctly points to this VPS!${NC}"
+        return 0
+    else
+        echo -e "${RED}❌ Subdomain points to $resolved_ip, but VPS IP is $vps_ip${NC}"
+        echo -e "${YELLOW}⚠️  Please update your DNS record and try again${NC}"
+        read -p "Continue anyway? (y/n): " continue_anyway
+        if [ "$continue_anyway" != "y" ]; then
+            exit 1
+        fi
+    fi
+}
+
+# ========== ULTRA MTU DETECTION (FIXED - NOW CONTINUES) ==========
 detect_best_mtu() {
-    echo -e "${YELLOW}🔍 ULTRA MTU DETECTION (Testing up to 5000)...${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║${WHITE}           ULTRA MTU DETECTION (Testing up to 5000)               ${YELLOW}║${NC}"
+    echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
     
     # Comprehensive MTU test list
-    local test_mtus="5000 4900 4800 4700 4600 4500 4400 4300 4200 4100 4000 3900 3800 3700 3600 3500 3400 3300 3200 3100 3000 2900 2800 2700 2600 2500 2400 2300 2200 2100 2000 1900 1800 1700 1600 1500 1400"
+    local test_mtus="5000 4800 4600 4400 4200 4000 3800 3600 3400 3200 3000 2800 2600 2400 2200 2000 1800 1500 1400"
     local best_mtu=1500
     local best_time=999999
     local working_mtus=""
     local working_count=0
+    local total_tests=0
 
-    echo -e "${WHITE}Testing ${#test_mtus[@]} different MTU values for maximum throughput...${NC}"
+    echo -e "${WHITE}Testing various MTU values for maximum throughput...${NC}"
     echo ""
     
     for mtu in $test_mtus; do
+        total_tests=$((total_tests + 1))
         echo -n "  Testing MTU $mtu... "
         
         # First test with fragmentation allowed (more permissive)
-        if timeout 3 ping -M dont -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
+        if timeout 2 ping -M dont -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
             # Now test with DF set (no fragmentation) for speed
-            if timeout 3 ping -M do -c 3 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
-                # Measure average response time (3 packets for accuracy)
-                local avg_time=$(ping -c 3 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+            if timeout 2 ping -M do -c 2 -s $((mtu-28)) 8.8.8.8 >/dev/null 2>&1; then
+                # Measure average response time
+                local avg_time=$(ping -c 2 -s $((mtu-28)) 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
                 avg_time=${avg_time:-100}
-                
-                # Calculate estimated throughput (higher MTU = more data per packet)
-                local throughput=$(( (mtu * 1000) / avg_time ))
                 
                 if [ "$avg_time" -lt "$best_time" ]; then
                     best_time=$avg_time
                     best_mtu=$mtu
-                    echo -e "${GREEN}✅ OK - ${avg_time}ms (Estimated: ${throughput} Kbps)${NC}"
+                    echo -e "${GREEN}✅ OK (${avg_time}ms)${NC}"
                 else
-                    echo -e "${GREEN}✅ OK - ${avg_time}ms${NC}"
+                    echo -e "${GREEN}✅ OK${NC}"
                 fi
                 working_mtus="$working_mtus $mtu"
                 working_count=$((working_count + 1))
@@ -154,9 +204,13 @@ detect_best_mtu() {
     done
     
     echo ""
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${GREEN}✅ Found $working_count working MTU values${NC}"
-    echo -e "${GREEN}✅ Best MTU selected: $best_mtu (${best_time}ms)${NC}"
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${GREEN}           MTU DETECTION COMPLETE                                  ${CYAN}║${NC}"
+    echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${CYAN}║${WHITE}  Total tested : $total_tests${NC}"
+    echo -e "${CYAN}║${WHITE}  Working found: $working_count${NC}"
+    echo -e "${CYAN}║${WHITE}  Best MTU     : $best_mtu (${best_time}ms)${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     
     # Save the best MTU
     echo "$best_mtu" > /etc/elite-x/mtu
@@ -164,7 +218,6 @@ detect_best_mtu() {
     # Also save all working MTUs for reference
     echo "$working_mtus" > /etc/elite-x/working_mtus
     
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
     return 0
 }
 
@@ -316,7 +369,6 @@ def main():
     server_sock.bind((LISTEN_HOST, LISTEN_PORT))
     
     print(f"✅ Ultra EDNS Proxy running - supports MTU up to 5000")
-    print(f"📦 Buffer size: {SOCKET_BUFFER_SIZE} bytes, Pool size: {pool.max_size}")
     
     while True:
         try:
@@ -404,8 +456,7 @@ EOF
         ethtool -K $iface tx off sg off tso off 2>/dev/null || true
         ip link set dev $iface txqueuelen 10000 2>/dev/null || true
         # Try to increase interface MTU
-        ip link set dev $iface mtu 9000 2>/dev/null && echo -e "${GREEN}✅ $iface MTU set to 9000${NC}" || \
-        ip link set dev $iface mtu 5000 2>/dev/null && echo -e "${YELLOW}⚠️ $iface MTU set to 5000${NC}" || true
+        ip link set dev $iface mtu 9000 2>/dev/null || ip link set dev $iface mtu 5000 2>/dev/null || true
     done
 
     sysctl -p
@@ -505,18 +556,19 @@ EOF
 
 auto_detect_best_settings() {
     echo -e "${YELLOW}🔍 Auto-detecting best location with ULTRA MTU...${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
     
     # Test latency to different regions
-    echo "Testing latency to various regions..."
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${WHITE}              TESTING LATENCY TO VARIOUS REGIONS                ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     
-    usa_latency=$(ping -c 3 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-    europe_latency=$(ping -c 3 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
-    asia_latency=$(ping -c 3 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    usa_latency=$(ping -c 2 -W 2 8.8.8.8 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    europe_latency=$(ping -c 2 -W 2 1.1.1.1 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
+    asia_latency=$(ping -c 2 -W 2 208.67.222.222 2>/dev/null | tail -1 | awk -F '/' '{print $5}' | cut -d. -f1)
     
-    echo "  USA    : ${usa_latency:-Unknown} ms"
-    echo "  Europe : ${europe_latency:-Unknown} ms"
-    echo "  Asia   : ${asia_latency:-Unknown} ms"
+    echo -e "  ${WHITE}USA    :${GREEN} ${usa_latency:-Unknown} ms${NC}"
+    echo -e "  ${WHITE}Europe :${GREEN} ${europe_latency:-Unknown} ms${NC}"
+    echo -e "  ${WHITE}Asia   :${GREEN} ${asia_latency:-Unknown} ms${NC}"
     echo ""
     
     # Apply kernel enhancements first
@@ -583,7 +635,6 @@ EOF
     systemctl restart dnstt-elite-x dnstt-elite-x-proxy
     
     echo -e "${GREEN}✅ Auto-detection complete! ULTRA MTU: $detected_mtu${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
 }
 
 # ========== TRAFFIC MONITORING ==========
@@ -785,9 +836,9 @@ EOF
 # CONFIG (Interactive)
 ############################
 show_banner
-echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}                    ACTIVATION REQUIRED                          ${NC}"
-echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║${GREEN}                    ACTIVATION REQUIRED                          ${YELLOW}║${NC}"
+echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${WHITE}Available Keys:${NC}"
 echo -e "${GREEN}  Lifetime : Whtsapp 0713628668${NC}"
@@ -811,18 +862,35 @@ fi
 sleep 2
 
 set_timezone
-read -p "$(echo -e $RED"Enter Your Subdomain ==>|ns-ex.elitex.sbs|: "$NC)" TDOMAIN
+
+# Subdomain input with box
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${WHITE}                  ENTER YOUR SUBDOMAIN                          ${CYAN}║${NC}"
+echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${CYAN}║${WHITE}  Example: ns-ex.elitex.sbs                                 ${CYAN}║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+read -p "$(echo -e $GREEN"Subdomain: "$NC)" TDOMAIN
+
+# Show entered subdomain
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${WHITE}  You entered: ${GREEN}$TDOMAIN${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Check if subdomain points to this VPS
+check_subdomain "$TDOMAIN"
 
 # ========== LOCATION OPTIMIZATION SELECTION ==========
-echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}           ULTRA MTU LOCATION OPTIMIZATION                       ${NC}"
-echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
-echo -e "${WHITE}Select your VPS location:${NC}"
-echo -e "${GREEN}  1. South Africa (Default - MTU 1800)${NC}"
-echo -e "${CYAN}  2. USA (Ultra MTU up to 5000)${NC}"
-echo -e "${BLUE}  3. Europe (Ultra MTU up to 5000)${NC}"
-echo -e "${PURPLE}  4. Asia (Ultra MTU up to 5000)${NC}"
-echo -e "${YELLOW}  5. Auto-detect everything (Ultra MTU up to 5000)${NC}"
+echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${YELLOW}║${GREEN}           ULTRA MTU LOCATION OPTIMIZATION                       ${YELLOW}║${NC}"
+echo -e "${YELLOW}╠═══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${YELLOW}║${WHITE}  1. South Africa (Default - MTU 1800)                        ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${CYAN}  2. USA (Ultra MTU up to 5000)                                 ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${BLUE}  3. Europe (Ultra MTU up to 5000)                               ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${PURPLE}  4. Asia (Ultra MTU up to 5000)                                 ${YELLOW}║${NC}"
+echo -e "${YELLOW}║${YELLOW}  5. Auto-detect everything (Ultra MTU up to 5000)               ${YELLOW}║${NC}"
+echo -e "${YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 read -p "$(echo -e $GREEN"Select location [1-5] [default: 1]: "$NC)" LOCATION_CHOICE
 LOCATION_CHOICE=${LOCATION_CHOICE:-1}
@@ -922,7 +990,7 @@ fi
 # Dependencies
 echo "Installing dependencies..."
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils
 
 # Install dnstt-server
 echo "Installing dnstt-server..."
@@ -987,33 +1055,6 @@ setup_manual_speed
 setup_auto_remover
 setup_updater
 
-# ========== CREATE OPTIMIZATION HELPER SCRIPTS ==========
-cat > /usr/local/bin/elite-x-optimize-usa <<'EOL'
-#!/bin/bash
-echo -e "\033[1;33m🔍 Ultra MTU detection for USA...\033[0m"
-/usr/local/bin/dnstt-elite-x-optimize --usa
-EOL
-
-cat > /usr/local/bin/elite-x-optimize-europe <<'EOL'
-#!/bin/bash
-echo -e "\033[1;33m🔍 Ultra MTU detection for Europe...\033[0m"
-/usr/local/bin/dnstt-elite-x-optimize --europe
-EOL
-
-cat > /usr/local/bin/elite-x-optimize-asia <<'EOL'
-#!/bin/bash
-echo -e "\033[1;33m🔍 Ultra MTU detection for Asia...\033[0m"
-/usr/local/bin/dnstt-elite-x-optimize --asia
-EOL
-
-cat > /usr/local/bin/elite-x-optimize-auto <<'EOL'
-#!/bin/bash
-echo -e "\033[1;33m🔍 Auto-detecting best location with Ultra MTU...\033[0m"
-/usr/local/bin/dnstt-elite-x-optimize --auto
-EOL
-
-chmod +x /usr/local/bin/elite-x-optimize-*
-
 # ========== APPLY LOCATION-SPECIFIC OPTIMIZATIONS ==========
 if [ ! -z "${NEED_USA_OPT:-}" ]; then
     optimize_usa_halotel
@@ -1043,9 +1084,9 @@ UD="/etc/elite-x/users";TD="/etc/elite-x/traffic";mkdir -p $UD $TD
 
 add_user() {
     clear
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${YELLOW}                     CREATE SSH + DNS USER                      ${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}              CREATE SSH + DNS USER                            ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     
     read -p "$(echo -e $GREEN"Username: "$NC)" username
     read -p "$(echo -e $GREEN"Password: "$NC)" password
@@ -1077,25 +1118,29 @@ INFO
     PUBKEY=$(cat /etc/dnstt/server.pub 2>/dev/null || echo "Not generated")
     
     clear
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${YELLOW}                  USER DETAILS                                  ${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${WHITE}Username  :${CYAN} $username${NC}"
-    echo -e "${WHITE}Password  :${CYAN} $password${NC}"
-    echo -e "${WHITE}Server    :${CYAN} $SERVER${NC}"
-    echo -e "${WHITE}Public Key:${CYAN} $PUBKEY${NC}"
-    echo -e "${WHITE}Expire    :${CYAN} $expire_date${NC}"
-    echo -e "${WHITE}Traffic   :${CYAN} $traffic_limit MB${NC}"
-    echo -e "${GREEN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║${YELLOW}                  USER DETAILS                                   ${GREEN}║${NC}"
+    echo -e "${GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${GREEN}║${WHITE}  Username  :${CYAN} $username${NC}"
+    echo -e "${GREEN}║${WHITE}  Password  :${CYAN} $password${NC}"
+    echo -e "${GREEN}║${WHITE}  Server    :${CYAN} $SERVER${NC}"
+    echo -e "${GREEN}║${WHITE}  Public Key:${CYAN} $PUBKEY${NC}"
+    echo -e "${GREEN}║${WHITE}  Expire    :${CYAN} $expire_date${NC}"
+    echo -e "${GREEN}║${WHITE}  Traffic   :${CYAN} $traffic_limit MB${NC}"
+    echo -e "${GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    show_quote
 }
 
 list_users() {
     clear
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${YELLOW}                     ACTIVE USERS                               ${NC}"
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}                     ACTIVE USERS                               ${CYAN}║${NC}"
+    echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
     
-    [ -z "$(ls -A $UD 2>/dev/null)" ] && { echo -e "${RED}No users found${NC}"; return; }
+    if [ -z "$(ls -A $UD 2>/dev/null)" ]; then
+        echo -e "${RED}No users found${NC}"
+        return
+    fi
     
     printf "%-12s %-10s %-6s %-6s %-8s\n" "USERNAME" "EXPIRE" "LIMIT" "USED" "STATUS"
     echo -e "${CYAN}────────────────────────────────────────────────────────────${NC}"
@@ -1109,7 +1154,8 @@ list_users() {
         st=$(passwd -S "$u" 2>/dev/null | grep -q "L" && echo "${RED}LOCK${NC}" || echo "${GREEN}OK${NC}")
         printf "%-12s %-10s %-6s %-6s %-8b\n" "$u" "$ex" "$lm" "$us" "$st"
     done
-    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    show_quote
 }
 
 lock_user() { read -p "Username: " u; usermod -L "$u" 2>/dev/null && echo -e "${GREEN}✅ Locked${NC}" || echo -e "${RED}❌ Failed${NC}"; }
@@ -1119,6 +1165,7 @@ delete_user() {
     userdel -r "$u" 2>/dev/null
     rm -f $UD/$u $TD/$u
     echo -e "${GREEN}✅ Deleted${NC}"
+    show_quote
 }
 
 case $1 in
@@ -1132,12 +1179,23 @@ esac
 EOF
 chmod +x /usr/local/bin/elite-x-user
 
-# ========== MAIN MENU - WITH ULTRA MTU OPTION ==========
+# ========== MAIN MENU ==========
 cat >/usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
 
 RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m'
 PURPLE='\033[0;35m';WHITE='\033[1;37m';BOLD='\033[1m';NC='\033[0m'
+
+# Function to show quote
+show_quote() {
+    echo ""
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}            Always Remember ELITE-X when you see X            ${CYAN}║${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
 
 # Check if we're in a loop (prevent multiple instances)
 if [ -f /tmp/elite-x-running ]; then
@@ -1159,14 +1217,14 @@ check_expiry_menu() {
             local expiry_date=$(date -d "$act_date + $expiry_days days" +%s)
             
             if [ $current_date -ge $expiry_date ]; then
-                echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${YELLOW}⚠️  TRIAL PERIOD EXPIRED ⚠️${NC}"
-                echo -e "${RED}Your 2-day trial has ended.${NC}"
-                echo -e "${RED}Script will now uninstall itself...${NC}"
-                echo -e "${RED}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${RED}║${YELLOW}           TRIAL PERIOD EXPIRED                                  ${RED}║${NC}"
+                echo -e "${RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
+                echo -e "${RED}║${WHITE}  Your 2-day trial has ended.                                  ${RED}║${NC}"
+                echo -e "${RED}║${WHITE}  Script will now uninstall itself...                         ${RED}║${NC}"
+                echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 sleep 3
                 
-                # Self uninstall
                 systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
@@ -1199,7 +1257,6 @@ show_dashboard() {
     EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Unknown")
     LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
     CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
-    WORKING_MTUS=$(cat /etc/elite-x/working_mtus 2>/dev/null || echo "")
     
     DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
     PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
@@ -1247,10 +1304,11 @@ settings_menu() {
         
         case $ch in
             8)
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${YELLOW}PUBLIC KEY (FULL):${NC}"
-                echo -e "${GREEN}$(cat /etc/dnstt/server.pub)${NC}"
-                echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${CYAN}║${YELLOW}                    PUBLIC KEY (FULL)                           ${CYAN}║${NC}"
+                echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+                echo -e "${CYAN}║${GREEN}  $(cat /etc/dnstt/server.pub)${NC}"
+                echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 read -p "Press Enter to continue..."
                 ;;
             9)
@@ -1382,6 +1440,7 @@ main_menu() {
             [Ss]) settings_menu ;;
             00|0) 
                 rm -f /tmp/elite-x-running
+                show_quote
                 echo -e "${GREEN}Goodbye!${NC}"
                 exit 0 
                 ;;
@@ -1395,7 +1454,6 @@ EOF
 chmod +x /usr/local/bin/elite-x
 
 # ========== CACHE NETWORK INFO FOR FAST LOADING ==========
-# Get and cache network information
 echo "Caching network information for fast login..."
 IP=$(curl -s ifconfig.me 2>/dev/null || echo "Unknown")
 echo "$IP" > /etc/elite-x/cached_ip
@@ -1461,10 +1519,7 @@ echo ""
 echo "PUBLIC KEY:"
 cat /etc/dnstt/server.pub
 echo "======================================"
-echo ""
-echo -e "${GREEN}✅ DASHBOARD WILL NOW SHOW AUTOMATICALLY ON LOGIN${NC}"
-echo -e "${YELLOW}No need to type 'elite-x' or 'menu' - it appears automatically!${NC}"
-echo "======================================"
+show_quote
 
 # Ask to open menu after installation
 read -p "Open menu now? (y/n): " open
