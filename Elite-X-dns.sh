@@ -1137,13 +1137,10 @@ echo "======================================"
 EXPIRY_INFO=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
 FINAL_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
 ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "ELITEX-2026-DAN-4D-08")
-echo "DOMAIN  : ${TDOMAIN}"
 echo "LOCATION: ${SELECTED_LOCATION}"
-echo "MTU     : ${FINAL_MTU}"
 echo "ACT KEY : ${ACTIVATION_KEY}"
 echo "EXPIRY  : ${EXPIRY_INFO}"
 echo ""
-echo "PUBLIC KEY:"
 cat /etc/dnstt/server.pub
 echo "======================================"
 show_quote
@@ -1157,3 +1154,4 @@ if [ "$open" = "y" ]; then
 else
     echo -e "${YELLOW}You can type 'menu' or 'elite-x' anytime to open the dashboard.${NC}"
 fi
+
