@@ -1,12 +1,6 @@
 #!/bin/bash
-# ============================================
-# ELITE-X DNSTT AUTO INSTALL (STABLE EDITION)
-# Stable • Clean • Production ready
-# NO AUTO RESTART • NO AUTO REBOOT
-# ============================================
 set -euo pipefail
 
-# Color codes for better output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -19,7 +13,6 @@ NC='\033[0m'
 
 print_color() { echo -e "${2}${1}${NC}"; }
 
-# Function to show quote
 show_quote() {
     echo ""
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -30,7 +23,6 @@ show_quote() {
     echo ""
 }
 
-# Function to show banner with box (FIXED)
 show_banner() {
     clear
     echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -40,7 +32,6 @@ show_banner() {
     echo ""
 }
 
-# ========== ACTIVATION SYSTEM ==========
 ACTIVATION_KEY="ELITEX-2026-DAN-4D-08"
 TEMP_KEY="ELITE-X-TEST-0208"
 ACTIVATION_FILE="/etc/elite-x/activated"
@@ -116,7 +107,6 @@ activate_script() {
     return 1
 }
 
-# ========== CHECK SUBDOMAIN POINTING (IPv4 ONLY) ==========
 check_subdomain() {
     local subdomain="$1"
     local vps_ip=$(curl -4 -s ifconfig.me 2>/dev/null || echo "")
@@ -132,7 +122,6 @@ check_subdomain() {
         return 0
     fi
     
-    # Try to resolve subdomain (IPv4 only)
     local resolved_ip=$(dig +short -4 "$subdomain" 2>/dev/null | head -1)
     
     if [ -z "$resolved_ip" ]; then
@@ -154,7 +143,6 @@ check_subdomain() {
     fi
 }
 
-# ========== TRAFFIC MONITORING ==========
 setup_traffic_monitor() {
     cat > /usr/local/bin/elite-x-traffic <<'EOF'
 #!/bin/bash
@@ -200,7 +188,6 @@ EOF
     systemctl start elite-x-traffic.service
 }
 
-# ========== MANUAL SPEED OPTIMIZATION ONLY (NO AUTO) ==========
 setup_manual_speed() {
     cat > /usr/local/bin/elite-x-speed <<'EOF'
 #!/bin/bash
@@ -271,7 +258,6 @@ EOF
     chmod +x /usr/local/bin/elite-x-speed
 }
 
-# ========== AUTO EXPIRED ACCOUNT REMOVER ==========
 setup_auto_remover() {
     cat > /usr/local/bin/elite-x-cleaner <<'EOF'
 #!/bin/bash
@@ -318,7 +304,6 @@ EOF
     systemctl start elite-x-cleaner.service
 }
 
-# ========== UPDATE SYSTEM ==========
 setup_updater() {
     cat > /usr/local/bin/elite-x-update <<'EOF'
 #!/bin/bash
@@ -348,9 +333,7 @@ EOF
     chmod +x /usr/local/bin/elite-x-update
 }
 
-############################
-# CONFIG (Interactive)
-############################
+
 show_banner
 echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${YELLOW}║${GREEN}                    ACTIVATION REQUIRED                          ${YELLOW}║${NC}"
@@ -371,7 +354,6 @@ fi
 echo -e "${GREEN}✅ Activation successful!${NC}"
 sleep 1
 
-# Check if trial and show expiry info
 if [ -f "$ACTIVATION_TYPE_FILE" ] && [ "$(cat "$ACTIVATION_TYPE_FILE")" = "temporary" ]; then
     echo -e "${YELLOW}⚠️  Trial version activated - expires in 2 days${NC}"
 fi
@@ -379,7 +361,6 @@ sleep 2
 
 set_timezone
 
-# Subdomain input with box
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║${WHITE}                  ENTER YOUR SUBDOMAIN                          ${CYAN}║${NC}"
 echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
@@ -388,16 +369,13 @@ echo -e "${CYAN}╚════════════════════�
 echo ""
 read -p "$(echo -e $GREEN"Subdomain: "$NC)" TDOMAIN
 
-# Show entered subdomain
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${CYAN}║${WHITE}  You entered: ${GREEN}$TDOMAIN${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-# Check if subdomain points to this VPS (IPv4 only)
 check_subdomain "$TDOMAIN"
 
-# ========== LOCATION OPTIMIZATION SELECTION ==========
 echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${YELLOW}║${GREEN}           NETWORK LOCATION OPTIMIZATION                          ${YELLOW}║${NC}"
 echo -e "${YELLOW}╠═══════════════════════════════════════════════════════════════╣${NC}"
@@ -812,7 +790,7 @@ esac
 EOF
 chmod +x /usr/local/bin/elite-x-user
 
-# ========== MAIN MENU ==========
+
 cat >/usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
 
@@ -1094,7 +1072,6 @@ else
     echo "Unknown" > /etc/elite-x/cached_isp
 fi
 
-# ========== AUTO-SHOW DASHBOARD ON LOGIN ==========
 cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
 #!/bin/bash
 # Auto-show ELITE-X dashboard on login
@@ -1108,7 +1085,7 @@ fi
 EOF
 chmod +x /etc/profile.d/elite-x-dashboard.sh
 
-# Also add to bashrc for SSH logins
+
 cat >> ~/.bashrc <<'EOF'
 # Auto-show ELITE-X dashboard
 if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
@@ -1118,11 +1095,11 @@ if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
 fi
 EOF
 
-# Aliases
+
 echo "alias menu='elite-x'" >> ~/.bashrc
 echo "alias elitex='elite-x'" >> ~/.bashrc
 
-# Ensure key file exists before displaying
+
 if [ ! -f /etc/elite-x/key ]; then
     if [ -f "$ACTIVATION_FILE" ]; then
         cp "$ACTIVATION_FILE" /etc/elite-x/key
@@ -1140,12 +1117,10 @@ ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "ELITEX-2026-DAN-4D-08
 echo "LOCATION: ${SELECTED_LOCATION}"
 echo "ACT KEY : ${ACTIVATION_KEY}"
 echo "EXPIRY  : ${EXPIRY_INFO}"
-echo ""
-cat /etc/dnstt/server.pub
 echo "======================================"
 show_quote
 
-# Ask to open menu after installation
+
 read -p "Open menu now? (y/n): " open
 if [ "$open" = "y" ]; then
     echo -e "${GREEN}Opening dashboard...${NC}"
@@ -1154,4 +1129,5 @@ if [ "$open" = "y" ]; then
 else
     echo -e "${YELLOW}You can type 'menu' or 'elite-x' anytime to open the dashboard.${NC}"
 fi
+
 
