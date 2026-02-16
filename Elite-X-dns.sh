@@ -1,4 +1,7 @@
 #!/bin/bash
+# ╔══════════════════════╗
+#  ELITE-X DNSTT  SCRIPT
+# ╚══════════════════════╝
 set -euo pipefail
 
 RED='\033[0;31m'
@@ -62,8 +65,7 @@ check_expiry() {
                 echo -e "${RED}║${WHITE}  Script will now uninstall itself...                         ${RED}║${NC}"
                 echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 sleep 3
-                
-                # Self uninstall
+                      
                 systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
@@ -71,8 +73,7 @@ check_expiry() {
                 rm -f /usr/local/bin/{dnstt-*,elite-x*}
                 sed -i '/^Banner/d' /etc/ssh/sshd_config
                 systemctl restart sshd
-                
-                # Remove itself
+
                 rm -f "$0"
                 echo -e "${GREEN}✅ ELITE-X has been uninstalled.${NC}"
                 exit 0
@@ -121,7 +122,7 @@ check_subdomain() {
         echo -e "${YELLOW}⚠️  Could not detect VPS IPv4, continuing anyway...${NC}"
         return 0
     fi
-    
+
     local resolved_ip=$(dig +short -4 "$subdomain" 2>/dev/null | head -1)
     
     if [ -z "$resolved_ip" ]; then
@@ -333,7 +334,6 @@ EOF
     chmod +x /usr/local/bin/elite-x-update
 }
 
-
 show_banner
 echo -e "${YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${YELLOW}║${GREEN}                    ACTIVATION REQUIRED                          ${YELLOW}║${NC}"
@@ -426,21 +426,17 @@ echo "$MTU" > /etc/elite-x/mtu
 
 DNSTT_PORT=5300
 DNS_PORT=53
-############################
 
 echo "==> ELITE-X INSTALLATION STARTING..."
 
-# Root check
 if [ "$(id -u)" -ne 0 ]; then
   echo "[-] Run as root"
   exit 1
 fi
 
-# Create directories
 mkdir -p /etc/elite-x/{banner,users,traffic}
 echo "$TDOMAIN" > /etc/elite-x/subdomain
 
-# Create default banner
 cat > /etc/elite-x/banner/default <<'EOF'
 ===============================================
       WELCOME TO ELITE-X VPN SERVICE
@@ -456,7 +452,6 @@ cat > /etc/elite-x/banner/ssh-banner <<'EOF'
 ************************************************
 EOF
 
-# Configure SSH banner
 if ! grep -q "^Banner" /etc/ssh/sshd_config; then
     echo "Banner /etc/elite-x/banner/ssh-banner" >> /etc/ssh/sshd_config
 else
@@ -464,13 +459,11 @@ else
 fi
 systemctl restart sshd
 
-# Stop conflicting services
 echo "Stopping old services..."
 for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-proxy; do
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
-# systemd-resolved fix
 if [ -f /etc/systemd/resolved.conf ]; then
   echo "Configuring systemd-resolved..."
   sed -i 's/^#\?DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf || true
@@ -481,17 +474,14 @@ if [ -f /etc/systemd/resolved.conf ]; then
   ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
 fi
 
-# Dependencies
 echo "Installing dependencies..."
 apt update -y
 apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils
 
-# Install dnstt-server
 echo "Installing dnstt-server..."
 curl -fsSL https://dnstt.network/dnstt-server-linux-amd64 -o /usr/local/bin/dnstt-server
 chmod +x /usr/local/bin/dnstt-server
 
-# Keys
 echo "Generating keys..."
 mkdir -p /etc/dnstt
 if [ ! -f /etc/dnstt/server.key ]; then
@@ -502,7 +492,6 @@ fi
 chmod 600 /etc/dnstt/server.key
 chmod 644 /etc/dnstt/server.pub
 
-# DNSTT service - using original MTU 1800
 echo "Creating dnstt-elite-x.service..."
 cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
@@ -520,7 +509,6 @@ LimitNOFILE=1048576
 WantedBy=multi-user.target
 EOF
 
-# EDNS proxy - ORIGINAL SOURCE CODE (FIXED)
 echo "Installing EDNS proxy..."
 cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
@@ -572,7 +560,6 @@ while True:
 EOF
 chmod +x /usr/local/bin/dnstt-edns-proxy.py
 
-# Proxy service
 cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
 [Unit]
 Description=ELITE-X Proxy
@@ -587,22 +574,17 @@ Restart=no
 WantedBy=multi-user.target
 EOF
 
-# Firewall
 command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp || true
 
-# Start services
 systemctl daemon-reload
 systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
 systemctl start dnstt-elite-x.service dnstt-elite-x-proxy.service
 
-# ========== SETUP ADDITIONAL FEATURES ==========
 setup_traffic_monitor
 setup_manual_speed
 setup_auto_remover
 setup_updater
 
-# ========== LOCATION-SPECIFIC OPTIMIZATIONS ==========
-# Using standard MTU 1800 for all locations (no testing)
 if [ ! -z "${NEED_USA_OPT:-}" ]; then
     echo -e "${YELLOW}🔄 Applying USA optimizations...${NC}"
     cat >> /etc/sysctl.conf <<EOF
@@ -668,7 +650,6 @@ EOF
     echo -e "${GREEN}✅ Auto optimizations applied${NC}"
 fi
 
-# Network interface optimization
 for iface in $(ls /sys/class/net/ | grep -v lo); do
     ethtool -K $iface tx off sg off tso off 2>/dev/null || true
     ip link set dev $iface txqueuelen 10000 2>/dev/null || true
@@ -677,7 +658,6 @@ done
 systemctl daemon-reload
 systemctl restart dnstt-elite-x dnstt-elite-x-proxy
 
-# Create expiry checker cron job
 cat > /etc/cron.hourly/elite-x-expiry <<'EOF'
 #!/bin/bash
 if [ -f /usr/local/bin/elite-x ]; then
@@ -686,12 +666,25 @@ fi
 EOF
 chmod +x /etc/cron.hourly/elite-x-expiry
 
-# ========== USER MANAGEMENT ==========
 cat >/usr/local/bin/elite-x-user <<'EOF'
 #!/bin/bash
 
 RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m';WHITE='\033[1;37m';NC='\033[0m'
-UD="/etc/elite-x/users";TD="/etc/elite-x/traffic";mkdir -p $UD $TD
+
+# Function to show quote (added here to fix error)
+show_quote() {
+    echo ""
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}            Always Remember ELITE-X when you see X            ${CYAN}║${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+UD="/etc/elite-x/users"
+TD="/etc/elite-x/traffic"
+mkdir -p $UD $TD
 
 add_user() {
     clear
@@ -769,8 +762,18 @@ list_users() {
     show_quote
 }
 
-lock_user() { read -p "Username: " u; usermod -L "$u" 2>/dev/null && echo -e "${GREEN}✅ Locked${NC}" || echo -e "${RED}❌ Failed${NC}"; }
-unlock_user() { read -p "Username: " u; usermod -U "$u" 2>/dev/null && echo -e "${GREEN}✅ Unlocked${NC}" || echo -e "${RED}❌ Failed${NC}"; }
+lock_user() { 
+    read -p "Username: " u
+    usermod -L "$u" 2>/dev/null && echo -e "${GREEN}✅ Locked${NC}" || echo -e "${RED}❌ Failed${NC}"
+    show_quote
+}
+
+unlock_user() { 
+    read -p "Username: " u
+    usermod -U "$u" 2>/dev/null && echo -e "${GREEN}✅ Unlocked${NC}" || echo -e "${RED}❌ Failed${NC}"
+    show_quote
+}
+
 delete_user() { 
     read -p "Username: " u
     userdel -r "$u" 2>/dev/null
@@ -790,7 +793,7 @@ esac
 EOF
 chmod +x /usr/local/bin/elite-x-user
 
-
+# ========== MAIN MENU (with show_quote) ==========
 cat >/usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
 
@@ -1015,7 +1018,7 @@ main_menu() {
         echo -e "${CYAN}║${WHITE}  [5] Delete User${NC}"
         echo -e "${CYAN}║${WHITE}  [6] Create/Edit Banner${NC}"
         echo -e "${CYAN}║${WHITE}  [7] Delete Banner${NC}"
-        echo -e "${CYAN}║${WHITE}  [S] ⚙️  Settings${NC}"
+        echo -e "${CYAN}║${RED}  [S] ⚙️  Settings${NC}"
         echo -e "${CYAN}║${WHITE}  [00] Exit${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
@@ -1058,7 +1061,6 @@ main_menu
 EOF
 chmod +x /usr/local/bin/elite-x
 
-# ========== CACHE NETWORK INFO FOR FAST LOADING ==========
 echo "Caching network information for fast login..."
 IP=$(curl -4 -s ifconfig.me 2>/dev/null || echo "Unknown")
 echo "$IP" > /etc/elite-x/cached_ip
@@ -1085,7 +1087,6 @@ fi
 EOF
 chmod +x /etc/profile.d/elite-x-dashboard.sh
 
-
 cat >> ~/.bashrc <<'EOF'
 # Auto-show ELITE-X dashboard
 if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
@@ -1095,10 +1096,8 @@ if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
 fi
 EOF
 
-
 echo "alias menu='elite-x'" >> ~/.bashrc
 echo "alias elitex='elite-x'" >> ~/.bashrc
-
 
 if [ ! -f /etc/elite-x/key ]; then
     if [ -f "$ACTIVATION_FILE" ]; then
@@ -1108,18 +1107,18 @@ if [ ! -f /etc/elite-x/key ]; then
     fi
 fi
 
-echo "======================================"
+echo "╔════════════════════════════════════╗"
 echo " ELITE-X INSTALLED SUCCESSFULLY "
-echo "======================================"
+echo "╚════════════════════════════════════╝"
 EXPIRY_INFO=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
 FINAL_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
 ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "ELITEX-2026-DAN-4D-08")
+echo "DOMAIN  : ${TDOMAIN}"
 echo "LOCATION: ${SELECTED_LOCATION}"
-echo "ACT KEY : ${ACTIVATION_KEY}"
-echo "EXPIRY  : ${EXPIRY_INFO}"
-echo "======================================"
+echo "KEY : ${ACTIVATION_KEY}"
+echo "KEY EXPIRE  : ${EXPIRY_INFO}"
+echo "╚════════════════════════════════════╝"
 show_quote
-
 
 read -p "Open menu now? (y/n): " open
 if [ "$open" = "y" ]; then
@@ -1129,5 +1128,3 @@ if [ "$open" = "y" ]; then
 else
     echo -e "${YELLOW}You can type 'menu' or 'elite-x' anytime to open the dashboard.${NC}"
 fi
-
-
