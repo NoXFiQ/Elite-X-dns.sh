@@ -30,16 +30,12 @@ show_quote() {
     echo ""
 }
 
-# Function to show banner with box
+# Function to show banner with box (FIXED)
 show_banner() {
     clear
     echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${RED}║${YELLOW}${BOLD}                                                               ${RED}║${NC}"
-    figlet -f slant "ELITE-X" 2>/dev/null | while read line; do
-        printf "${RED}║${YELLOW}%-63s${RED}║${NC}\n" "$line"
-    done
-    echo -e "${RED}║${GREEN}${BOLD}           Version 3.0 - Stable Edition                         ${RED}║${NC}"
-    echo -e "${RED}║${YELLOW}${BOLD}                                                               ${RED}║${NC}"
+    echo -e "${RED}║${YELLOW}${BOLD}                    ELITE-X SLOWDNS v3.0                        ${RED}║${NC}"
+    echo -e "${RED}║${GREEN}${BOLD}                    Stable Edition                              ${RED}║${NC}"
     echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
