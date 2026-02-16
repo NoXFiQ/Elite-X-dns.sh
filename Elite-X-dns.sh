@@ -16,7 +16,7 @@ NC='\033[0m'
 
 print_color() { echo -e "${2}${1}${NC}"; }
 
-# ========== SECURITY FUNCTIONS (ADDED) ==========
+# ========== SECURITY FUNCTIONS ==========
 self_destruct() {
     echo -e "${YELLOW}🧹 Cleaning installation traces...${NC}"
     
@@ -506,11 +506,21 @@ chmod +x /usr/local/bin/dnstt-server
 
 echo "Generating keys..."
 mkdir -p /etc/dnstt
-if [ ! -f /etc/dnstt/server.key ]; then
-  cd /etc/dnstt
-  dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub
-  cd ~
+
+# Fix: Remove existing keys if they exist and have permission issues
+if [ -f /etc/dnstt/server.key ]; then
+    echo -e "${YELLOW}⚠️  Existing keys found, removing...${NC}"
+    chattr -i /etc/dnstt/server.key 2>/dev/null || true
+    rm -f /etc/dnstt/server.key
+    rm -f /etc/dnstt/server.pub
 fi
+
+# Generate new keys
+cd /etc/dnstt
+dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub
+cd ~
+
+# Set proper permissions
 chmod 600 /etc/dnstt/server.key
 chmod 644 /etc/dnstt/server.pub
 
@@ -693,7 +703,7 @@ cat >/usr/local/bin/elite-x-user <<'EOF'
 
 RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m';WHITE='\033[1;37m';NC='\033[0m'
 
-# Function to show quote (added here to fix error)
+# Function to show quote
 show_quote() {
     echo ""
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -815,14 +825,13 @@ esac
 EOF
 chmod +x /usr/local/bin/elite-x-user
 
-# ========== MAIN MENU (with show_quote) ==========
+# ========== MAIN MENU ==========
 cat >/usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
 
 RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m'
 PURPLE='\033[0;35m';WHITE='\033[1;37m';BOLD='\033[1m';NC='\033[0m'
 
-# Function to show quote
 show_quote() {
     echo ""
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -833,16 +842,12 @@ show_quote() {
     echo ""
 }
 
-# Check if we're in a loop (prevent multiple instances)
 if [ -f /tmp/elite-x-running ]; then
     exit 0
 fi
 touch /tmp/elite-x-running
-
-# Clean up on exit
 trap 'rm -f /tmp/elite-x-running' EXIT
 
-# Check expiry on menu start
 check_expiry_menu() {
     if [ -f "/etc/elite-x/activation_type" ] && [ -f "/etc/elite-x/activation_date" ] && [ -f "/etc/elite-x/expiry_days" ]; then
         local act_type=$(cat "/etc/elite-x/activation_type")
@@ -877,13 +882,11 @@ check_expiry_menu() {
     fi
 }
 
-# Run expiry check
 check_expiry_menu
 
 show_dashboard() {
     clear
     
-    # Get cached system information (no network calls)
     IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || curl -s ifconfig.me 2>/dev/null || echo "Unknown")
     LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || echo "Unknown")
     ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || echo "Unknown")
@@ -1151,5 +1154,5 @@ else
     echo -e "${YELLOW}You can type 'menu' or 'elite-x' anytime to open the dashboard.${NC}"
 fi
 
-# ========== SELF DESTRUCT (ADDED AT THE END) ==========
+# ========== SELF DESTRUCT ==========
 self_destruct
