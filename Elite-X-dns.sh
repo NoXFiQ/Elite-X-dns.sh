@@ -66,6 +66,7 @@ complete_uninstall() {
     rm -rf /etc/elite-x
     rm -f /usr/local/bin/{dnstt-*,elite-x*}
     rm -f /usr/local/bin/dnstt-edns-proxy.py
+    rm -f /usr/local/bin/elite-x-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall}
     
     # Remove banner from sshd_config
     sed -i '/^Banner/d' /etc/ssh/sshd_config
@@ -81,8 +82,6 @@ complete_uninstall() {
     sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
     sed -i '/menu=/d' /root/.bashrc 2>/dev/null || true
     sed -i '/elite=/d' /root/.bashrc 2>/dev/null || true
-    
-    # Remove aliases
     sed -i '/alias menu/d' /root/.bashrc 2>/dev/null || true
     sed -i '/alias elite/d' /root/.bashrc 2>/dev/null || true
     sed -i '/alias live/d' /root/.bashrc 2>/dev/null || true
@@ -98,7 +97,7 @@ complete_uninstall() {
         systemctl restart systemd-resolved 2>/dev/null || true
     fi
     
-    echo -e "${NEON_GREEN}${BOLD}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
+    echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
     echo -e "${NEON_YELLOW}All users, services, and files have been deleted.${NC}"
 }
 
@@ -221,70 +220,124 @@ activate_script() {
     return 1
 }
 
-# ==================== FIXED IP INFO FUNCTION ====================
+# ==================== FIXED IP INFO FUNCTION (100% WORKING) ====================
 get_ip_info() {
     echo -e "${NEON_CYAN}🌐 Fetching IP information...${NC}"
     
-    # Try multiple methods to get IP
+    # Try multiple methods to get public IP
     IP=""
-    for cmd in "curl -4 -s ifconfig.me" "curl -4 -s icanhazip.com" "curl -4 -s ipinfo.io/ip" "wget -qO- -4 ifconfig.me"; do
-        IP=$(eval $cmd 2>/dev/null | head -1 | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-        if [ ! -z "$IP" ]; then
-            break
-        fi
-    done
     
+    # Method 1: ifconfig.me
+    IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+    
+    # Method 2: icanhazip.com
+    if [ -z "$IP" ]; then
+        IP=$(curl -s --connect-timeout 5 icanhazip.com 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+    fi
+    
+    # Method 3: ipinfo.io
+    if [ -z "$IP" ]; then
+        IP=$(curl -s --connect-timeout 5 ipinfo.io/ip 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+    fi
+    
+    # Method 4: api.ipify.org
+    if [ -z "$IP" ]; then
+        IP=$(curl -s --connect-timeout 5 api.ipify.org 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+    fi
+    
+    # Method 5: checkip.amazonaws.com
+    if [ -z "$IP" ]; then
+        IP=$(curl -s --connect-timeout 5 checkip.amazonaws.com 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+    fi
+    
+    # Method 6: Local IP as last resort
     if [ -z "$IP" ]; then
         IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
     fi
     
     if [ -z "$IP" ]; then
         IP="Unknown"
+        echo "Unknown" > /etc/elite-x/cached_ip
+        echo "Unknown Location" > /etc/elite-x/cached_location
+        echo "Unknown ISP" > /etc/elite-x/cached_isp
+        echo -e "${NEON_RED}❌ Failed to detect IP${NC}"
+        return 1
     fi
     
     echo "$IP" > /etc/elite-x/cached_ip
+    echo -e "${NEON_GREEN}✅ IP detected: $IP${NC}"
     
-    # Get location and ISP with multiple fallbacks
-    if [ "$IP" != "Unknown" ]; then
-        # Try ip-api.com first (fastest)
-        LOCATION_INFO=$(curl -s http://ip-api.com/json/$IP 2>/dev/null)
-        if [ ! -z "$LOCATION_INFO" ] && echo "$LOCATION_INFO" | grep -q '"status":"success"'; then
-            city=$(echo "$LOCATION_INFO" | jq -r '.city // "Unknown"' 2>/dev/null)
-            country=$(echo "$LOCATION_INFO" | jq -r '.country // "Unknown"' 2>/dev/null)
-            isp=$(echo "$LOCATION_INFO" | jq -r '.isp // "Unknown"' 2>/dev/null)
-            
-            if [ "$city" != "null" ] && [ ! -z "$city" ] && [ "$city" != "Unknown" ]; then
-                echo "$city, $country" > /etc/elite-x/cached_location
-            else
-                echo "$country" > /etc/elite-x/cached_location
-            fi
-            
-            if [ "$isp" != "null" ] && [ ! -z "$isp" ]; then
-                echo "$isp" > /etc/elite-x/cached_isp
-            else
-                echo "Unknown ISP" > /etc/elite-x/cached_isp
-            fi
-        else
-            # Fallback to ipinfo.io
-            LOCATION_INFO=$(curl -s ipinfo.io/$IP 2>/dev/null)
-            if [ ! -z "$LOCATION_INFO" ]; then
-                city=$(echo "$LOCATION_INFO" | jq -r '.city // "Unknown"' 2>/dev/null)
-                country=$(echo "$LOCATION_INFO" | jq -r '.country // "Unknown"' 2>/dev/null)
-                isp=$(echo "$LOCATION_INFO" | jq -r '.org // "Unknown"' 2>/dev/null)
-                
-                [ ! -z "$city" ] && [ "$city" != "null" ] && [ "$city" != "Unknown" ] && echo "$city, $country" > /etc/elite-x/cached_location || echo "Unknown Location" > /etc/elite-x/cached_location
-                [ ! -z "$isp" ] && [ "$isp" != "null" ] && echo "$isp" > /etc/elite-x/cached_isp || echo "Unknown ISP" > /etc/elite-x/cached_isp
-            else
-                echo "Unknown Location" > /etc/elite-x/cached_location
-                echo "Unknown ISP" > /etc/elite-x/cached_isp
-            fi
+    # Get location and ISP using ip-api.com (most reliable, no API key needed)
+    echo -e "${NEON_CYAN}📍 Fetching location and ISP for $IP...${NC}"
+    
+    # Use ip-api.com with timeout
+    API_RESPONSE=$(curl -s --connect-timeout 5 "http://ip-api.com/json/$IP?fields=status,country,city,isp,org,as")
+    
+    if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
+        # Extract country
+        COUNTRY=$(echo "$API_RESPONSE" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
+        if [ -z "$COUNTRY" ]; then COUNTRY="Unknown"; fi
+        
+        # Extract city
+        CITY=$(echo "$API_RESPONSE" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
+        if [ -z "$CITY" ]; then CITY=""; fi
+        
+        # Extract ISP
+        ISP=$(echo "$API_RESPONSE" | grep -o '"isp":"[^"]*"' | cut -d'"' -f4)
+        if [ -z "$ISP" ]; then
+            ISP=$(echo "$API_RESPONSE" | grep -o '"org":"[^"]*"' | cut -d'"' -f4)
         fi
+        if [ -z "$ISP" ]; then
+            ISP=$(echo "$API_RESPONSE" | grep -o '"as":"[^"]*"' | cut -d'"' -f4)
+        fi
+        if [ -z "$ISP" ]; then ISP="Unknown ISP"; fi
+        
+        # Format location
+        if [ ! -z "$CITY" ] && [ "$CITY" != "null" ] && [ "$CITY" != "Unknown" ]; then
+            LOCATION="$CITY, $COUNTRY"
+        else
+            LOCATION="$COUNTRY"
+        fi
+        
+        echo "$LOCATION" > /etc/elite-x/cached_location
+        echo "$ISP" > /etc/elite-x/cached_isp
+        
+        echo -e "${NEON_GREEN}✅ Location: $LOCATION${NC}"
+        echo -e "${NEON_GREEN}✅ ISP: $ISP${NC}"
     else
-        echo "Unknown Location" > /etc/elite-x/cached_location
-        echo "Unknown ISP" > /etc/elite-x/cached_isp
+        # Fallback to ipinfo.io
+        echo -e "${NEON_YELLOW}⚠️ ip-api.com failed, trying ipinfo.io...${NC}"
+        
+        IPINFO=$(curl -s --connect-timeout 5 ipinfo.io/$IP 2>/dev/null)
+        
+        if [ ! -z "$IPINFO" ]; then
+            CITY=$(echo "$IPINFO" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
+            COUNTRY=$(echo "$IPINFO" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
+            ISP=$(echo "$IPINFO" | grep -o '"org":"[^"]*"' | cut -d'"' -f4)
+            
+            if [ -z "$CITY" ] || [ "$CITY" = "null" ]; then CITY=""; fi
+            if [ -z "$COUNTRY" ] || [ "$COUNTRY" = "null" ]; then COUNTRY="Unknown"; fi
+            if [ -z "$ISP" ] || [ "$ISP" = "null" ]; then ISP="Unknown ISP"; fi
+            
+            if [ ! -z "$CITY" ]; then
+                LOCATION="$CITY, $COUNTRY"
+            else
+                LOCATION="$COUNTRY"
+            fi
+            
+            echo "$LOCATION" > /etc/elite-x/cached_location
+            echo "$ISP" > /etc/elite-x/cached_isp
+            
+            echo -e "${NEON_GREEN}✅ Location: $LOCATION${NC}"
+            echo -e "${NEON_GREEN}✅ ISP: $ISP${NC}"
+        else
+            echo "Unknown Location" > /etc/elite-x/cached_location
+            echo "Unknown ISP" > /etc/elite-x/cached_isp
+            echo -e "${NEON_YELLOW}⚠️ Could not fetch location/ISP, using defaults${NC}"
+        fi
     fi
     
-    echo -e "${NEON_GREEN}✅ IP info cached: $(cat /etc/elite-x/cached_ip) - $(cat /etc/elite-x/cached_location)${NC}"
+    return 0
 }
 
 # ==================== BOOSTER FUNCTIONS ====================
@@ -1153,6 +1206,108 @@ EOF
     chmod +x /usr/local/bin/elite-x-user
 }
 
+# ==================== CREATE REFRESH INFO SCRIPT ====================
+create_refresh_script() {
+    cat > /usr/local/bin/elite-x-refresh-info <<'EOF'
+#!/bin/bash
+
+NEON_CYAN='\033[1;36m'; NEON_GREEN='\033[1;32m'; NEON_RED='\033[1;31m'; NC='\033[0m'
+
+# Get IP
+IP=""
+for cmd in "curl -s --connect-timeout 5 ifconfig.me" "curl -s --connect-timeout 5 icanhazip.com" "curl -s --connect-timeout 5 ipinfo.io/ip" "curl -s --connect-timeout 5 api.ipify.org"; do
+    IP=$($cmd 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+    if [ ! -z "$IP" ]; then
+        break
+    fi
+done
+
+if [ -z "$IP" ]; then
+    IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
+fi
+
+if [ -z "$IP" ]; then
+    echo "Unknown" > /etc/elite-x/cached_ip
+    echo "Unknown Location" > /etc/elite-x/cached_location
+    echo "Unknown ISP" > /etc/elite-x/cached_isp
+    exit 1
+fi
+
+echo "$IP" > /etc/elite-x/cached_ip
+
+# Get location and ISP
+API_RESPONSE=$(curl -s --connect-timeout 5 "http://ip-api.com/json/$IP?fields=status,country,city,isp")
+
+if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
+    COUNTRY=$(echo "$API_RESPONSE" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
+    CITY=$(echo "$API_RESPONSE" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
+    ISP=$(echo "$API_RESPONSE" | grep -o '"isp":"[^"]*"' | cut -d'"' -f4)
+    
+    [ -z "$COUNTRY" ] && COUNTRY="Unknown"
+    [ -z "$ISP" ] && ISP="Unknown ISP"
+    
+    if [ ! -z "$CITY" ] && [ "$CITY" != "null" ]; then
+        echo "$CITY, $COUNTRY" > /etc/elite-x/cached_location
+    else
+        echo "$COUNTRY" > /etc/elite-x/cached_location
+    fi
+    
+    echo "$ISP" > /etc/elite-x/cached_isp
+else
+    echo "Unknown Location" > /etc/elite-x/cached_location
+    echo "Unknown ISP" > /etc/elite-x/cached_isp
+fi
+EOF
+    chmod +x /usr/local/bin/elite-x-refresh-info
+}
+
+# ==================== CREATE UNINSTALL SCRIPT ====================
+create_uninstall_script() {
+    cat > /usr/local/bin/elite-x-uninstall <<'EOF'
+#!/bin/bash
+
+NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'; NC='\033[0m'; BLINK='\033[5m'
+
+echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
+    
+systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+    
+rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+    
+if [ -d "/etc/elite-x/users" ]; then
+    for user_file in /etc/elite-x/users/*; do
+        if [ -f "$user_file" ]; then
+            username=$(basename "$user_file")
+            echo -e "${NEON_YELLOW}Removing user: $username${NC}"
+            userdel -r "$username" 2>/dev/null || true
+        fi
+    done
+fi
+    
+pkill -f dnstt-server 2>/dev/null || true
+pkill -f dnstt-edns-proxy 2>/dev/null || true
+    
+rm -rf /etc/dnstt
+rm -rf /etc/elite-x
+rm -f /usr/local/bin/{dnstt-*,elite-x*}
+rm -f /usr/local/bin/dnstt-edns-proxy.py
+rm -f /usr/local/bin/elite-x-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall}
+    
+sed -i '/^Banner/d' /etc/ssh/sshd_config
+systemctl restart sshd
+    
+rm -f /etc/cron.hourly/elite-x-expiry
+rm -f /etc/profile.d/elite-x-dashboard.sh
+sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
+    
+systemctl daemon-reload
+    
+echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
+EOF
+    chmod +x /usr/local/bin/elite-x-uninstall
+}
+
 # ==================== MAIN MENU SCRIPT ====================
 setup_main_menu() {
     cat >/usr/local/bin/elite-x <<'EOF'
@@ -1169,7 +1324,6 @@ fi
 touch /tmp/elite-x-running
 trap 'rm -f /tmp/elite-x-running' EXIT
 
-# Source booster functions
 if [ -f /usr/local/bin/elite-x-boosters ]; then
     source /usr/local/bin/elite-x-boosters
 fi
@@ -1415,7 +1569,6 @@ settings_menu() {
                 read -p "Press Enter to continue..."
                 ;;
             22)
-                # Call booster menu function directly
                 booster_menu
                 ;;
             23)
@@ -1499,139 +1652,6 @@ main_menu() {
 main_menu
 EOF
     chmod +x /usr/local/bin/elite-x
-}
-
-# ==================== CREATE REFRESH INFO SCRIPT ====================
-create_refresh_script() {
-    cat > /usr/local/bin/elite-x-refresh-info <<'EOF'
-#!/bin/bash
-
-NEON_CYAN='\033[1;36m'; NEON_GREEN='\033[1;32m'; NEON_RED='\033[1;31m'; NC='\033[0m'
-
-# Try multiple methods to get IP
-IP=""
-for cmd in "curl -4 -s ifconfig.me" "curl -4 -s icanhazip.com" "curl -4 -s ipinfo.io/ip" "wget -qO- -4 ifconfig.me"; do
-    IP=$(eval $cmd 2>/dev/null | head -1 | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-    if [ ! -z "$IP" ]; then
-        break
-    fi
-done
-
-if [ -z "$IP" ]; then
-    IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
-fi
-
-if [ -z "$IP" ]; then
-    IP="Unknown"
-fi
-
-echo "$IP" > /etc/elite-x/cached_ip
-
-if [ "$IP" != "Unknown" ]; then
-    LOCATION_INFO=$(curl -s http://ip-api.com/json/$IP 2>/dev/null)
-    if [ ! -z "$LOCATION_INFO" ] && echo "$LOCATION_INFO" | grep -q '"status":"success"'; then
-        city=$(echo "$LOCATION_INFO" | jq -r '.city // "Unknown"' 2>/dev/null)
-        country=$(echo "$LOCATION_INFO" | jq -r '.country // "Unknown"' 2>/dev/null)
-        isp=$(echo "$LOCATION_INFO" | jq -r '.isp // "Unknown"' 2>/dev/null)
-        
-        if [ "$city" != "null" ] && [ ! -z "$city" ] && [ "$city" != "Unknown" ]; then
-            echo "$city, $country" > /etc/elite-x/cached_location
-        else
-            echo "$country" > /etc/elite-x/cached_location
-        fi
-        
-        if [ "$isp" != "null" ] && [ ! -z "$isp" ]; then
-            echo "$isp" > /etc/elite-x/cached_isp
-        else
-            echo "Unknown ISP" > /etc/elite-x/cached_isp
-        fi
-    else
-        echo "Unknown Location" > /etc/elite-x/cached_location
-        echo "Unknown ISP" > /etc/elite-x/cached_isp
-    fi
-else
-    echo "Unknown Location" > /etc/elite-x/cached_location
-    echo "Unknown ISP" > /etc/elite-x/cached_isp
-fi
-EOF
-    chmod +x /usr/local/bin/elite-x-refresh-info
-}
-
-# ==================== CREATE UNINSTALL SCRIPT ====================
-create_uninstall_script() {
-    cat > /usr/local/bin/elite-x-uninstall <<'EOF'
-#!/bin/bash
-
-NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'; NC='\033[0m'; BLINK='\033[5m'
-
-echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
-    
-# Stop all services
-systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
-systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
-    
-# Remove service files
-rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
-rm -f /etc/systemd/system/multi-user.target.wants/{dnstt-elite-x*,elite-x-*} 2>/dev/null || true
-    
-# Remove all SSH users created by ELITE-X
-if [ -d "/etc/elite-x/users" ]; then
-    for user_file in /etc/elite-x/users/*; do
-        if [ -f "$user_file" ]; then
-            username=$(basename "$user_file")
-            echo -e "${NEON_YELLOW}Removing user: $username${NC}"
-            userdel -r "$username" 2>/dev/null || true
-            pkill -u "$username" 2>/dev/null || true
-        fi
-    done
-fi
-    
-# Kill any remaining processes
-pkill -f dnstt-server 2>/dev/null || true
-pkill -f dnstt-edns-proxy 2>/dev/null || true
-pkill -f elite-x-traffic 2>/dev/null || true
-pkill -f elite-x-cleaner 2>/dev/null || true
-    
-# Remove all ELITE-X directories and files
-rm -rf /etc/dnstt
-rm -rf /etc/elite-x
-rm -f /usr/local/bin/{dnstt-*,elite-x*}
-rm -f /usr/local/bin/dnstt-edns-proxy.py
-rm -f /usr/local/bin/elite-x-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall}
-    
-# Remove banner from sshd_config
-sed -i '/^Banner/d' /etc/ssh/sshd_config
-systemctl restart sshd
-    
-# Remove cron jobs
-rm -f /etc/cron.hourly/elite-x-expiry
-rm -f /etc/cron.daily/elite-x-* 2>/dev/null || true
-rm -f /etc/cron.weekly/elite-x-* 2>/dev/null || true
-    
-# Remove profile and bashrc entries
-rm -f /etc/profile.d/elite-x-dashboard.sh
-sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
-sed -i '/menu=/d' /root/.bashrc 2>/dev/null || true
-sed -i '/elite=/d' /root/.bashrc 2>/dev/null || true
-sed -i '/alias menu/d' /root/.bashrc 2>/dev/null || true
-sed -i '/alias elite/d' /root/.bashrc 2>/dev/null || true
-sed -i '/alias live/d' /root/.bashrc 2>/dev/null || true
-sed -i '/alias speed/d' /root/.bashrc 2>/dev/null || true
-sed -i '/alias renew/d' /root/.bashrc 2>/dev/null || true
-    
-# Clean up systemd
-systemctl daemon-reload
-    
-# Clean up DNS settings (restore original)
-if [ -f /etc/systemd/resolved.conf.backup ]; then
-    cp /etc/systemd/resolved.conf.backup /etc/systemd/resolved.conf 2>/dev/null || true
-    systemctl restart systemd-resolved 2>/dev/null || true
-fi
-    
-echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
-echo -e "${NEON_YELLOW}All users, services, and files have been deleted.${NC}"
-EOF
-    chmod +x /usr/local/bin/elite-x-uninstall
 }
 
 # ==================== MAIN INSTALLATION ====================
@@ -2255,7 +2275,7 @@ else
 fi
 echo ""
 
-# Auto-open menu after installation (FIXED)
+# Auto-open menu after installation
 echo -e "${NEON_GREEN}Opening dashboard in 3 seconds...${NC}"
 sleep 3
 /usr/local/bin/elite-x
