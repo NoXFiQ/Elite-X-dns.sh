@@ -31,6 +31,77 @@ BLINK='\033[5m'; UNDERLINE='\033[4m'; REVERSE='\033[7m'
 
 print_color() { echo -e "${2}${1}${NC}"; }
 
+# ==================== COMPLETE UNINSTALL FUNCTION ====================
+complete_uninstall() {
+    echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
+    
+    # Stop all services
+    systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+    systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+    
+    # Remove service files
+    rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+    rm -f /etc/systemd/system/multi-user.target.wants/{dnstt-elite-x*,elite-x-*} 2>/dev/null || true
+    
+    # Remove all SSH users created by ELITE-X
+    if [ -d "/etc/elite-x/users" ]; then
+        for user_file in /etc/elite-x/users/*; do
+            if [ -f "$user_file" ]; then
+                username=$(basename "$user_file")
+                echo -e "${NEON_YELLOW}Removing user: $username${NC}"
+                userdel -r "$username" 2>/dev/null || true
+                pkill -u "$username" 2>/dev/null || true
+            fi
+        done
+    fi
+    
+    # Kill any remaining processes
+    pkill -f dnstt-server 2>/dev/null || true
+    pkill -f dnstt-edns-proxy 2>/dev/null || true
+    pkill -f elite-x-traffic 2>/dev/null || true
+    pkill -f elite-x-cleaner 2>/dev/null || true
+    
+    # Remove all ELITE-X directories and files
+    rm -rf /etc/dnstt
+    rm -rf /etc/elite-x
+    rm -f /usr/local/bin/{dnstt-*,elite-x*}
+    rm -f /usr/local/bin/dnstt-edns-proxy.py
+    
+    # Remove banner from sshd_config
+    sed -i '/^Banner/d' /etc/ssh/sshd_config
+    systemctl restart sshd
+    
+    # Remove cron jobs
+    rm -f /etc/cron.hourly/elite-x-expiry
+    rm -f /etc/cron.daily/elite-x-* 2>/dev/null || true
+    rm -f /etc/cron.weekly/elite-x-* 2>/dev/null || true
+    
+    # Remove profile and bashrc entries
+    rm -f /etc/profile.d/elite-x-dashboard.sh
+    sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
+    sed -i '/menu=/d' /root/.bashrc 2>/dev/null || true
+    sed -i '/elite=/d' /root/.bashrc 2>/dev/null || true
+    
+    # Remove aliases
+    sed -i '/alias menu/d' /root/.bashrc 2>/dev/null || true
+    sed -i '/alias elite/d' /root/.bashrc 2>/dev/null || true
+    sed -i '/alias live/d' /root/.bashrc 2>/dev/null || true
+    sed -i '/alias speed/d' /root/.bashrc 2>/dev/null || true
+    sed -i '/alias renew/d' /root/.bashrc 2>/dev/null || true
+    
+    # Clean up systemd
+    systemctl daemon-reload
+    
+    # Clean up DNS settings (restore original)
+    if [ -f /etc/systemd/resolved.conf.backup ]; then
+        cp /etc/systemd/resolved.conf.backup /etc/systemd/resolved.conf 2>/dev/null || true
+        systemctl restart systemd-resolved 2>/dev/null || true
+    fi
+    
+    echo -e "${NEON_GREEN}${BOLD}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
+    echo -e "${NEON_YELLOW}All users, services, and files have been deleted.${NC}"
+}
+
 # ==================== SELF DESTRUCT ====================
 self_destruct() {
     echo -e "${NEON_YELLOW}${BLINK}🧹 CLEANING INSTALLATION TRACES...${NC}"
@@ -112,15 +183,10 @@ check_expiry() {
                 echo -e "${NEON_RED}║${NEON_WHITE}  Your 2-day trial has ended. Script will self-destruct...     ${NEON_RED}║${NC}"
                 echo -e "${NEON_RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 sleep 3
-                      
-                systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
-                systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
-                rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
-                rm -rf /etc/dnstt /etc/elite-x
-                rm -f /usr/local/bin/{dnstt-*,elite-x*}
-                sed -i '/^Banner/d' /etc/ssh/sshd_config
-                systemctl restart sshd
-
+                
+                # Call complete uninstall
+                complete_uninstall
+                
                 rm -f "$0"
                 echo -e "${NEON_GREEN}✅ ELITE-X has been uninstalled.${NC}"
                 exit 0
@@ -155,14 +221,79 @@ activate_script() {
     return 1
 }
 
-# ==================== BOOSTER FUNCTIONS (FIXED - NO HANGING) ====================
+# ==================== FIXED IP INFO FUNCTION ====================
+get_ip_info() {
+    echo -e "${NEON_CYAN}🌐 Fetching IP information...${NC}"
+    
+    # Try multiple methods to get IP
+    IP=""
+    for cmd in "curl -4 -s ifconfig.me" "curl -4 -s icanhazip.com" "curl -4 -s ipinfo.io/ip" "wget -qO- -4 ifconfig.me"; do
+        IP=$(eval $cmd 2>/dev/null | head -1 | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+        if [ ! -z "$IP" ]; then
+            break
+        fi
+    done
+    
+    if [ -z "$IP" ]; then
+        IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
+    fi
+    
+    if [ -z "$IP" ]; then
+        IP="Unknown"
+    fi
+    
+    echo "$IP" > /etc/elite-x/cached_ip
+    
+    # Get location and ISP with multiple fallbacks
+    if [ "$IP" != "Unknown" ]; then
+        # Try ip-api.com first (fastest)
+        LOCATION_INFO=$(curl -s http://ip-api.com/json/$IP 2>/dev/null)
+        if [ ! -z "$LOCATION_INFO" ] && echo "$LOCATION_INFO" | grep -q '"status":"success"'; then
+            city=$(echo "$LOCATION_INFO" | jq -r '.city // "Unknown"' 2>/dev/null)
+            country=$(echo "$LOCATION_INFO" | jq -r '.country // "Unknown"' 2>/dev/null)
+            isp=$(echo "$LOCATION_INFO" | jq -r '.isp // "Unknown"' 2>/dev/null)
+            
+            if [ "$city" != "null" ] && [ ! -z "$city" ] && [ "$city" != "Unknown" ]; then
+                echo "$city, $country" > /etc/elite-x/cached_location
+            else
+                echo "$country" > /etc/elite-x/cached_location
+            fi
+            
+            if [ "$isp" != "null" ] && [ ! -z "$isp" ]; then
+                echo "$isp" > /etc/elite-x/cached_isp
+            else
+                echo "Unknown ISP" > /etc/elite-x/cached_isp
+            fi
+        else
+            # Fallback to ipinfo.io
+            LOCATION_INFO=$(curl -s ipinfo.io/$IP 2>/dev/null)
+            if [ ! -z "$LOCATION_INFO" ]; then
+                city=$(echo "$LOCATION_INFO" | jq -r '.city // "Unknown"' 2>/dev/null)
+                country=$(echo "$LOCATION_INFO" | jq -r '.country // "Unknown"' 2>/dev/null)
+                isp=$(echo "$LOCATION_INFO" | jq -r '.org // "Unknown"' 2>/dev/null)
+                
+                [ ! -z "$city" ] && [ "$city" != "null" ] && [ "$city" != "Unknown" ] && echo "$city, $country" > /etc/elite-x/cached_location || echo "Unknown Location" > /etc/elite-x/cached_location
+                [ ! -z "$isp" ] && [ "$isp" != "null" ] && echo "$isp" > /etc/elite-x/cached_isp || echo "Unknown ISP" > /etc/elite-x/cached_isp
+            else
+                echo "Unknown Location" > /etc/elite-x/cached_location
+                echo "Unknown ISP" > /etc/elite-x/cached_isp
+            fi
+        fi
+    else
+        echo "Unknown Location" > /etc/elite-x/cached_location
+        echo "Unknown ISP" > /etc/elite-x/cached_isp
+    fi
+    
+    echo -e "${NEON_GREEN}✅ IP info cached: $(cat /etc/elite-x/cached_ip) - $(cat /etc/elite-x/cached_location)${NC}"
+}
+
+# ==================== BOOSTER FUNCTIONS ====================
 enable_bbr_plus() {
     echo -e "${NEON_CYAN}🚀 ENABLING BBR PLUS CONGESTION CONTROL...${NC}"
     
     modprobe tcp_bbr 2>/dev/null || true
     echo "tcp_bbr" >> /etc/modules-load.d/modules.conf 2>/dev/null || true
     
-    # Check if already in sysctl.conf
     if ! grep -q "tcp_congestion_control = bbr" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
@@ -194,7 +325,6 @@ optimize_cpu_performance() {
 tune_kernel_parameters() {
     echo -e "${NEON_CYAN}🧠 TUNING KERNEL PARAMETERS...${NC}"
     
-    # Check if already in sysctl.conf
     if ! grep -q "KERNEL BOOSTER" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
@@ -290,7 +420,6 @@ optimize_interface_offloading() {
 optimize_tcp_parameters() {
     echo -e "${NEON_CYAN}📶 APPLYING TCP ULTRA BOOST...${NC}"
     
-    # Check if already in sysctl.conf
     if ! grep -q "TCP ULTRA BOOST" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
@@ -366,7 +495,6 @@ optimize_buffer_mtu() {
     fi
     echo -e "${NEON_GREEN}✅ Optimal MTU detected: $BEST_MTU${NC}"
     
-    # Check if already in sysctl.conf
     if ! grep -q "BUFFER OVERCLOCK" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
@@ -407,7 +535,6 @@ optimize_network_steering() {
 enable_tcp_fastopen_master() {
     echo -e "${NEON_CYAN}🔓 ENABLING TCP FAST OPEN MASTER...${NC}"
     
-    # Check if already in sysctl.conf
     if ! grep -q "TCP FAST OPEN" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
@@ -423,7 +550,6 @@ EOF
 
 apply_all_boosters() {
     echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL BOOSTERS - OVERCLOCK MODE 🚀🚀🚀${NC}"
-    
     enable_bbr_plus
     optimize_cpu_performance
     tune_kernel_parameters
@@ -436,10 +562,7 @@ apply_all_boosters() {
     optimize_buffer_mtu
     optimize_network_steering
     enable_tcp_fastopen_master
-    
-    # Apply sysctl changes without hanging
     sysctl -p 2>/dev/null || true
-    
     echo -e "${NEON_GREEN}${BOLD}✅✅✅ ALL BOOSTERS APPLIED SUCCESSFULLY! ✅✅✅${NC}"
     echo -e "${NEON_YELLOW}⚠️ System reboot recommended for maximum effect${NC}"
 }
@@ -524,161 +647,93 @@ check_subdomain() {
 
 # ==================== FIXED EDNS PROXY ====================
 install_edns_proxy() {
-    echo -e "${NEON_CYAN}Installing EDNS proxy (FIXED VERSION)...${NC}"
+    echo -e "${NEON_CYAN}Installing EDNS proxy...${NC}"
     
     cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
-"""
-ELITE-X EDNS Proxy - Fixed Version
-Handles DNS to DNSTT forwarding with proper EDNS0 support
-"""
 import socket
 import threading
 import struct
 import time
-import sys
-import os
 
-# Configuration
 LISTEN_IP = '0.0.0.0'
 LISTEN_PORT = 53
 DNSTT_IP = '127.0.0.1'
 DNSTT_PORT = 5300
 BUFFER_SIZE = 8192
-EDNS_MAX_SIZE = 4096
-LOG_LEVEL = 0  # 0=quiet, 1=normal, 2=verbose
-
-def log(msg, level=1):
-    """Log message if level is sufficient"""
-    if level <= LOG_LEVEL:
-        print(f"[{time.strftime('%H:%M:%S')}] {msg}")
-        sys.stdout.flush()
-
-def parse_dns_packet(data):
-    """Parse DNS packet to extract key information"""
-    if len(data) < 12:
-        return None
-    
-    header = struct.unpack('!HHHHHH', data[:12])
-    qdcount = header[2]
-    ancount = header[3]
-    nscount = header[4]
-    arcount = header[5]
-    
-    return {
-        'id': header[0],
-        'flags': header[1],
-        'qdcount': qdcount,
-        'ancount': ancount,
-        'nscount': nscount,
-        'arcount': arcount
-    }
 
 def add_edns0(data, max_size=4096):
-    """Add or modify EDNS0 OPT record in DNS packet"""
     if len(data) < 12:
         return data
-    
-    qdcount, ancount, nscount, arcount = struct.unpack('!HHHH', data[4:12])
+    try:
+        qdcount, ancount, nscount, arcount = struct.unpack('!HHHH', data[4:12])
+    except:
+        return data
     offset = 12
     
+    def skip_name(b, o):
+        while o < len(b):
+            l = b[o]
+            o += 1
+            if l == 0:
+                break
+            if l & 0xC0 == 0xC0:
+                o += 1
+                break
+            o += l
+        return o
+    
     for _ in range(qdcount):
-        while offset < len(data):
-            label_len = data[offset]
-            offset += 1
-            if label_len == 0:
-                break
-            if label_len & 0xC0:
-                offset += 1
-                break
-            offset += label_len
+        offset = skip_name(data, offset)
         offset += 4
     
     for _ in range(ancount + nscount):
-        while offset < len(data):
-            label_len = data[offset]
-            offset += 1
-            if label_len == 0:
-                break
-            if label_len & 0xC0:
-                offset += 1
-                break
-            offset += label_len
+        offset = skip_name(data, offset)
         if offset + 10 > len(data):
             return data
         rdlength = struct.unpack('!H', data[offset+8:offset+10])[0]
         offset += 10 + rdlength
     
     new_data = bytearray(data)
-    found_opt = False
     
-    opt_offset = offset
     for _ in range(arcount):
-        if opt_offset + 11 > len(data):
-            break
-        
-        if data[opt_offset] == 0:
-            opt_type = struct.unpack('!H', data[opt_offset+1:opt_offset+3])[0]
-            if opt_type == 41:
-                found_opt = True
-                new_data[opt_offset+3:opt_offset+5] = struct.pack('!H', max_size)
-                break
-        
-        while opt_offset < len(data) and data[opt_offset] != 0:
-            if data[opt_offset] & 0xC0:
-                opt_offset += 2
-                break
-            opt_offset += data[opt_offset] + 1
-        if data[opt_offset] == 0:
-            opt_offset += 1
+        opt_offset = offset
+        opt_offset = skip_name(data, opt_offset)
         if opt_offset + 10 > len(data):
             break
+        opt_type = struct.unpack('!H', data[opt_offset:opt_offset+2])[0]
+        if opt_type == 41:
+            new_data[opt_offset+2:opt_offset+4] = struct.pack('!H', max_size)
+            break
         rdlength = struct.unpack('!H', data[opt_offset+8:opt_offset+10])[0]
-        opt_offset += 10 + rdlength
+        offset = opt_offset + 10 + rdlength
     
     return bytes(new_data)
 
-def handle_dns_query(server_socket, data, client_addr):
-    """Handle a single DNS query"""
+def handle_query(server_socket, data, client_addr):
     try:
-        modified_data = add_edns0(data, EDNS_MAX_SIZE)
-        
-        dnstt_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        dnstt_sock.settimeout(5.0)
-        dnstt_sock.sendto(modified_data, (DNSTT_IP, DNSTT_PORT))
-        
-        response, _ = dnstt_sock.recvfrom(BUFFER_SIZE)
-        modified_response = add_edns0(response, 512)
-        server_socket.sendto(modified_response, client_addr)
-        
-    except socket.timeout:
-        pass
-    except Exception as e:
+        modified = add_edns0(data, 4096)
+        dnstt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        dnstt.settimeout(5)
+        dnstt.sendto(modified, (DNSTT_IP, DNSTT_PORT))
+        response, _ = dnstt.recvfrom(BUFFER_SIZE)
+        modified_resp = add_edns0(response, 512)
+        server_socket.sendto(modified_resp, client_addr)
+    except:
         pass
     finally:
-        dnstt_sock.close()
+        dnstt.close()
 
 def main():
-    """Main proxy function"""
-    log(f"ELITE-X EDNS Proxy starting...")
-    
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((LISTEN_IP, LISTEN_PORT))
-    except Exception as e:
-        sys.exit(1)
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((LISTEN_IP, LISTEN_PORT))
     
     while True:
         try:
-            data, client_addr = sock.recvfrom(BUFFER_SIZE)
-            thread = threading.Thread(
-                target=handle_dns_query,
-                args=(sock, data, client_addr),
-                daemon=True
-            )
-            thread.start()
-        except Exception as e:
+            data, addr = sock.recvfrom(BUFFER_SIZE)
+            threading.Thread(target=handle_query, args=(sock, data, addr), daemon=True).start()
+        except:
             time.sleep(1)
 
 if __name__ == "__main__":
@@ -1151,15 +1206,8 @@ check_expiry_menu() {
                 echo -e "${NEON_RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 sleep 3
                 
-                systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
-                systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
-                rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
-                rm -rf /etc/dnstt /etc/elite-x
-                rm -f /usr/local/bin/{dnstt-*,elite-x*}
-                sed -i '/^Banner/d' /etc/ssh/sshd_config
-                systemctl restart sshd
+                /usr/local/bin/elite-x-uninstall
                 
-                echo -e "${NEON_GREEN}✅ ELITE-X has been uninstalled.${NC}"
                 rm -f /tmp/elite-x-running
                 exit 0
             fi
@@ -1172,12 +1220,9 @@ check_expiry_menu
 show_dashboard() {
     clear
     
+    # Refresh IP info every hour
     if [ ! -f /etc/elite-x/cached_ip ] || [ $(( $(date +%s) - $(stat -c %Y /etc/elite-x/cached_ip 2>/dev/null || echo 0) )) -gt 3600 ]; then
-        IP=$(curl -4 -s ifconfig.me 2>/dev/null || echo "Unknown")
-        echo "$IP" > /etc/elite-x/cached_ip
-        LOCATION_INFO=$(curl -s http://ip-api.com/json/$IP 2>/dev/null)
-        echo "$LOCATION_INFO" | jq -r '.city + ", " + .country' 2>/dev/null > /etc/elite-x/cached_location || echo "Unknown" > /etc/elite-x/cached_location
-        echo "$LOCATION_INFO" | jq -r '.isp' 2>/dev/null > /etc/elite-x/cached_isp || echo "Unknown" > /etc/elite-x/cached_isp
+        /usr/local/bin/elite-x-refresh-info
     fi
     
     IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || echo "Unknown")
@@ -1243,6 +1288,7 @@ settings_menu() {
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [21] 🔄 Renew SSH Account${NC}"
         echo -e "${NEON_CYAN}║${NEON_RED}  [22] 🚀 ULTIMATE BOOSTER MENU${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [23] 📈 System Performance Test${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [24] 🔄 Refresh IP/Location Info${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [0]  ↩️ Back to Main Menu${NC}"
         echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
@@ -1305,14 +1351,7 @@ settings_menu() {
             16)
                 read -p "$(echo -e $NEON_RED"Type YES to uninstall: "$NC)" c
                 [ "$c" = "YES" ] && {
-                    systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner
-                    systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner
-                    rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
-                    rm -rf /etc/dnstt /etc/elite-x
-                    rm -f /usr/local/bin/{dnstt-*,elite-x*}
-                    sed -i '/^Banner/d' /etc/ssh/sshd_config
-                    systemctl restart sshd
-                    echo -e "${NEON_GREEN}✅ Uninstalled${NC}"
+                    /usr/local/bin/elite-x-uninstall
                     rm -f /tmp/elite-x-running
                     exit 0
                 }
@@ -1392,6 +1431,12 @@ settings_menu() {
                 echo ""
                 read -p "Press Enter to continue..."
                 ;;
+            24)
+                echo -e "${NEON_YELLOW}🔄 Refreshing IP/Location information...${NC}"
+                /usr/local/bin/elite-x-refresh-info
+                echo -e "${NEON_GREEN}✅ Information refreshed!${NC}"
+                read -p "Press Enter to continue..."
+                ;;
             0) return ;;
             *) echo -e "${NEON_RED}Invalid option${NC}"; read -p "Press Enter..." ;;
         esac
@@ -1454,6 +1499,139 @@ main_menu() {
 main_menu
 EOF
     chmod +x /usr/local/bin/elite-x
+}
+
+# ==================== CREATE REFRESH INFO SCRIPT ====================
+create_refresh_script() {
+    cat > /usr/local/bin/elite-x-refresh-info <<'EOF'
+#!/bin/bash
+
+NEON_CYAN='\033[1;36m'; NEON_GREEN='\033[1;32m'; NEON_RED='\033[1;31m'; NC='\033[0m'
+
+# Try multiple methods to get IP
+IP=""
+for cmd in "curl -4 -s ifconfig.me" "curl -4 -s icanhazip.com" "curl -4 -s ipinfo.io/ip" "wget -qO- -4 ifconfig.me"; do
+    IP=$(eval $cmd 2>/dev/null | head -1 | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+    if [ ! -z "$IP" ]; then
+        break
+    fi
+done
+
+if [ -z "$IP" ]; then
+    IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
+fi
+
+if [ -z "$IP" ]; then
+    IP="Unknown"
+fi
+
+echo "$IP" > /etc/elite-x/cached_ip
+
+if [ "$IP" != "Unknown" ]; then
+    LOCATION_INFO=$(curl -s http://ip-api.com/json/$IP 2>/dev/null)
+    if [ ! -z "$LOCATION_INFO" ] && echo "$LOCATION_INFO" | grep -q '"status":"success"'; then
+        city=$(echo "$LOCATION_INFO" | jq -r '.city // "Unknown"' 2>/dev/null)
+        country=$(echo "$LOCATION_INFO" | jq -r '.country // "Unknown"' 2>/dev/null)
+        isp=$(echo "$LOCATION_INFO" | jq -r '.isp // "Unknown"' 2>/dev/null)
+        
+        if [ "$city" != "null" ] && [ ! -z "$city" ] && [ "$city" != "Unknown" ]; then
+            echo "$city, $country" > /etc/elite-x/cached_location
+        else
+            echo "$country" > /etc/elite-x/cached_location
+        fi
+        
+        if [ "$isp" != "null" ] && [ ! -z "$isp" ]; then
+            echo "$isp" > /etc/elite-x/cached_isp
+        else
+            echo "Unknown ISP" > /etc/elite-x/cached_isp
+        fi
+    else
+        echo "Unknown Location" > /etc/elite-x/cached_location
+        echo "Unknown ISP" > /etc/elite-x/cached_isp
+    fi
+else
+    echo "Unknown Location" > /etc/elite-x/cached_location
+    echo "Unknown ISP" > /etc/elite-x/cached_isp
+fi
+EOF
+    chmod +x /usr/local/bin/elite-x-refresh-info
+}
+
+# ==================== CREATE UNINSTALL SCRIPT ====================
+create_uninstall_script() {
+    cat > /usr/local/bin/elite-x-uninstall <<'EOF'
+#!/bin/bash
+
+NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'; NC='\033[0m'; BLINK='\033[5m'
+
+echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
+    
+# Stop all services
+systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+    
+# Remove service files
+rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+rm -f /etc/systemd/system/multi-user.target.wants/{dnstt-elite-x*,elite-x-*} 2>/dev/null || true
+    
+# Remove all SSH users created by ELITE-X
+if [ -d "/etc/elite-x/users" ]; then
+    for user_file in /etc/elite-x/users/*; do
+        if [ -f "$user_file" ]; then
+            username=$(basename "$user_file")
+            echo -e "${NEON_YELLOW}Removing user: $username${NC}"
+            userdel -r "$username" 2>/dev/null || true
+            pkill -u "$username" 2>/dev/null || true
+        fi
+    done
+fi
+    
+# Kill any remaining processes
+pkill -f dnstt-server 2>/dev/null || true
+pkill -f dnstt-edns-proxy 2>/dev/null || true
+pkill -f elite-x-traffic 2>/dev/null || true
+pkill -f elite-x-cleaner 2>/dev/null || true
+    
+# Remove all ELITE-X directories and files
+rm -rf /etc/dnstt
+rm -rf /etc/elite-x
+rm -f /usr/local/bin/{dnstt-*,elite-x*}
+rm -f /usr/local/bin/dnstt-edns-proxy.py
+rm -f /usr/local/bin/elite-x-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall}
+    
+# Remove banner from sshd_config
+sed -i '/^Banner/d' /etc/ssh/sshd_config
+systemctl restart sshd
+    
+# Remove cron jobs
+rm -f /etc/cron.hourly/elite-x-expiry
+rm -f /etc/cron.daily/elite-x-* 2>/dev/null || true
+rm -f /etc/cron.weekly/elite-x-* 2>/dev/null || true
+    
+# Remove profile and bashrc entries
+rm -f /etc/profile.d/elite-x-dashboard.sh
+sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
+sed -i '/menu=/d' /root/.bashrc 2>/dev/null || true
+sed -i '/elite=/d' /root/.bashrc 2>/dev/null || true
+sed -i '/alias menu/d' /root/.bashrc 2>/dev/null || true
+sed -i '/alias elite/d' /root/.bashrc 2>/dev/null || true
+sed -i '/alias live/d' /root/.bashrc 2>/dev/null || true
+sed -i '/alias speed/d' /root/.bashrc 2>/dev/null || true
+sed -i '/alias renew/d' /root/.bashrc 2>/dev/null || true
+    
+# Clean up systemd
+systemctl daemon-reload
+    
+# Clean up DNS settings (restore original)
+if [ -f /etc/systemd/resolved.conf.backup ]; then
+    cp /etc/systemd/resolved.conf.backup /etc/systemd/resolved.conf 2>/dev/null || true
+    systemctl restart systemd-resolved 2>/dev/null || true
+fi
+    
+echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
+echo -e "${NEON_YELLOW}All users, services, and files have been deleted.${NC}"
+EOF
+    chmod +x /usr/local/bin/elite-x-uninstall
 }
 
 # ==================== MAIN INSTALLATION ====================
@@ -1582,11 +1760,12 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-pr
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
-# Handle systemd-resolved
+# Backup and configure systemd-resolved
 if [ -f /etc/systemd/resolved.conf ]; then
-  echo -e "${NEON_CYAN}Configuring systemd-resolved...${NC}"
-  systemctl stop systemd-resolved 2>/dev/null || true
-  systemctl disable systemd-resolved 2>/dev/null || true
+    cp /etc/systemd/resolved.conf /etc/systemd/resolved.conf.backup 2>/dev/null || true
+    echo -e "${NEON_CYAN}Configuring systemd-resolved...${NC}"
+    systemctl stop systemd-resolved 2>/dev/null || true
+    systemctl disable systemd-resolved 2>/dev/null || true
 fi
 
 # Ensure port 53 is free
@@ -1637,7 +1816,7 @@ LimitNOFILE=1048576
 WantedBy=multi-user.target
 EOF
 
-# Install fixed EDNS proxy
+# Install EDNS proxy
 install_edns_proxy
 
 cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
@@ -1681,6 +1860,8 @@ setup_traffic_analyzer
 setup_renew_user
 setup_updater
 setup_user_script
+create_refresh_script
+create_uninstall_script
 setup_main_menu
 
 # Save booster functions to a file
@@ -1974,10 +2155,9 @@ booster_menu() {
 BOOSTERFILE
 chmod +x /usr/local/bin/elite-x-boosters
 
-# Apply overclock boosters if selected - FIXED: Run in background to not block installation
+# Apply overclock boosters if selected
 if [ $OVERCLOCK_MODE -eq 1 ]; then
     echo -e "${NEON_RED}${BLINK}🚀 APPLYING OVERCLOCKED BOOSTERS - MAXIMUM SPEED MODE 🚀${NC}"
-    # Source and run boosters in a subshell to prevent blocking
     (
         source /usr/local/bin/elite-x-boosters
         apply_all_boosters
@@ -1985,7 +2165,7 @@ if [ $OVERCLOCK_MODE -eq 1 ]; then
     echo -e "${NEON_GREEN}✅ Boosters applied - Continuing installation...${NC}"
 fi
 
-# Additional optimizations (run in background to not block)
+# Additional optimizations
 for iface in $(ls /sys/class/net/ | grep -v lo); do
     ethtool -K $iface tx off sg off tso off 2>/dev/null || true &
     ip link set dev $iface txqueuelen 10000 2>/dev/null || true &
@@ -2004,18 +2184,8 @@ EOF
 chmod +x /etc/cron.hourly/elite-x-expiry
 
 # Cache network info
-echo -e "${NEON_CYAN}Caching network information for fast login...${NC}"
-IP=$(curl -4 -s ifconfig.me 2>/dev/null || echo "Unknown")
-echo "$IP" > /etc/elite-x/cached_ip
-
-if [ "$IP" != "Unknown" ]; then
-    LOCATION_INFO=$(curl -s http://ip-api.com/json/$IP 2>/dev/null)
-    echo "$LOCATION_INFO" | jq -r '.city + ", " + .country' 2>/dev/null > /etc/elite-x/cached_location || echo "Unknown" > /etc/elite-x/cached_location
-    echo "$LOCATION_INFO" | jq -r '.isp' 2>/dev/null > /etc/elite-x/cached_isp || echo "Unknown" > /etc/elite-x/cached_isp
-else
-    echo "Unknown" > /etc/elite-x/cached_location
-    echo "Unknown" > /etc/elite-x/cached_isp
-fi
+echo -e "${NEON_CYAN}Caching network information...${NC}"
+/usr/local/bin/elite-x-refresh-info
 
 # Auto-show on login
 cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
@@ -2085,13 +2255,9 @@ else
 fi
 echo ""
 
-read -p "$(echo -e $NEON_GREEN"Open menu now? (y/n): "$NC)" open
-if [ "$open" = "y" ]; then
-    echo -e "${NEON_GREEN}Opening dashboard...${NC}"
-    sleep 1
-    /usr/local/bin/elite-x
-else
-    echo -e "${NEON_YELLOW}You can type 'menu' anytime to open the dashboard.${NC}"
-fi
+# Auto-open menu after installation (FIXED)
+echo -e "${NEON_GREEN}Opening dashboard in 3 seconds...${NC}"
+sleep 3
+/usr/local/bin/elite-x
 
 self_destruct
