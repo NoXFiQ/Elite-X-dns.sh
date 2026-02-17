@@ -28,7 +28,6 @@ BG_YELLOW='\033[43m'; BG_BLUE='\033[44m'; BG_PURPLE='\033[45m'
 BG_CYAN='\033[46m'; BG_WHITE='\033[47m'
 
 BLINK='\033[5m'; UNDERLINE='\033[4m'; REVERSE='\033[7m'
-NC='\033[0m'
 
 print_color() { echo -e "${2}${1}${NC}"; }
 
@@ -156,7 +155,7 @@ activate_script() {
     return 1
 }
 
-# ==================== ULTIMATE BOOSTERS ====================
+# ==================== BOOSTER FUNCTIONS ====================
 enable_bbr_plus() {
     echo -e "${NEON_CYAN}🚀 ENABLING BBR PLUS CONGESTION CONTROL...${NC}"
     
@@ -725,9 +724,10 @@ while true; do
     echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}              LIVE CONNECTION MONITOR - REFRESH 2S                ${NEON_CYAN}║${NC}"
     echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     
-    connections=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
-    echo -e "${NEON_PURPLE}Total Active: ${NEON_GREEN}$connections${NC}"
+    total=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
+    echo -e "${NEON_PURPLE}Total Active: ${NEON_GREEN}$total${NC}"
     echo ""
+    echo -e "${NEON_CYAN}─── CONNECTIONS ───────────────────────────────────────────────${NC}"
     
     ss -tnp | grep :22 | grep ESTAB | while read line; do
         src_ip=$(echo $line | awk '{print $5}' | cut -d: -f1)
@@ -735,12 +735,15 @@ while true; do
         pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
         
         if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
-            username=$(ps -o user= -p $pid 2>/dev/null | head -1)
+            username=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
         else
             username="unknown"
         fi
         
-        echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}IP:${NEON_YELLOW} $src_ip${NC}"
+        # Count connections per user
+        user_count=$(ss -tnp | grep ":22" | grep ESTAB | grep -c "pid=$pid" 2>/dev/null || echo "1")
+        
+        echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}IP:${NEON_YELLOW} $src_ip ${NEON_CYAN}Conns:${NEON_GREEN}$user_count${NC}"
     done
     
     echo -e "${NEON_YELLOW}Press Ctrl+C to exit - Auto-refresh 2s${NC}"
@@ -922,10 +925,12 @@ EOF
 install_dnstt_server() {
     echo -e "${NEON_CYAN}Installing dnstt-server...${NC}"
 
+    # Try multiple sources for dnstt-server
     DNSTT_URLS=(
         "https://github.com/Elite-X-Team/dnstt-server/raw/main/dnstt-server"
         "https://raw.githubusercontent.com/NoXFiQ/Elite-X-dns/main/dnstt-server"
         "https://github.com/x2ios/slowdns/raw/main/dnstt-server"
+        "https://github.com/darrenjoseph/dnstt/raw/master/bin/dnstt-server"
     )
 
     DOWNLOAD_SUCCESS=0
@@ -943,9 +948,17 @@ install_dnstt_server() {
     done
 
     if [ $DOWNLOAD_SUCCESS -eq 0 ]; then
-        echo -e "${NEON_YELLOW}⚠️ Download failed. Using fallback method...${NC}"
+        echo -e "${NEON_YELLOW}⚠️ Download failed. Building from source...${NC}"
         
-        cat > /usr/local/bin/dnstt-server <<'WRAPPER'
+        # Try to build from source
+        apt install -y golang-go git build-essential
+        
+        cd /tmp
+        git clone https://github.com/x2ios/slowdns.git 2>/dev/null || {
+            echo -e "${NEON_RED}Failed to clone repository${NC}"
+            
+            # Create wrapper as last resort
+            cat > /usr/local/bin/dnstt-server <<'WRAPPER'
 #!/bin/bash
 if [ "$1" = "-gen-key" ]; then
     openssl genrsa -out server.key 2048 2>/dev/null
@@ -953,11 +966,13 @@ if [ "$1" = "-gen-key" ]; then
     echo "Keys generated"
 else
     echo "ELITE-X DNSTT Server v5.0 Running..."
+    echo "Note: This is a wrapper script, actual dnstt-server binary not found"
     while true; do sleep 3600; done
 fi
 WRAPPER
-        chmod +x /usr/local/bin/dnstt-server
-        echo -e "${NEON_GREEN}✅ Created wrapper script${NC}"
+            chmod +x /usr/local/bin/dnstt-server
+            echo -e "${NEON_GREEN}✅ Created wrapper script${NC}"
+        }
     fi
 
     if [ -f /usr/local/bin/dnstt-server ] && [ -x /usr/local/bin/dnstt-server ]; then
@@ -968,7 +983,7 @@ WRAPPER
     fi
 }
 
-# ==================== USER MANAGEMENT SCRIPT ====================
+# ==================== USER MANAGEMENT SCRIPT (FIXED) ====================
 setup_user_script() {
     cat > /usr/local/bin/elite-x-user <<'EOF'
 #!/bin/bash
@@ -1042,50 +1057,105 @@ INFO
 list_users() {
     clear
     echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                     ACTIVE USERS                               ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                     ACTIVE USERS (WITH PASSWORDS)                  ${NEON_CYAN}║${NC}"
     echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
     
     if [ -z "$(ls -A $UD 2>/dev/null)" ]; then
         echo -e "${NEON_RED}No users found${NC}"
+        show_quote
         return
     fi
     
-    for user in $UD/*; do
-        [ ! -f "$user" ] && continue
-        u=$(basename "$user")
-        ex=$(grep "Expire:" "$user" | cut -d' ' -f2)
-        lm=$(grep "Traffic_Limit:" "$user" | cut -d' ' -f2)
-        us=$(cat $TD/$u 2>/dev/null || echo "0")
+    # Table header
+    printf "${NEON_WHITE}%-12s %-15s %-12s %-8s %-8s %-10s %s${NC}\n" "USERNAME" "PASSWORD" "EXPIRE" "LIMIT" "USED" "CONNS" "STATUS"
+    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────${NC}"
+    
+    for user_file in $UD/*; do
+        [ ! -f "$user_file" ] && continue
+        username=$(basename "$user_file")
         
-        if passwd -S "$u" 2>/dev/null | grep -q "L"; then
-            st="LOCKED"
-        else
-            st="ACTIVE"
+        # Get user details from file
+        password=$(grep "Password:" "$user_file" | cut -d' ' -f2-)
+        expire=$(grep "Expire:" "$user_file" | cut -d' ' -f2)
+        limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
+        used=$(cat $TD/$username 2>/dev/null || echo "0")
+        
+        # Count active connections for this user
+        conn_count=0
+        # Get all SSH PIDs for this user
+        user_pids=$(pgrep -u "$username" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
+        if [ ! -z "$user_pids" ]; then
+            conn_count=$(ss -tnp 2>/dev/null | grep -E "pid=($user_pids)" | grep -c ESTAB || echo "0")
         fi
         
-        echo -e "${NEON_CYAN}User:${NEON_WHITE} $u ${NEON_CYAN}Exp:${NEON_YELLOW} $ex ${NEON_CYAN}Used:${NEON_GREEN} ${us}MB ${NEON_CYAN}Status:${NEON_WHITE} $st${NC}"
+        # Check if user is locked
+        if passwd -S "$username" 2>/dev/null | grep -q "L"; then
+            status="${NEON_RED}LOCKED${NC}"
+        else
+            status="${NEON_GREEN}ACTIVE${NC}"
+        fi
+        
+        # Truncate password if too long
+        if [ ${#password} -gt 14 ]; then
+            display_pass="${password:0:11}..."
+        else
+            display_pass="$password"
+        fi
+        
+        printf "${NEON_CYAN}%-12s ${NEON_YELLOW}%-15s ${NEON_GREEN}%-12s ${NEON_WHITE}%-8s ${NEON_PURPLE}%-8s ${NEON_BLUE}%-10s ${NEON_CYAN}%b${NC}\n" \
+               "$username" "$display_pass" "$expire" "$limit" "$used" "$conn_count" "$status"
     done
+    
+    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────${NC}"
+    
+    # Show summary
+    total_users=$(ls -1 $UD | wc -l)
+    total_active=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
+    echo -e "${NEON_WHITE}Total Users: ${NEON_GREEN}$total_users${NC}  ${NEON_WHITE}Total Connections: ${NEON_GREEN}$total_active${NC}"
+    
     show_quote
 }
 
 lock_user() { 
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
-    usermod -L "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ Locked${NC}" || echo -e "${NEON_RED}❌ Failed${NC}"
+    if id "$u" &>/dev/null; then
+        usermod -L "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u locked${NC}" || echo -e "${NEON_RED}❌ Failed to lock${NC}"
+    else
+        echo -e "${NEON_RED}❌ User does not exist${NC}"
+    fi
     show_quote
 }
 
 unlock_user() { 
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
-    usermod -U "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ Unlocked${NC}" || echo -e "${NEON_RED}❌ Failed${NC}"
+    if id "$u" &>/dev/null; then
+        usermod -U "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u unlocked${NC}" || echo -e "${NEON_RED}❌ Failed to unlock${NC}"
+    else
+        echo -e "${NEON_RED}❌ User does not exist${NC}"
+    fi
     show_quote
 }
 
 delete_user() { 
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
-    userdel -r "$u" 2>/dev/null
-    rm -f $UD/$u $TD/$u
-    echo -e "${NEON_GREEN}✅ Deleted${NC}"
+    if id "$u" &>/dev/null; then
+        userdel -r "$u" 2>/dev/null
+        rm -f $UD/$u $TD/$u
+        echo -e "${NEON_GREEN}✅ User $u deleted${NC}"
+    else
+        echo -e "${NEON_RED}❌ User does not exist${NC}"
+    fi
     show_quote
+}
+
+show_help() {
+    echo "Usage: elite-x-user {add|list|lock|unlock|del}"
+    echo ""
+    echo "  add    - Create new user"
+    echo "  list   - List all users with passwords and connection counts"
+    echo "  lock   - Lock a user account"
+    echo "  unlock - Unlock a user account"
+    echo "  del    - Delete a user"
 }
 
 case $1 in
@@ -1094,7 +1164,7 @@ case $1 in
     lock) lock_user ;;
     unlock) unlock_user ;;
     del) delete_user ;;
-    *) echo "Usage: elite-x-user {add|list|lock|unlock|del}" ;;
+    *) show_help ;;
 esac
 EOF
     chmod +x /usr/local/bin/elite-x-user
@@ -1370,7 +1440,7 @@ settings_menu() {
                 elite-x-live
                 ;;
             20)
-                elite-x-analyzer show
+                elite-x-analyzer
                 read -p "Press Enter to continue..."
                 ;;
             21)
@@ -1411,7 +1481,7 @@ main_menu() {
         echo -e "${NEON_CYAN}║${NEON_GREEN}${BOLD}                         🎯 MAIN MENU 🎯                               ${NEON_CYAN}║${NC}"
         echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [1]  👤 Create SSH + DNS User${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [2]  📋 List All Users${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [2]  📋 List All Users (with passwords & connections)${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [3]  🔒 Lock User${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [4]  🔓 Unlock User${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [5]  🗑️ Delete User${NC}"
@@ -1430,7 +1500,8 @@ main_menu() {
             4) elite-x-user unlock; read -p "Press Enter to continue..." ;;
             5) elite-x-user del; read -p "Press Enter to continue..." ;;
             6)
-                [ -f /etc/elite-x/banner/custom ] || cp /etc/elite-x/banner/default /etc/elite-x/banner/custom 2>/dev/null
+                mkdir -p /etc/elite-x/banner
+                [ -f /etc/elite-x/banner/custom ] || cp /etc/elite-x/banner/default /etc/elite-x/banner/custom 2>/dev/null || echo "Welcome to ELITE-X" > /etc/elite-x/banner/custom
                 nano /etc/elite-x/banner/custom
                 cp /etc/elite-x/banner/custom /etc/elite-x/banner/ssh-banner 2>/dev/null
                 systemctl restart sshd
@@ -1439,7 +1510,7 @@ main_menu() {
                 ;;
             7)
                 rm -f /etc/elite-x/banner/custom
-                cp /etc/elite-x/banner/default /etc/elite-x/banner/ssh-banner 2>/dev/null
+                cp /etc/elite-x/banner/default /etc/elite-x/banner/ssh-banner 2>/dev/null || echo "Welcome to ELITE-X" > /etc/elite-x/banner/ssh-banner
                 systemctl restart sshd
                 echo -e "${NEON_GREEN}✅ Banner deleted${NC}"
                 read -p "Press Enter to continue..."
@@ -1587,19 +1658,19 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-pr
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
+# Handle systemd-resolved
 if [ -f /etc/systemd/resolved.conf ]; then
   echo -e "${NEON_CYAN}Configuring systemd-resolved...${NC}"
-  sed -i 's/^#\?DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf 2>/dev/null || true
-  grep -q '^DNS=' /etc/systemd/resolved.conf \
-    && sed -i 's/^DNS=.*/DNS=8.8.8.8 8.8.4.4 1.1.1.1/' /etc/systemd/resolved.conf \
-    || echo "DNS=8.8.8.8 8.8.4.4 1.1.1.1" >> /etc/systemd/resolved.conf
-  systemctl restart systemd-resolved 2>/dev/null || true
-  ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf 2>/dev/null || true
+  systemctl stop systemd-resolved 2>/dev/null || true
+  systemctl disable systemd-resolved 2>/dev/null || true
 fi
+
+# Ensure port 53 is free
+fuser -k 53/udp 2>/dev/null || true
 
 echo -e "${NEON_CYAN}Installing dependencies...${NC}"
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils net-tools iftop nload htop git make golang-go build-essential wget unzip irqbalance dnsmasq openssl
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils net-tools iftop nload htop git make golang-go build-essential wget unzip irqbalance openssl
 
 install_dnstt_server
 
@@ -1614,10 +1685,15 @@ if [ -f /etc/dnstt/server.key ]; then
 fi
 
 cd /etc/dnstt
-/usr/local/bin/dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub 2>/dev/null || {
+# Try to generate keys with dnstt-server, fallback to openssl
+if /usr/local/bin/dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub 2>/dev/null; then
+    echo -e "${NEON_GREEN}✅ Keys generated with dnstt-server${NC}"
+else
+    echo -e "${NEON_YELLOW}⚠️ Using OpenSSL for key generation${NC}"
     openssl genrsa -out server.key 2048 2>/dev/null
     openssl rsa -in server.key -pubout -out server.pub 2>/dev/null
-}
+    echo -e "${NEON_GREEN}✅ Keys generated with OpenSSL${NC}"
+fi
 cd ~
 
 chmod 600 /etc/dnstt/server.key
@@ -1628,11 +1704,13 @@ cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
 Description=ELITE-X DNSTT Server
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/dnstt-server -udp :${DNSTT_PORT} -mtu ${MTU} -privkey-file /etc/dnstt/server.key ${TDOMAIN} 127.0.0.1:22
 Restart=always
+RestartSec=5
 KillSignal=SIGTERM
 LimitNOFILE=1048576
 
@@ -1648,6 +1726,7 @@ cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
 Description=ELITE-X DNS Proxy
 After=dnstt-elite-x.service
 Requires=dnstt-elite-x.service
+Wants=network.target
 
 [Service]
 Type=simple
@@ -1662,12 +1741,17 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
-command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp || true
+# Configure firewall
+command -v ufw >/dev/null && {
+    ufw allow 22/tcp
+    ufw allow 53/udp
+    ufw reload 2>/dev/null || true
+}
 
 systemctl daemon-reload
 systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
 systemctl start dnstt-elite-x.service
-sleep 2
+sleep 3
 systemctl start dnstt-elite-x-proxy.service
 
 # Setup all features
@@ -1680,8 +1764,24 @@ setup_updater
 setup_user_script
 setup_main_menu
 
-# Save booster functions
-declare -f enable_bbr_plus optimize_cpu_performance tune_kernel_parameters optimize_irq_affinity optimize_dns_cache optimize_interface_offloading optimize_tcp_parameters setup_qos_priorities optimize_memory_usage optimize_buffer_mtu optimize_network_steering enable_tcp_fastopen_master apply_all_boosters booster_menu > /usr/local/bin/elite-x-boosters 2>/dev/null || true
+# Save booster functions to a file
+cat > /usr/local/bin/elite-x-boosters <<'BOOSTERFILE'
+#!/bin/bash
+$(declare -f enable_bbr_plus)
+$(declare -f optimize_cpu_performance)
+$(declare -f tune_kernel_parameters)
+$(declare -f optimize_irq_affinity)
+$(declare -f optimize_dns_cache)
+$(declare -f optimize_interface_offloading)
+$(declare -f optimize_tcp_parameters)
+$(declare -f setup_qos_priorities)
+$(declare -f optimize_memory_usage)
+$(declare -f optimize_buffer_mtu)
+$(declare -f optimize_network_steering)
+$(declare -f enable_tcp_fastopen_master)
+$(declare -f apply_all_boosters)
+$(declare -f booster_menu)
+BOOSTERFILE
 chmod +x /usr/local/bin/elite-x-boosters 2>/dev/null || true
 
 # Apply overclock boosters if selected
@@ -1759,7 +1859,7 @@ echo -e "${NEON_GREEN}║${NEON_YELLOW}${BOLD}              ELITE-X SLOWDNS INST
 echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  📌 DOMAIN  : ${NEON_CYAN}${TDOMAIN}${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  📍 LOCATION: ${NEON_CYAN}${SELECTED_LOCATION}${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  🔑 KEY     : ${NEON_YELLOW}${ACTIVATION_KEY}${NC}"
+echo -e "${NEON_GREEN}║${NEON_WHITE}  🔑 KEY     : ${NEON_YELLOW}$(cat /etc/elite-x/key)${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  ⏳ EXPIRY  : ${NEON_YELLOW}${EXPIRY_INFO}${NC}"
 echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  🚀 Commands:${NC}"
@@ -1776,11 +1876,18 @@ show_quote
 
 # Check service status
 sleep 2
-DNS_STATUS=$(systemctl is-active dnstt-elite-x)
-PRX_STATUS=$(systemctl is-active dnstt-elite-x-proxy)
 echo -e "${NEON_CYAN}Service Status:${NC}"
-echo -e "  DNSTT: $([ "$DNS_STATUS" = "active" ] && echo "${NEON_GREEN}● RUNNING${NC}" || echo "${NEON_RED}● FAILED${NC}")"
-echo -e "  PROXY: $([ "$PRX_STATUS" = "active" ] && echo "${NEON_GREEN}● RUNNING${NC}" || echo "${NEON_RED}● FAILED${NC}")"
+if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+    echo -e "  DNSTT: ${NEON_GREEN}● RUNNING${NC}"
+else
+    echo -e "  DNSTT: ${NEON_RED}● FAILED${NC}"
+fi
+
+if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
+    echo -e "  PROXY: ${NEON_GREEN}● RUNNING${NC}"
+else
+    echo -e "  PROXY: ${NEON_RED}● FAILED${NC}"
+fi
 echo ""
 
 read -p "$(echo -e $NEON_GREEN"Open menu now? (y/n): "$NC)" open
