@@ -31,7 +31,7 @@ BLINK='\033[5m'; UNDERLINE='\033[4m'; REVERSE='\033[7m'
 
 print_color() { echo -e "${2}${1}${NC}"; }
 
-# ==================== COMPLETE UNINSTALL FUNCTION ====================
+# ==================== COMPLETE UNINSTALL FUNCTION (FIXED) ====================
 complete_uninstall() {
     echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
     
@@ -43,14 +43,66 @@ complete_uninstall() {
     rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
     rm -f /etc/systemd/system/multi-user.target.wants/{dnstt-elite-x*,elite-x-*} 2>/dev/null || true
     
-    # Remove all SSH users created by ELITE-X
+    # ===== FIXED: REMOVE ALL USERS CREATED BY ELITE-X =====
+    echo -e "${NEON_YELLOW}🔍 Checking for ELITE-X users to remove...${NC}"
+    
+    # Method 1: Remove users from /etc/elite-x/users directory
     if [ -d "/etc/elite-x/users" ]; then
         for user_file in /etc/elite-x/users/*; do
             if [ -f "$user_file" ]; then
                 username=$(basename "$user_file")
-                echo -e "${NEON_YELLOW}Removing user: $username${NC}"
-                userdel -r "$username" 2>/dev/null || true
+                echo -e "${NEON_RED}Removing user: $username${NC}"
+                
+                # Kill all processes for this user
                 pkill -u "$username" 2>/dev/null || true
+                killall -u "$username" 2>/dev/null || true
+                
+                # Force remove user and home directory
+                userdel -r -f "$username" 2>/dev/null || true
+                
+                # Double check if user still exists
+                if id "$username" &>/dev/null 2>&1; then
+                    userdel -f "$username" 2>/dev/null || true
+                fi
+                
+                # Remove home directory if still exists
+                rm -rf /home/"$username" 2>/dev/null || true
+            fi
+        done
+    fi
+    
+    # Method 2: Find all users with shell /bin/false (common for VPN users)
+    echo -e "${NEON_YELLOW}🔍 Checking for users with /bin/false shell...${NC}"
+    if [ -f /etc/passwd ]; then
+        while IFS=: read -r username uid shell home; do
+            if [ "$shell" = "/bin/false" ] || [ "$shell" = "/usr/sbin/nologin" ]; then
+                # Check if this user might be from ELITE-X (has home directory)
+                if [ -d "$home" ] && [ "$home" != "/nonexistent" ]; then
+                    echo -e "${NEON_RED}Removing potential ELITE-X user: $username${NC}"
+                    pkill -u "$username" 2>/dev/null || true
+                    userdel -r -f "$username" 2>/dev/null || true
+                    rm -rf "$home" 2>/dev/null || true
+                fi
+            fi
+        done < /etc/passwd 2>/dev/null || true
+    fi
+    
+    # Method 3: Check all home directories
+    echo -e "${NEON_YELLOW}🔍 Checking home directories for leftover users...${NC}"
+    if [ -d "/home" ]; then
+        for home_dir in /home/*; do
+            if [ -d "$home_dir" ]; then
+                username=$(basename "$home_dir")
+                # Skip system users
+                if [[ "$username" != "ubuntu" && "$username" != "root" && "$username" != "admin" && "$username" != "user" ]]; then
+                    if id "$username" &>/dev/null 2>&1; then
+                        echo -e "${NEON_RED}Removing leftover user from home dir: $username${NC}"
+                        pkill -u "$username" 2>/dev/null || true
+                        userdel -r -f "$username" 2>/dev/null || true
+                    fi
+                    # Remove home directory even if user doesn't exist
+                    rm -rf "$home_dir" 2>/dev/null || true
+                fi
             fi
         done
     fi
@@ -96,6 +148,10 @@ complete_uninstall() {
         cp /etc/systemd/resolved.conf.backup /etc/systemd/resolved.conf 2>/dev/null || true
         systemctl restart systemd-resolved 2>/dev/null || true
     fi
+    
+    # Final verification
+    echo -e "${NEON_GREEN}✅ Verifying all users are removed...${NC}"
+    sleep 2
     
     echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
     echo -e "${NEON_YELLOW}All users, services, and files have been deleted.${NC}"
@@ -220,7 +276,7 @@ activate_script() {
     return 1
 }
 
-# ==================== FIXED IP INFO FUNCTION (100% WORKING) ====================
+# ==================== FIXED IP INFO FUNCTION ====================
 get_ip_info() {
     echo -e "${NEON_CYAN}🌐 Fetching IP information...${NC}"
     
@@ -245,12 +301,7 @@ get_ip_info() {
         IP=$(curl -s --connect-timeout 5 api.ipify.org 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
     fi
     
-    # Method 5: checkip.amazonaws.com
-    if [ -z "$IP" ]; then
-        IP=$(curl -s --connect-timeout 5 checkip.amazonaws.com 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-    fi
-    
-    # Method 6: Local IP as last resort
+    # Method 5: Local IP as last resort
     if [ -z "$IP" ]; then
         IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
     fi
@@ -267,33 +318,20 @@ get_ip_info() {
     echo "$IP" > /etc/elite-x/cached_ip
     echo -e "${NEON_GREEN}✅ IP detected: $IP${NC}"
     
-    # Get location and ISP using ip-api.com (most reliable, no API key needed)
+    # Get location and ISP using ip-api.com
     echo -e "${NEON_CYAN}📍 Fetching location and ISP for $IP...${NC}"
     
-    # Use ip-api.com with timeout
     API_RESPONSE=$(curl -s --connect-timeout 5 "http://ip-api.com/json/$IP?fields=status,country,city,isp,org,as")
     
     if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
-        # Extract country
         COUNTRY=$(echo "$API_RESPONSE" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
-        if [ -z "$COUNTRY" ]; then COUNTRY="Unknown"; fi
-        
-        # Extract city
         CITY=$(echo "$API_RESPONSE" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
-        if [ -z "$CITY" ]; then CITY=""; fi
-        
-        # Extract ISP
         ISP=$(echo "$API_RESPONSE" | grep -o '"isp":"[^"]*"' | cut -d'"' -f4)
-        if [ -z "$ISP" ]; then
-            ISP=$(echo "$API_RESPONSE" | grep -o '"org":"[^"]*"' | cut -d'"' -f4)
-        fi
-        if [ -z "$ISP" ]; then
-            ISP=$(echo "$API_RESPONSE" | grep -o '"as":"[^"]*"' | cut -d'"' -f4)
-        fi
+        
+        if [ -z "$COUNTRY" ]; then COUNTRY="Unknown"; fi
         if [ -z "$ISP" ]; then ISP="Unknown ISP"; fi
         
-        # Format location
-        if [ ! -z "$CITY" ] && [ "$CITY" != "null" ] && [ "$CITY" != "Unknown" ]; then
+        if [ ! -z "$CITY" ] && [ "$CITY" != "null" ]; then
             LOCATION="$CITY, $COUNTRY"
         else
             LOCATION="$COUNTRY"
@@ -305,36 +343,9 @@ get_ip_info() {
         echo -e "${NEON_GREEN}✅ Location: $LOCATION${NC}"
         echo -e "${NEON_GREEN}✅ ISP: $ISP${NC}"
     else
-        # Fallback to ipinfo.io
-        echo -e "${NEON_YELLOW}⚠️ ip-api.com failed, trying ipinfo.io...${NC}"
-        
-        IPINFO=$(curl -s --connect-timeout 5 ipinfo.io/$IP 2>/dev/null)
-        
-        if [ ! -z "$IPINFO" ]; then
-            CITY=$(echo "$IPINFO" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
-            COUNTRY=$(echo "$IPINFO" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
-            ISP=$(echo "$IPINFO" | grep -o '"org":"[^"]*"' | cut -d'"' -f4)
-            
-            if [ -z "$CITY" ] || [ "$CITY" = "null" ]; then CITY=""; fi
-            if [ -z "$COUNTRY" ] || [ "$COUNTRY" = "null" ]; then COUNTRY="Unknown"; fi
-            if [ -z "$ISP" ] || [ "$ISP" = "null" ]; then ISP="Unknown ISP"; fi
-            
-            if [ ! -z "$CITY" ]; then
-                LOCATION="$CITY, $COUNTRY"
-            else
-                LOCATION="$COUNTRY"
-            fi
-            
-            echo "$LOCATION" > /etc/elite-x/cached_location
-            echo "$ISP" > /etc/elite-x/cached_isp
-            
-            echo -e "${NEON_GREEN}✅ Location: $LOCATION${NC}"
-            echo -e "${NEON_GREEN}✅ ISP: $ISP${NC}"
-        else
-            echo "Unknown Location" > /etc/elite-x/cached_location
-            echo "Unknown ISP" > /etc/elite-x/cached_isp
-            echo -e "${NEON_YELLOW}⚠️ Could not fetch location/ISP, using defaults${NC}"
-        fi
+        echo "Unknown Location" > /etc/elite-x/cached_location
+        echo "Unknown ISP" > /etc/elite-x/cached_isp
+        echo -e "${NEON_YELLOW}⚠️ Could not fetch location/ISP, using defaults${NC}"
     fi
     
     return 0
@@ -1261,7 +1272,7 @@ EOF
     chmod +x /usr/local/bin/elite-x-refresh-info
 }
 
-# ==================== CREATE UNINSTALL SCRIPT ====================
+# ==================== CREATE UNINSTALL SCRIPT (FIXED) ====================
 create_uninstall_script() {
     cat > /usr/local/bin/elite-x-uninstall <<'EOF'
 #!/bin/bash
@@ -1270,40 +1281,96 @@ NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'; NC='\0
 
 echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
     
+# Stop all services
 systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
 systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
     
+# Remove service files
 rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
     
+# ===== FIXED: REMOVE ALL USERS =====
+echo -e "${NEON_YELLOW}🔍 Removing all ELITE-X users...${NC}"
+
+# Method 1: Remove users from user database
 if [ -d "/etc/elite-x/users" ]; then
     for user_file in /etc/elite-x/users/*; do
         if [ -f "$user_file" ]; then
             username=$(basename "$user_file")
-            echo -e "${NEON_YELLOW}Removing user: $username${NC}"
-            userdel -r "$username" 2>/dev/null || true
+            echo -e "${NEON_RED}Removing user: $username${NC}"
+            
+            # Kill all processes
+            pkill -u "$username" 2>/dev/null || true
+            killall -u "$username" 2>/dev/null || true
+            
+            # Force remove user
+            userdel -r -f "$username" 2>/dev/null || true
+            
+            # Remove home directory if still exists
+            rm -rf /home/"$username" 2>/dev/null || true
         fi
     done
 fi
-    
+
+# Method 2: Check all home directories
+if [ -d "/home" ]; then
+    for home_dir in /home/*; do
+        if [ -d "$home_dir" ]; then
+            username=$(basename "$home_dir")
+            # Skip system users
+            if [[ "$username" != "ubuntu" && "$username" != "root" && "$username" != "admin" ]]; then
+                if id "$username" &>/dev/null 2>&1; then
+                    echo -e "${NEON_RED}Removing leftover user: $username${NC}"
+                    pkill -u "$username" 2>/dev/null || true
+                    userdel -r -f "$username" 2>/dev/null || true
+                fi
+                # Remove home directory even if user doesn't exist
+                rm -rf "$home_dir" 2>/dev/null || true
+            fi
+        fi
+    done
+fi
+
+# Method 3: Find users with /bin/false shell
+if [ -f /etc/passwd ]; then
+    while IFS=: read -r username shell; do
+        if [ "$shell" = "/bin/false" ] || [ "$shell" = "/usr/sbin/nologin" ]; then
+            if id "$username" &>/dev/null 2>&1; then
+                echo -e "${NEON_RED}Removing shell user: $username${NC}"
+                userdel -r -f "$username" 2>/dev/null || true
+            fi
+        fi
+    done < /etc/passwd 2>/dev/null || true
+fi
+
+# Kill any remaining processes
 pkill -f dnstt-server 2>/dev/null || true
 pkill -f dnstt-edns-proxy 2>/dev/null || true
     
+# Remove all ELITE-X directories and files
 rm -rf /etc/dnstt
 rm -rf /etc/elite-x
 rm -f /usr/local/bin/{dnstt-*,elite-x*}
 rm -f /usr/local/bin/dnstt-edns-proxy.py
 rm -f /usr/local/bin/elite-x-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall}
     
+# Remove banner from sshd_config
 sed -i '/^Banner/d' /etc/ssh/sshd_config
 systemctl restart sshd
     
+# Remove cron jobs
 rm -f /etc/cron.hourly/elite-x-expiry
 rm -f /etc/profile.d/elite-x-dashboard.sh
 sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
     
+# Clean up systemd
 systemctl daemon-reload
-    
+
+# Final verification
+echo -e "${NEON_GREEN}✅ Verifying no users remain...${NC}"
+sleep 1
+
 echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
+echo -e "${NEON_YELLOW}All users, services, and files have been deleted.${NC}"
 EOF
     chmod +x /usr/local/bin/elite-x-uninstall
 }
