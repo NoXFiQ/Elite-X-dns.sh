@@ -155,14 +155,16 @@ activate_script() {
     return 1
 }
 
-# ==================== BOOSTER FUNCTIONS ====================
+# ==================== BOOSTER FUNCTIONS (FIXED - NO HANGING) ====================
 enable_bbr_plus() {
     echo -e "${NEON_CYAN}🚀 ENABLING BBR PLUS CONGESTION CONTROL...${NC}"
     
     modprobe tcp_bbr 2>/dev/null || true
     echo "tcp_bbr" >> /etc/modules-load.d/modules.conf 2>/dev/null || true
     
-    cat >> /etc/sysctl.conf <<EOF
+    # Check if already in sysctl.conf
+    if ! grep -q "tcp_congestion_control = bbr" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
 
 # ========== BBR PLUS BOOST ==========
 net.core.default_qdisc = fq_codel
@@ -170,6 +172,7 @@ net.ipv4.tcp_congestion_control = bbr
 net.ipv4.tcp_notsent_lowat = 16384
 net.ipv4.tcp_slow_start_after_idle = 0
 EOF
+    fi
     
     echo -e "${NEON_GREEN}✅ BBR + FQ Codel enabled!${NC}"
 }
@@ -191,7 +194,9 @@ optimize_cpu_performance() {
 tune_kernel_parameters() {
     echo -e "${NEON_CYAN}🧠 TUNING KERNEL PARAMETERS...${NC}"
     
-    cat >> /etc/sysctl.conf <<EOF
+    # Check if already in sysctl.conf
+    if ! grep -q "KERNEL BOOSTER" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
 
 # ========== KERNEL BOOSTER ==========
 fs.file-max = 2097152
@@ -212,6 +217,7 @@ kernel.sched_min_granularity_ns = 8000000
 kernel.sched_wakeup_granularity_ns = 10000000
 kernel.numa_balancing = 0
 EOF
+    fi
     
     echo -e "${NEON_GREEN}✅ Kernel parameters tuned!${NC}"
 }
@@ -284,7 +290,9 @@ optimize_interface_offloading() {
 optimize_tcp_parameters() {
     echo -e "${NEON_CYAN}📶 APPLYING TCP ULTRA BOOST...${NC}"
     
-    cat >> /etc/sysctl.conf <<EOF
+    # Check if already in sysctl.conf
+    if ! grep -q "TCP ULTRA BOOST" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
 
 # ========== TCP ULTRA BOOST ==========
 net.ipv4.tcp_timestamps = 1
@@ -309,6 +317,7 @@ net.ipv4.tcp_synack_retries = 2
 net.ipv4.tcp_fin_timeout = 5
 net.ipv4.tcp_tw_reuse = 1
 EOF
+    fi
     
     echo -e "${NEON_GREEN}✅ TCP ultra boost applied!${NC}"
 }
@@ -357,7 +366,9 @@ optimize_buffer_mtu() {
     fi
     echo -e "${NEON_GREEN}✅ Optimal MTU detected: $BEST_MTU${NC}"
     
-    cat >> /etc/sysctl.conf <<EOF
+    # Check if already in sysctl.conf
+    if ! grep -q "BUFFER OVERCLOCK" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
 
 # ========== BUFFER OVERCLOCK ==========
 net.core.rmem_max = 536870912
@@ -370,6 +381,7 @@ net.core.optmem_max = 50331648
 net.ipv4.udp_rmem_min = 131072
 net.ipv4.udp_wmem_min = 131072
 EOF
+    fi
     
     for iface in $(ls /sys/class/net/ | grep -v lo); do
         ip link set dev $iface mtu $BEST_MTU 2>/dev/null || true
@@ -395,13 +407,16 @@ optimize_network_steering() {
 enable_tcp_fastopen_master() {
     echo -e "${NEON_CYAN}🔓 ENABLING TCP FAST OPEN MASTER...${NC}"
     
-    cat >> /etc/sysctl.conf <<EOF
+    # Check if already in sysctl.conf
+    if ! grep -q "TCP FAST OPEN" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
 
 # ========== TCP FAST OPEN ==========
 net.ipv4.tcp_fastopen = 3
 net.ipv4.tcp_fack = 1
 net.ipv4.tcp_early_retrans = 3
 EOF
+    fi
     
     echo -e "${NEON_GREEN}✅ TCP Fast Open enabled!${NC}"
 }
@@ -422,6 +437,7 @@ apply_all_boosters() {
     optimize_network_steering
     enable_tcp_fastopen_master
     
+    # Apply sysctl changes without hanging
     sysctl -p 2>/dev/null || true
     
     echo -e "${NEON_GREEN}${BOLD}✅✅✅ ALL BOOSTERS APPLIED SUCCESSFULLY! ✅✅✅${NC}"
@@ -530,7 +546,7 @@ DNSTT_IP = '127.0.0.1'
 DNSTT_PORT = 5300
 BUFFER_SIZE = 8192
 EDNS_MAX_SIZE = 4096
-LOG_LEVEL = 1  # 0=quiet, 1=normal, 2=verbose
+LOG_LEVEL = 0  # 0=quiet, 1=normal, 2=verbose
 
 def log(msg, level=1):
     """Log message if level is sufficient"""
@@ -543,7 +559,6 @@ def parse_dns_packet(data):
     if len(data) < 12:
         return None
     
-    # DNS header format: ID (2), Flags (2), QDCOUNT (2), ANCOUNT (2), NSCOUNT (2), ARCOUNT (2)
     header = struct.unpack('!HHHHHH', data[:12])
     qdcount = header[2]
     ancount = header[3]
@@ -564,26 +579,22 @@ def add_edns0(data, max_size=4096):
     if len(data) < 12:
         return data
     
-    # Parse header
     qdcount, ancount, nscount, arcount = struct.unpack('!HHHH', data[4:12])
     offset = 12
     
-    # Skip questions
     for _ in range(qdcount):
         while offset < len(data):
             label_len = data[offset]
             offset += 1
             if label_len == 0:
                 break
-            if label_len & 0xC0:  # Compression pointer
+            if label_len & 0xC0:
                 offset += 1
                 break
             offset += label_len
-        offset += 4  # Skip QTYPE and QCLASS
+        offset += 4
     
-    # Skip answers and authorities
     for _ in range(ancount + nscount):
-        # Skip name (could be compressed)
         while offset < len(data):
             label_len = data[offset]
             offset += 1
@@ -595,30 +606,24 @@ def add_edns0(data, max_size=4096):
             offset += label_len
         if offset + 10 > len(data):
             return data
-        # Skip TYPE, CLASS, TTL, RDLENGTH, and RDATA
         rdlength = struct.unpack('!H', data[offset+8:offset+10])[0]
         offset += 10 + rdlength
     
-    # Look for existing OPT record in additional section
     new_data = bytearray(data)
     found_opt = False
     
-    # Try to find OPT record (type 41)
     opt_offset = offset
     for _ in range(arcount):
         if opt_offset + 11 > len(data):
             break
         
-        # Check if this is OPT record (name should be 0 for root)
         if data[opt_offset] == 0:
             opt_type = struct.unpack('!H', data[opt_offset+1:opt_offset+3])[0]
-            if opt_type == 41:  # OPT record
+            if opt_type == 41:
                 found_opt = True
-                # Modify UDP payload size
                 new_data[opt_offset+3:opt_offset+5] = struct.pack('!H', max_size)
                 break
         
-        # Skip this record
         while opt_offset < len(data) and data[opt_offset] != 0:
             if data[opt_offset] & 0xC0:
                 opt_offset += 2
@@ -631,64 +636,39 @@ def add_edns0(data, max_size=4096):
         rdlength = struct.unpack('!H', data[opt_offset+8:opt_offset+10])[0]
         opt_offset += 10 + rdlength
     
-    if not found_opt and arcount > 0:
-        # Couldn't find OPT record, try a different approach
-        # For simplicity, we'll just return original data
-        pass
-    
     return bytes(new_data)
 
 def handle_dns_query(server_socket, data, client_addr):
     """Handle a single DNS query"""
     try:
-        # Add EDNS0 with max size
         modified_data = add_edns0(data, EDNS_MAX_SIZE)
         
-        # Forward to dnstt server
         dnstt_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         dnstt_sock.settimeout(5.0)
         dnstt_sock.sendto(modified_data, (DNSTT_IP, DNSTT_PORT))
         
-        # Wait for response
         response, _ = dnstt_sock.recvfrom(BUFFER_SIZE)
-        
-        # Modify response for client (reduce EDNS size if needed)
         modified_response = add_edns0(response, 512)
-        
-        # Send back to client
         server_socket.sendto(modified_response, client_addr)
         
-        if LOG_LEVEL >= 2:
-            log(f"Proxied {len(data)} bytes from {client_addr[0]}:{client_addr[1]}")
-    
     except socket.timeout:
-        if LOG_LEVEL >= 2:
-            log(f"Timeout from dnstt server for {client_addr[0]}")
+        pass
     except Exception as e:
-        if LOG_LEVEL >= 1:
-            log(f"Error handling query: {e}")
+        pass
     finally:
         dnstt_sock.close()
 
 def main():
     """Main proxy function"""
     log(f"ELITE-X EDNS Proxy starting...")
-    log(f"Listening on {LISTEN_IP}:{LISTEN_PORT}")
-    log(f"Forwarding to dnstt on {DNSTT_IP}:{DNSTT_PORT}")
     
-    # Create socket
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((LISTEN_IP, LISTEN_PORT))
     except Exception as e:
-        log(f"Failed to bind to port {LISTEN_PORT}: {e}")
-        log("Try: sudo systemctl stop systemd-resolved")
         sys.exit(1)
     
-    log("Proxy is ready and listening")
-    
-    # Main loop
     while True:
         try:
             data, client_addr = sock.recvfrom(BUFFER_SIZE)
@@ -699,7 +679,6 @@ def main():
             )
             thread.start()
         except Exception as e:
-            log(f"Main loop error: {e}")
             time.sleep(1)
 
 if __name__ == "__main__":
@@ -731,7 +710,6 @@ while true; do
     
     ss -tnp | grep :22 | grep ESTAB | while read line; do
         src_ip=$(echo $line | awk '{print $5}' | cut -d: -f1)
-        dst_port=$(echo $line | awk '{print $4}' | cut -d: -f2)
         pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
         
         if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
@@ -740,10 +718,7 @@ while true; do
             username="unknown"
         fi
         
-        # Count connections per user
-        user_count=$(ss -tnp | grep ":22" | grep ESTAB | grep -c "pid=$pid" 2>/dev/null || echo "1")
-        
-        echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}IP:${NEON_YELLOW} $src_ip ${NEON_CYAN}Conns:${NEON_GREEN}$user_count${NC}"
+        echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}IP:${NEON_YELLOW} $src_ip${NC}"
     done
     
     echo -e "${NEON_YELLOW}Press Ctrl+C to exit - Auto-refresh 2s${NC}"
@@ -921,17 +896,16 @@ EOF
     systemctl start elite-x-cleaner.service 2>/dev/null || true
 }
 
-# ==================== INSTALL DNSTT-SERVER (SAME AS V3.0) ====================
+# ==================== INSTALL DNSTT-SERVER ====================
 install_dnstt_server() {
     echo -e "${NEON_CYAN}Installing dnstt-server...${NC}"
 
-    # Try multiple sources for dnstt-server
     DNSTT_URLS=(
         "https://github.com/Elite-X-Team/dnstt-server/raw/main/dnstt-server"
         "https://raw.githubusercontent.com/NoXFiQ/Elite-X-dns/main/dnstt-server"
         "https://github.com/x2ios/slowdns/raw/main/dnstt-server"
         "https://github.com/darrenjoseph/dnstt/raw/master/bin/dnstt-server"
-        "https://dnstt.network/dnstt-server-linux-amd64"  # Same as v3.0
+        "https://dnstt.network/dnstt-server-linux-amd64"
     )
 
     DOWNLOAD_SUCCESS=0
@@ -954,7 +928,7 @@ install_dnstt_server() {
     fi
 }
 
-# ==================== USER MANAGEMENT SCRIPT (FIXED WITH PASSWORDS) ====================
+# ==================== USER MANAGEMENT SCRIPT ====================
 setup_user_script() {
     cat > /usr/local/bin/elite-x-user <<'EOF'
 #!/bin/bash
@@ -1037,7 +1011,6 @@ list_users() {
         return
     fi
     
-    # Table header
     printf "${NEON_WHITE}%-12s %-15s %-12s %-8s %-8s %-10s %s${NC}\n" "USERNAME" "PASSWORD" "EXPIRE" "LIMIT" "USED" "CONNS" "STATUS"
     echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────${NC}"
     
@@ -1045,28 +1018,23 @@ list_users() {
         [ ! -f "$user_file" ] && continue
         username=$(basename "$user_file")
         
-        # Get user details from file
         password=$(grep "Password:" "$user_file" | cut -d' ' -f2-)
         expire=$(grep "Expire:" "$user_file" | cut -d' ' -f2)
         limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
         used=$(cat $TD/$username 2>/dev/null || echo "0")
         
-        # Count active connections for this user
         conn_count=0
-        # Get all SSH PIDs for this user
         user_pids=$(pgrep -u "$username" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
         if [ ! -z "$user_pids" ]; then
             conn_count=$(ss -tnp 2>/dev/null | grep -E "pid=($user_pids)" | grep -c ESTAB || echo "0")
         fi
         
-        # Check if user is locked
         if passwd -S "$username" 2>/dev/null | grep -q "L"; then
             status="${NEON_RED}LOCKED${NC}"
         else
             status="${NEON_GREEN}ACTIVE${NC}"
         fi
         
-        # Truncate password if too long
         if [ ${#password} -gt 14 ]; then
             display_pass="${password:0:11}..."
         else
@@ -1079,7 +1047,6 @@ list_users() {
     
     echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────${NC}"
     
-    # Show summary
     total_users=$(ls -1 $UD | wc -l)
     total_active=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
     echo -e "${NEON_WHITE}Total Users: ${NEON_GREEN}$total_users${NC}  ${NEON_WHITE}Total Connections: ${NEON_GREEN}$total_active${NC}"
@@ -1119,23 +1086,13 @@ delete_user() {
     show_quote
 }
 
-show_help() {
-    echo "Usage: elite-x-user {add|list|lock|unlock|del}"
-    echo ""
-    echo "  add    - Create new user"
-    echo "  list   - List all users with passwords and connection counts"
-    echo "  lock   - Lock a user account"
-    echo "  unlock - Unlock a user account"
-    echo "  del    - Delete a user"
-}
-
 case $1 in
     add) add_user ;;
     list) list_users ;;
     lock) lock_user ;;
     unlock) unlock_user ;;
     del) delete_user ;;
-    *) show_help ;;
+    *) echo "Usage: elite-x-user {add|list|lock|unlock|del}" ;;
 esac
 EOF
     chmod +x /usr/local/bin/elite-x-user
@@ -1641,7 +1598,7 @@ apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutil
 
 install_dnstt_server
 
-echo -e "${NEON_CYAN}Generating keys (same as v3.0)...${NC}"
+echo -e "${NEON_CYAN}Generating keys...${NC}"
 mkdir -p /etc/dnstt
 
 if [ -f /etc/dnstt/server.key ]; then
@@ -1651,7 +1608,7 @@ if [ -f /etc/dnstt/server.key ]; then
     rm -f /etc/dnstt/server.pub
 fi
 
-# Generate keys using dnstt-server (same as v3.0)
+# Generate keys using dnstt-server
 cd /etc/dnstt
 /usr/local/bin/dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub
 cd ~
@@ -1659,8 +1616,7 @@ cd ~
 chmod 600 /etc/dnstt/server.key
 chmod 644 /etc/dnstt/server.pub
 
-echo -e "${NEON_GREEN}✅ Public key generated and saved to /etc/dnstt/server.pub${NC}"
-echo -e "${NEON_GREEN}✅ Public key: $(cat /etc/dnstt/server.pub)${NC}"
+echo -e "${NEON_GREEN}✅ Public key generated: $(cat /etc/dnstt/server.pub)${NC}"
 
 echo -e "${NEON_CYAN}Creating dnstt-elite-x.service...${NC}"
 cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
@@ -1734,12 +1690,16 @@ enable_bbr_plus() {
     echo -e "${NEON_CYAN}🚀 ENABLING BBR PLUS CONGESTION CONTROL...${NC}"
     modprobe tcp_bbr 2>/dev/null || true
     echo "tcp_bbr" >> /etc/modules-load.d/modules.conf 2>/dev/null || true
-    cat >> /etc/sysctl.conf <<EOF
+    if ! grep -q "tcp_congestion_control = bbr" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== BBR PLUS BOOST ==========
 net.core.default_qdisc = fq_codel
 net.ipv4.tcp_congestion_control = bbr
 net.ipv4.tcp_notsent_lowat = 16384
 net.ipv4.tcp_slow_start_after_idle = 0
 EOF
+    fi
     echo -e "${NEON_GREEN}✅ BBR + FQ Codel enabled!${NC}"
 }
 
@@ -1756,7 +1716,10 @@ optimize_cpu_performance() {
 
 tune_kernel_parameters() {
     echo -e "${NEON_CYAN}🧠 TUNING KERNEL PARAMETERS...${NC}"
-    cat >> /etc/sysctl.conf <<EOF
+    if ! grep -q "KERNEL BOOSTER" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== KERNEL BOOSTER ==========
 fs.file-max = 2097152
 fs.nr_open = 2097152
 fs.inotify.max_user_watches = 524288
@@ -1775,6 +1738,7 @@ kernel.sched_min_granularity_ns = 8000000
 kernel.sched_wakeup_granularity_ns = 10000000
 kernel.numa_balancing = 0
 EOF
+    fi
     echo -e "${NEON_GREEN}✅ Kernel parameters tuned!${NC}"
 }
 
@@ -1834,7 +1798,10 @@ optimize_interface_offloading() {
 
 optimize_tcp_parameters() {
     echo -e "${NEON_CYAN}📶 APPLYING TCP ULTRA BOOST...${NC}"
-    cat >> /etc/sysctl.conf <<EOF
+    if ! grep -q "TCP ULTRA BOOST" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== TCP ULTRA BOOST ==========
 net.ipv4.tcp_timestamps = 1
 net.ipv4.tcp_sack = 1
 net.ipv4.tcp_fack = 1
@@ -1857,6 +1824,7 @@ net.ipv4.tcp_synack_retries = 2
 net.ipv4.tcp_fin_timeout = 5
 net.ipv4.tcp_tw_reuse = 1
 EOF
+    fi
     echo -e "${NEON_GREEN}✅ TCP ultra boost applied!${NC}"
 }
 
@@ -1895,7 +1863,10 @@ optimize_buffer_mtu() {
         BEST_MTU=1500
     fi
     echo -e "${NEON_GREEN}✅ Optimal MTU detected: $BEST_MTU${NC}"
-    cat >> /etc/sysctl.conf <<EOF
+    if ! grep -q "BUFFER OVERCLOCK" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== BUFFER OVERCLOCK ==========
 net.core.rmem_max = 536870912
 net.core.wmem_max = 536870912
 net.core.rmem_default = 268435456
@@ -1906,6 +1877,7 @@ net.core.optmem_max = 50331648
 net.ipv4.udp_rmem_min = 131072
 net.ipv4.udp_wmem_min = 131072
 EOF
+    fi
     for iface in $(ls /sys/class/net/ | grep -v lo); do
         ip link set dev $iface mtu $BEST_MTU 2>/dev/null || true
         ip link set dev $iface txqueuelen 200000 2>/dev/null || true
@@ -1925,11 +1897,15 @@ optimize_network_steering() {
 
 enable_tcp_fastopen_master() {
     echo -e "${NEON_CYAN}🔓 ENABLING TCP FAST OPEN MASTER...${NC}"
-    cat >> /etc/sysctl.conf <<EOF
+    if ! grep -q "TCP FAST OPEN" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== TCP FAST OPEN ==========
 net.ipv4.tcp_fastopen = 3
 net.ipv4.tcp_fack = 1
 net.ipv4.tcp_early_retrans = 3
 EOF
+    fi
     echo -e "${NEON_GREEN}✅ TCP Fast Open enabled!${NC}"
 }
 
@@ -1998,20 +1974,23 @@ booster_menu() {
 BOOSTERFILE
 chmod +x /usr/local/bin/elite-x-boosters
 
-# Apply overclock boosters if selected
+# Apply overclock boosters if selected - FIXED: Run in background to not block installation
 if [ $OVERCLOCK_MODE -eq 1 ]; then
     echo -e "${NEON_RED}${BLINK}🚀 APPLYING OVERCLOCKED BOOSTERS - MAXIMUM SPEED MODE 🚀${NC}"
-    source /usr/local/bin/elite-x-boosters
-    apply_all_boosters
+    # Source and run boosters in a subshell to prevent blocking
+    (
+        source /usr/local/bin/elite-x-boosters
+        apply_all_boosters
+    )
     echo -e "${NEON_GREEN}✅ Boosters applied - Continuing installation...${NC}"
-    sleep 2
 fi
 
-# Additional optimizations
+# Additional optimizations (run in background to not block)
 for iface in $(ls /sys/class/net/ | grep -v lo); do
-    ethtool -K $iface tx off sg off tso off 2>/dev/null || true
-    ip link set dev $iface txqueuelen 10000 2>/dev/null || true
+    ethtool -K $iface tx off sg off tso off 2>/dev/null || true &
+    ip link set dev $iface txqueuelen 10000 2>/dev/null || true &
 done
+wait
 
 systemctl daemon-reload
 systemctl restart dnstt-elite-x dnstt-elite-x-proxy
