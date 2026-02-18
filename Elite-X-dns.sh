@@ -35,18 +35,14 @@ print_color() { echo -e "${2}${1}${NC}"; }
 complete_uninstall() {
     echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
     
-    # Stop all services
     systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
     systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
     
-    # Remove service files
     rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
     rm -f /etc/systemd/system/multi-user.target.wants/{dnstt-elite-x*,elite-x-*} 2>/dev/null || true
     
-    # Remove all SSH users created by ELITE-X
     echo -e "${NEON_YELLOW}🔍 Removing all ELITE-X users...${NC}"
     
-    # Method 1: Remove users from /etc/elite-x/users directory
     if [ -d "/etc/elite-x/users" ]; then
         for user_file in /etc/elite-x/users/*; do
             if [ -f "$user_file" ]; then
@@ -59,7 +55,6 @@ complete_uninstall() {
         done
     fi
     
-    # Method 2: Check all home directories
     if [ -d "/home" ]; then
         for home_dir in /home/*; do
             if [ -d "$home_dir" ]; then
@@ -76,37 +71,30 @@ complete_uninstall() {
         done
     fi
     
-    # Kill any remaining processes
     pkill -f dnstt-server 2>/dev/null || true
     pkill -f dnstt-edns-proxy 2>/dev/null || true
     pkill -f elite-x-traffic 2>/dev/null || true
     pkill -f elite-x-cleaner 2>/dev/null || true
     
-    # Remove all ELITE-X directories and files
     rm -rf /etc/dnstt
     rm -rf /etc/elite-x
     rm -f /usr/local/bin/{dnstt-*,elite-x*}
     rm -f /usr/local/bin/dnstt-edns-proxy.py
     rm -f /usr/local/bin/elite-x-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall}
     
-    # Remove banner from sshd_config
     sed -i '/^Banner/d' /etc/ssh/sshd_config
     systemctl restart sshd
     
-    # Remove cron jobs
     rm -f /etc/cron.hourly/elite-x-expiry
     rm -f /etc/cron.daily/elite-x-* 2>/dev/null || true
     
-    # Remove profile and bashrc entries
     rm -f /etc/profile.d/elite-x-dashboard.sh
     sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
     sed -i '/alias menu/d' /root/.bashrc 2>/dev/null || true
     sed -i '/alias elite/d' /root/.bashrc 2>/dev/null || true
     
-    # Clean up systemd
     systemctl daemon-reload
     
-    # Clean up DNS settings
     if [ -f /etc/systemd/resolved.conf.backup ]; then
         cp /etc/systemd/resolved.conf.backup /etc/systemd/resolved.conf 2>/dev/null || true
         systemctl restart systemd-resolved 2>/dev/null || true
@@ -160,8 +148,8 @@ show_banner() {
     echo -e "${NEON_RED}║${NEON_PURPLE}${BOLD}${BG_BLACK}              ███████╗███████╗██║   ██║   ███████╗                    ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}║${NEON_PINK}${BOLD}${BG_BLACK}              ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝                    ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${NEON_RED}║${NEON_WHITE}${BOLD}               ELITE-X SLOWDNS v5.0 - OVERCLOCKED EDITION               ${NEON_RED}║${NC}"
-    echo -e "${NEON_RED}║${NEON_GREEN}${BOLD}                     ⚡ MAXIMUM SPEED MODE ⚡                           ${NEON_RED}║${NC}"
+    echo -e "${NEON_RED}║${NEON_WHITE}${BOLD}               ELITE-X SLOWDNS v5.0 - ULTRA EDITION                   ${NEON_RED}║${NC}"
+    echo -e "${NEON_RED}║${NEON_GREEN}${BOLD}                ⚡ 3 SPEED MODES AVAILABLE ⚡                          ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -175,6 +163,10 @@ ACTIVATION_DATE_FILE="/etc/elite-x/activation_date"
 EXPIRY_DAYS_FILE="/etc/elite-x/expiry_days"
 KEY_FILE="/etc/elite-x/key"
 TIMEZONE="Africa/Dar_es_Salaam"
+
+# ==================== SPEED MODES ====================
+SPEED_MODE_FILE="/etc/elite-x/speed_mode"
+CURRENT_MODE="normal"  # normal, overclocked, ultra
 
 set_timezone() {
     timedatectl set-timezone $TIMEZONE 2>/dev/null || ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime 2>/dev/null || true
@@ -233,42 +225,161 @@ activate_script() {
     return 1
 }
 
-# ==================== FIXED IP INFO FUNCTION (100% WORKING) ====================
+# ==================== SPEED MODE FUNCTIONS ====================
+apply_normal_mode() {
+    echo -e "${NEON_GREEN}⚡ Applying NORMAL mode...${NC}"
+    
+    # Reset to default conservative settings
+    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
+    sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1
+    sysctl -w net.core.default_qdisc=pfifo_fast >/dev/null 2>&1
+    
+    # Reset interface offloading
+    for iface in $(ls /sys/class/net/ | grep -v lo); do
+        ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
+        ip link set dev $iface txqueuelen 10000 2>/dev/null || true
+    done
+    
+    echo "normal" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_GREEN}✅ Normal mode applied - Stable connection${NC}"
+}
+
+apply_overclocked_mode() {
+    echo -e "${NEON_YELLOW}⚡⚡ Applying OVERCLOCKED mode...${NC}"
+    
+    # BBR for better throughput
+    modprobe tcp_bbr 2>/dev/null || true
+    
+    # Optimized settings for speed
+    sysctl -w net.core.rmem_max=268435456 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=268435456 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 268435456" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 268435456" >/dev/null 2>&1
+    sysctl -w net.core.netdev_max_backlog=10000 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
+    
+    # Enable offloading for speed
+    for iface in $(ls /sys/class/net/ | grep -v lo); do
+        ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
+        ip link set dev $iface txqueuelen 20000 2>/dev/null || true
+    done
+    
+    echo "overclocked" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_YELLOW}✅ Overclocked mode applied - Faster speed${NC}"
+}
+
+apply_ultra_mode() {
+    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying ULTRA CLOCKED mode...${NC}"
+    
+    # Extreme settings for maximum speed
+    modprobe tcp_bbr 2>/dev/null || true
+    
+    # Ultra buffers
+    sysctl -w net.core.rmem_max=536870912 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=536870912 >/dev/null 2>&1
+    sysctl -w net.core.rmem_default=268435456 >/dev/null 2>&1
+    sysctl -w net.core.wmem_default=268435456 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 536870912" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 536870912" >/dev/null 2>&1
+    sysctl -w net.core.netdev_max_backlog=200000 >/dev/null 2>&1
+    sysctl -w net.core.somaxconn=131072 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+    sysctl -w net.core.default_qdisc=fq_codel >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_notsent_lowat=8192 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_tw_reuse=1 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_fin_timeout=10 >/dev/null 2>&1
+    
+    # Maximize interface queues
+    for iface in $(ls /sys/class/net/ | grep -v lo); do
+        ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
+        ethtool -G $iface rx 4096 tx 4096 2>/dev/null || true
+        ip link set dev $iface txqueuelen 50000 2>/dev/null || true
+        
+        # Enable RPS for better load distribution
+        echo f > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
+        echo 4096 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
+    done
+    
+    echo 262144 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
+    
+    # CPU performance
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        [ -f "$cpu" ] && echo "performance" > "$cpu" 2>/dev/null || true
+    done
+    
+    echo "ultra" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_RED}${BLINK}✅ Ultra clocked mode applied - MAXIMUM SPEED${NC}"
+}
+
+apply_speed_mode() {
+    local mode="$1"
+    
+    case $mode in
+        normal)
+            apply_normal_mode
+            ;;
+        overclocked)
+            apply_overclocked_mode
+            ;;
+        ultra)
+            apply_ultra_mode
+            ;;
+        *)
+            apply_normal_mode
+            ;;
+    esac
+    
+    # Restart services to apply changes
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
+}
+
+get_mode_emoji() {
+    local mode="$1"
+    case $mode in
+        normal) echo "${NEON_GREEN}● NORMAL${NC}" ;;
+        overclocked) echo "${NEON_YELLOW}⚡ OVERCLOCKED${NC}" ;;
+        ultra) echo "${NEON_RED}${BLINK}🚀 ULTRA${NC}" ;;
+        *) echo "${NEON_GREEN}● NORMAL${NC}" ;;
+    esac
+}
+
+# ==================== FIXED IP INFO FUNCTION ====================
 get_ip_info() {
     echo -e "${NEON_CYAN}🌐 Fetching IP information...${NC}"
     
-    # Try multiple methods to get public IP
     IP=""
     
-    # Method 1: ipify.org (most reliable)
     IP=$(curl -s --connect-timeout 5 https://api.ipify.org 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
     
-    # Method 2: ifconfig.me
     if [ -z "$IP" ]; then
         IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
     fi
     
-    # Method 3: icanhazip.com
     if [ -z "$IP" ]; then
         IP=$(curl -s --connect-timeout 5 icanhazip.com 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
     fi
     
-    # Method 4: ipinfo.io
     if [ -z "$IP" ]; then
         IP=$(curl -s --connect-timeout 5 ipinfo.io/ip 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
     fi
     
-    # Method 5: checkip.amazonaws.com
     if [ -z "$IP" ]; then
         IP=$(curl -s --connect-timeout 5 checkip.amazonaws.com 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
     fi
     
-    # Method 6: whatismyip.akamai.com
     if [ -z "$IP" ]; then
         IP=$(curl -s --connect-timeout 5 whatismyip.akamai.com 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
     fi
     
-    # Method 7: Local IP as last resort
     if [ -z "$IP" ]; then
         IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
     fi
@@ -285,13 +396,11 @@ get_ip_info() {
     echo "$IP" > /etc/elite-x/cached_ip
     echo -e "${NEON_GREEN}✅ IP detected: $IP${NC}"
     
-    # Get location and ISP using multiple services
     echo -e "${NEON_CYAN}📍 Fetching location and ISP for $IP...${NC}"
     
     LOCATION=""
     ISP=""
     
-    # Method 1: ip-api.com (most reliable for location/ISP)
     API_RESPONSE=$(curl -s --connect-timeout 5 "http://ip-api.com/json/$IP?fields=status,country,city,isp,org")
     
     if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
@@ -310,7 +419,6 @@ get_ip_info() {
         fi
     fi
     
-    # Method 2: ipinfo.io (fallback)
     if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ] || [ "$LOCATION" = "" ]; then
         IPINFO=$(curl -s --connect-timeout 5 "ipinfo.io/$IP" 2>/dev/null)
         if [ ! -z "$IPINFO" ]; then
@@ -330,7 +438,6 @@ get_ip_info() {
         fi
     fi
     
-    # Method 3: FreeGeoIP (another fallback)
     if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ] || [ "$LOCATION" = "" ]; then
         GEO=$(curl -s --connect-timeout 5 "https://freegeoip.app/json/$IP" 2>/dev/null)
         if [ ! -z "$GEO" ]; then
@@ -345,7 +452,6 @@ get_ip_info() {
         fi
     fi
     
-    # Set defaults if still empty
     if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ] || [ "$LOCATION" = "" ]; then
         LOCATION="Unknown Location"
     fi
@@ -354,7 +460,6 @@ get_ip_info() {
         ISP="Unknown ISP"
     fi
     
-    # Save to files
     echo "$LOCATION" > /etc/elite-x/cached_location
     echo "$ISP" > /etc/elite-x/cached_isp
     
@@ -626,7 +731,7 @@ EOF
 }
 
 apply_all_boosters() {
-    echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL BOOSTERS - OVERCLOCK MODE 🚀🚀🚀${NC}"
+    echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL BOOSTERS - ULTRA MODE 🚀🚀🚀${NC}"
     enable_bbr_plus
     optimize_cpu_performance
     tune_kernel_parameters
@@ -1237,7 +1342,6 @@ create_refresh_script() {
 
 NEON_CYAN='\033[1;36m'; NEON_GREEN='\033[1;32m'; NEON_RED='\033[1;31m'; NC='\033[0m'
 
-# Get IP using multiple methods
 IP=""
 for cmd in "curl -s --connect-timeout 5 https://api.ipify.org" \
            "curl -s --connect-timeout 5 ifconfig.me" \
@@ -1263,11 +1367,9 @@ fi
 
 echo "$IP" > /etc/elite-x/cached_ip
 
-# Get location and ISP
 LOCATION=""
 ISP=""
 
-# Try ip-api.com first
 API_RESPONSE=$(curl -s --connect-timeout 5 "http://ip-api.com/json/$IP?fields=status,country,city,isp,org")
 if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
     COUNTRY=$(echo "$API_RESPONSE" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
@@ -1283,7 +1385,6 @@ if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
     fi
 fi
 
-# Try ipinfo.io as fallback
 if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ]; then
     IPINFO=$(curl -s --connect-timeout 5 "ipinfo.io/$IP" 2>/dev/null)
     if [ ! -z "$IPINFO" ]; then
@@ -1301,7 +1402,6 @@ if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ]; then
     fi
 fi
 
-# Set defaults if still empty
 [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ] && LOCATION="Unknown Location"
 [ -z "$ISP" ] || [ "$ISP" = "null" ] && ISP="Unknown ISP"
 
@@ -1378,6 +1478,71 @@ fi
 touch /tmp/elite-x-running
 trap 'rm -f /tmp/elite-x-running' EXIT
 
+SPEED_MODE_FILE="/etc/elite-x/speed_mode"
+if [ ! -f "$SPEED_MODE_FILE" ]; then
+    echo "normal" > "$SPEED_MODE_FILE"
+fi
+
+get_mode_emoji() {
+    local mode="$1"
+    case $mode in
+        normal) echo "${NEON_GREEN}● NORMAL${NC}" ;;
+        overclocked) echo "${NEON_YELLOW}⚡ OVERCLOCKED${NC}" ;;
+        ultra) echo "${NEON_RED}${BLINK}🚀 ULTRA${NC}" ;;
+        *) echo "${NEON_GREEN}● NORMAL${NC}" ;;
+    esac
+}
+
+apply_normal_mode() {
+    echo -e "${NEON_GREEN}⚡ Applying NORMAL mode...${NC}"
+    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1
+    echo "normal" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_GREEN}✅ Normal mode applied${NC}"
+}
+
+apply_overclocked_mode() {
+    echo -e "${NEON_YELLOW}⚡⚡ Applying OVERCLOCKED mode...${NC}"
+    modprobe tcp_bbr 2>/dev/null || true
+    sysctl -w net.core.rmem_max=268435456 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=268435456 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 268435456" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 268435456" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
+    echo "overclocked" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_YELLOW}✅ Overclocked mode applied${NC}"
+}
+
+apply_ultra_mode() {
+    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying ULTRA CLOCKED mode...${NC}"
+    modprobe tcp_bbr 2>/dev/null || true
+    sysctl -w net.core.rmem_max=536870912 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=536870912 >/dev/null 2>&1
+    sysctl -w net.core.rmem_default=268435456 >/dev/null 2>&1
+    sysctl -w net.core.wmem_default=268435456 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 536870912" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 536870912" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+    sysctl -w net.core.default_qdisc=fq_codel >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
+    echo "ultra" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_RED}${BLINK}✅ Ultra mode applied${NC}"
+}
+
+apply_speed_mode() {
+    local mode="$1"
+    case $mode in
+        1|normal) apply_normal_mode ;;
+        2|overclocked) apply_overclocked_mode ;;
+        3|ultra) apply_ultra_mode ;;
+    esac
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
+}
+
 if [ -f /usr/local/bin/elite-x-boosters ]; then
     source /usr/local/bin/elite-x-boosters
 fi
@@ -1428,7 +1593,6 @@ check_expiry_menu
 show_dashboard() {
     clear
     
-    # Refresh IP info every hour
     if [ ! -f /etc/elite-x/cached_ip ] || [ $(( $(date +%s) - $(stat -c %Y /etc/elite-x/cached_ip 2>/dev/null || echo 0) )) -gt 3600 ]; then
         /usr/local/bin/elite-x-refresh-info
     fi
@@ -1445,6 +1609,9 @@ show_dashboard() {
     LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
     CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
     
+    CURRENT_MODE=$(cat "$SPEED_MODE_FILE" 2>/dev/null || echo "normal")
+    MODE_DISPLAY=$(get_mode_emoji "$CURRENT_MODE")
+    
     DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${NEON_GREEN}●${NC}" || echo "${NEON_RED}●${NC}")
     PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${NEON_GREEN}●${NC}" || echo "${NEON_RED}●${NC}")
     
@@ -1452,7 +1619,7 @@ show_dashboard() {
     UPTIME=$(uptime -p | sed 's/up //')
     
     echo -e "${NEON_PURPLE}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_PURPLE}║${NEON_YELLOW}${BOLD}                    ELITE-X SLOWDNS v5.0 - OVERCLOCKED                      ${NEON_PURPLE}║${NC}"
+    echo -e "${NEON_PURPLE}║${NEON_YELLOW}${BOLD}                    ELITE-X SLOWDNS v5.0 - ULTRA EDITION                  ${NEON_PURPLE}║${NC}"
     echo -e "${NEON_PURPLE}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  🌐 Subdomain :${NEON_GREEN} $SUB${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  📍 IP        :${NEON_GREEN} $IP${NC}"
@@ -1465,6 +1632,7 @@ show_dashboard() {
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  🔗 Active SSH:${NEON_GREEN} $ACTIVE_SSH${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  🌍 VPS Loc   :${NEON_GREEN} $LOCATION${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  📏 MTU       :${NEON_GREEN} $CURRENT_MTU${NC}"
+    echo -e "${NEON_PURPLE}║${NEON_WHITE}  ⚙️ Mode      : $MODE_DISPLAY${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  🛠️ Services  : DNS:$DNS PRX:$PRX${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  👨‍💻 Developer :${NEON_PINK} ELITE-X TEAM${NC}"
     echo -e "${NEON_PURPLE}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
@@ -1497,6 +1665,7 @@ settings_menu() {
         echo -e "${NEON_CYAN}║${NEON_RED}  [22] 🚀 ULTIMATE BOOSTER MENU${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [23] 📈 System Performance Test${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [24] 🔄 Refresh IP/Location Info${NC}"
+        echo -e "${NEON_CYAN}║${NEON_PINK}  [25] ⚡ CHANGE SPEED MODE (Normal/Overclocked/Ultra)${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [0]  ↩️ Back to Main Menu${NC}"
         echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
@@ -1644,6 +1813,33 @@ settings_menu() {
                 echo -e "${NEON_GREEN}✅ Information refreshed!${NC}"
                 read -p "Press Enter to continue..."
                 ;;
+            25)
+                echo -e "${NEON_PINK}╔═══════════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${NEON_PINK}║${NEON_YELLOW}${BOLD}                 SELECT SPEED MODE                               ${NEON_PINK}║${NC}"
+                echo -e "${NEON_PINK}╠═══════════════════════════════════════════════════════════════╣${NC}"
+                echo -e "${NEON_PINK}║${NEON_WHITE}  [1] ${NEON_GREEN}● NORMAL MODE${NC}         - Stable connection${NC}"
+                echo -e "${NEON_PINK}║${NEON_WHITE}  [2] ${NEON_YELLOW}⚡ OVERCLOCKED MODE${NC}   - Faster speed${NC}"
+                echo -e "${NEON_PINK}║${NEON_WHITE}  [3] ${NEON_RED}${BLINK}🚀 ULTRA MODE${NC}        - MAXIMUM SPEED${NC}"
+                echo -e "${NEON_PINK}╚═══════════════════════════════════════════════════════════════╝${NC}"
+                echo ""
+                read -p "$(echo -e $NEON_GREEN"Select mode [1-3]: "$NC)" mode_choice
+                
+                case $mode_choice in
+                    1)
+                        apply_speed_mode "normal"
+                        ;;
+                    2)
+                        apply_speed_mode "overclocked"
+                        ;;
+                    3)
+                        apply_speed_mode "ultra"
+                        ;;
+                    *)
+                        echo -e "${NEON_RED}Invalid choice${NC}"
+                        ;;
+                esac
+                read -p "Press Enter to continue..."
+                ;;
             0) return ;;
             *) echo -e "${NEON_RED}Invalid option${NC}"; read -p "Press Enter..." ;;
         esac
@@ -1711,7 +1907,7 @@ EOF
 # ==================== MAIN INSTALLATION ====================
 show_banner
 
-# ACTIVATION
+# ACTIVATION - Fixed input display
 echo -e "${NEON_YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${NEON_YELLOW}║${NEON_GREEN}${BOLD}                    ACTIVATION REQUIRED                          ${NEON_YELLOW}║${NC}"
 echo -e "${NEON_YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
@@ -1720,7 +1916,10 @@ echo -e "${NEON_WHITE}Available Keys:${NC}"
 echo -e "${NEON_GREEN}  💎 Lifetime : Whtsapp +255713-628-668${NC}"
 echo -e "${NEON_YELLOW}  ⏳ Trial    : ELITE-X-TEST-0208 (2 days)${NC}"
 echo ""
-read -p "$(echo -e $NEON_CYAN"🔑 Activation Key: "$NC)" ACTIVATION_INPUT
+
+# Fix input display - read with visible characters
+echo -ne "${NEON_CYAN}🔑 Activation Key: ${NC}"
+read ACTIVATION_INPUT
 
 mkdir -p /etc/elite-x
 if ! activate_script "$ACTIVATION_INPUT"; then
@@ -1733,14 +1932,15 @@ sleep 1
 
 set_timezone
 
-# SUBDOMAIN
+# SUBDOMAIN - Fixed input display
 echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${NEON_CYAN}║${NEON_WHITE}${BOLD}                  ENTER YOUR SUBDOMAIN                          ${NEON_CYAN}║${NC}"
 echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${NEON_CYAN}║${NEON_WHITE}  Example: ns-dan.elitex.sbs                                 ${NEON_CYAN}║${NC}"
 echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-read -p "$(echo -e $NEON_GREEN"🌐 Subdomain: "$NC)" TDOMAIN
+echo -ne "${NEON_GREEN}🌐 Subdomain: ${NC}"
+read TDOMAIN
 echo "$TDOMAIN" > /etc/elite-x/subdomain
 check_subdomain "$TDOMAIN"
 
@@ -1754,46 +1954,56 @@ echo -e "${NEON_YELLOW}║${NEON_CYAN}  [2] USA                                 
 echo -e "${NEON_YELLOW}║${NEON_BLUE}  [3] Europe                                                    ${NEON_YELLOW}║${NC}"
 echo -e "${NEON_YELLOW}║${NEON_PURPLE}  [4] Asia                                                      ${NEON_YELLOW}║${NC}"
 echo -e "${NEON_YELLOW}║${NEON_PINK}  [5] Auto-detect                                                ${NEON_YELLOW}║${NC}"
-echo -e "${NEON_YELLOW}║${NEON_RED}${BLINK}  [6] 🚀 OVERCLOCKED MODE (MAXIMUM SPEED)                        ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_RED}${BLINK}  [6] 🚀 ULTRA MODE (MAXIMUM SPEED)                           ${NEON_YELLOW}║${NC}"
 echo -e "${NEON_YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-read -p "$(echo -e $NEON_GREEN"Select location [1-6] [default: 6]: "$NC)" LOCATION_CHOICE
+echo -ne "${NEON_GREEN}Select location [1-6] [default: 6]: ${NC}"
+read LOCATION_CHOICE
 LOCATION_CHOICE=${LOCATION_CHOICE:-6}
 
 MTU=1800
 SELECTED_LOCATION="South Africa"
-OVERCLOCK_MODE=0
+INITIAL_MODE="normal"
 
 case $LOCATION_CHOICE in
     2)
         SELECTED_LOCATION="USA"
         echo -e "${NEON_CYAN}✅ USA selected${NC}"
+        INITIAL_MODE="overclocked"
         ;;
     3)
         SELECTED_LOCATION="Europe"
         echo -e "${NEON_BLUE}✅ Europe selected${NC}"
+        INITIAL_MODE="overclocked"
         ;;
     4)
         SELECTED_LOCATION="Asia"
         echo -e "${NEON_PURPLE}✅ Asia selected${NC}"
+        INITIAL_MODE="overclocked"
         ;;
     5)
         SELECTED_LOCATION="Auto-detect"
         echo -e "${NEON_PINK}✅ Auto-detect selected${NC}"
+        INITIAL_MODE="normal"
         ;;
     6)
-        SELECTED_LOCATION="OVERCLOCKED"
-        OVERCLOCK_MODE=1
-        echo -e "${NEON_RED}${BLINK}✅ OVERCLOCKED MODE SELECTED - MAXIMUM SPEED${NC}"
+        SELECTED_LOCATION="ULTRA MODE"
+        INITIAL_MODE="ultra"
+        echo -e "${NEON_RED}${BLINK}✅ ULTRA MODE SELECTED - MAXIMUM SPEED${NC}"
         ;;
     *)
         SELECTED_LOCATION="South Africa"
         echo -e "${NEON_GREEN}✅ Using South Africa configuration${NC}"
+        INITIAL_MODE="normal"
         ;;
 esac
 
 echo "$SELECTED_LOCATION" > /etc/elite-x/location
 echo "$MTU" > /etc/elite-x/mtu
+
+# Set initial speed mode
+mkdir -p /etc/elite-x
+echo "$INITIAL_MODE" > /etc/elite-x/speed_mode
 
 DNSTT_PORT=5300
 
@@ -1809,17 +2019,17 @@ echo "$TDOMAIN" > /etc/elite-x/subdomain
 
 # Create banners
 cat > /etc/elite-x/banner/default <<'EOF'
-╔═══════════════════════════════════════════════════════════════╗
-                      ELITE-X VPN SERVICE
-                    High Speed • Secure • Unlimited
-╚═══════════════════════════════════════════════════════════════╝
+╔═════════════════════════════════╗
+        ELITE-X VPN SERVICE
+  High Speed • Secure • Unlimited
+╚═════════════════════════════════╝
 EOF
 
 cat > /etc/elite-x/banner/ssh-banner <<'EOF'
-╔═══════════════════════════════════════════════════════════════╗
-                    ELITE-X VPN SERVICE
-              ⚡ Hyperspeed • Ultra Secure • Unlimited ⚡
-╚═══════════════════════════════════════════════════════════════╝
+╔═════════════════════════════════╗
+        ELITE-X VPN SERVICE
+  High Speed • Secure • Unlimited
+╚═════════════════════════════════╝
 EOF
 
 if ! grep -q "^Banner" /etc/ssh/sshd_config; then
@@ -1861,7 +2071,6 @@ if [ -f /etc/dnstt/server.key ]; then
     rm -f /etc/dnstt/server.pub
 fi
 
-# Generate keys using dnstt-server
 cd /etc/dnstt
 /usr/local/bin/dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub
 cd ~
@@ -1890,7 +2099,6 @@ LimitNOFILE=1048576
 WantedBy=multi-user.target
 EOF
 
-# Install EDNS proxy
 install_edns_proxy
 
 cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
@@ -1913,7 +2121,6 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
-# Configure firewall
 command -v ufw >/dev/null && {
     ufw allow 22/tcp
     ufw allow 53/udp
@@ -2165,7 +2372,7 @@ EOF
 }
 
 apply_all_boosters() {
-    echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL BOOSTERS - OVERCLOCK MODE 🚀🚀🚀${NC}"
+    echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL BOOSTERS - ULTRA MODE 🚀🚀🚀${NC}"
     enable_bbr_plus
     optimize_cpu_performance
     tune_kernel_parameters
@@ -2229,15 +2436,19 @@ booster_menu() {
 BOOSTERFILE
 chmod +x /usr/local/bin/elite-x-boosters
 
-# Apply overclock boosters if selected
-if [ $OVERCLOCK_MODE -eq 1 ]; then
-    echo -e "${NEON_RED}${BLINK}🚀 APPLYING OVERCLOCKED BOOSTERS - MAXIMUM SPEED MODE 🚀${NC}"
-    (
-        source /usr/local/bin/elite-x-boosters
-        apply_all_boosters
-    )
-    echo -e "${NEON_GREEN}✅ Boosters applied - Continuing installation...${NC}"
-fi
+# Apply initial speed mode
+echo -e "${NEON_CYAN}Applying initial speed mode: $INITIAL_MODE${NC}"
+case $INITIAL_MODE in
+    normal)
+        apply_normal_mode
+        ;;
+    overclocked)
+        apply_overclocked_mode
+        ;;
+    ultra)
+        apply_ultra_mode
+        ;;
+esac
 
 # Additional optimizations
 for iface in $(ls /sys/class/net/ | grep -v lo); do
@@ -2299,6 +2510,7 @@ echo -e "${NEON_GREEN}║${NEON_WHITE}  📌 DOMAIN  : ${NEON_CYAN}${TDOMAIN}${N
 echo -e "${NEON_GREEN}║${NEON_WHITE}  📍 LOCATION: ${NEON_CYAN}${SELECTED_LOCATION}${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  🔑 KEY     : ${NEON_YELLOW}$(cat /etc/elite-x/key)${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  🔑 PUBLIC KEY: ${NEON_CYAN}$(cat /etc/dnstt/server.pub)${NC}"
+echo -e "${NEON_GREEN}║${NEON_WHITE}  ⚡ SPEED MODE: ${NEON_PINK}$INITIAL_MODE${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  ⏳ EXPIRY  : ${NEON_YELLOW}${EXPIRY_INFO}${NC}"
 echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  🚀 Commands:${NC}"
@@ -2307,8 +2519,10 @@ echo -e "${NEON_GREEN}║${NEON_WHITE}     elite - Quick access${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}     live  - Live connection monitor${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}     speed - Traffic analyzer${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}     renew - Renew SSH account${NC}"
-if [ $OVERCLOCK_MODE -eq 1 ]; then
-    echo -e "${NEON_GREEN}║${NEON_RED}${BLINK}  ⚡ OVERCLOCKED MODE ACTIVE - MAXIMUM SPEED ENABLED ⚡${NC}"
+if [ $INITIAL_MODE = "ultra" ]; then
+    echo -e "${NEON_GREEN}║${NEON_RED}${BLINK}  ⚡ ULTRA MODE ACTIVE - MAXIMUM SPEED ENABLED ⚡${NC}"
+elif [ $INITIAL_MODE = "overclocked" ]; then
+    echo -e "${NEON_GREEN}║${NEON_YELLOW}  ⚡ OVERCLOCKED MODE ACTIVE${NC}"
 fi
 echo -e "${NEON_GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 show_quote
