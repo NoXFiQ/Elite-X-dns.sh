@@ -138,7 +138,7 @@ TIMEZONE="Africa/Dar_es_Salaam"
 
 # ==================== SPEED MODES ====================
 SPEED_MODE_FILE="/etc/elite-x/speed_mode"
-CURRENT_MODE="ultra"  # Default to ultra for fastest connection
+CURRENT_MODE="ultra"
 
 set_timezone() {
     timedatectl set-timezone $TIMEZONE 2>/dev/null || ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime 2>/dev/null || true
@@ -197,14 +197,12 @@ activate_script() {
     return 1
 }
 
-# ==================== SPEED MODE FUNCTIONS (OPTIMIZED FOR FASTEST CONNECTION) ====================
+# ==================== SPEED MODE FUNCTIONS ====================
 apply_ultra_mode() {
     echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying ULTRA MODE - MAXIMUM SPEED ⚡⚡⚡${NC}"
     
-    # Load BBR module
     modprobe tcp_bbr 2>/dev/null || true
     
-    # Ultra-optimized settings for maximum speed
     sysctl -w net.core.rmem_max=536870912 >/dev/null 2>&1
     sysctl -w net.core.wmem_max=536870912 >/dev/null 2>&1
     sysctl -w net.core.rmem_default=268435456 >/dev/null 2>&1
@@ -218,26 +216,11 @@ apply_ultra_mode() {
     sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_tw_reuse=1 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_fin_timeout=10 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_tw_recycle=0 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_syncookies=1 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_max_syn_backlog=4096 >/dev/null 2>&1
     
-    # Optimize interfaces for maximum throughput
     for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
+        ethtool -K $iface tx on sg on tso on gso on gro on 2>/dev/null || true
         ethtool -G $iface rx 4096 tx 4096 2>/dev/null || true
         ip link set dev $iface txqueuelen 100000 2>/dev/null || true
-        echo f > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
-        echo 8192 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
-    done
-    
-    echo 524288 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
-    
-    # CPU performance
-    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-        [ -f "$cpu" ] && echo "performance" > "$cpu" 2>/dev/null || true
     done
     
     echo "ultra" > "$SPEED_MODE_FILE"
@@ -252,13 +235,12 @@ get_mode_emoji() {
     esac
 }
 
-# ==================== FIXED IP INFO FUNCTION (100% WORKING) ====================
+# ==================== FIXED IP INFO FUNCTION ====================
 get_ip_info() {
     echo -e "${NEON_CYAN}🌐 Fetching IP information...${NC}"
     
     IP=""
     
-    # Try multiple IP services
     for service in "https://api.ipify.org" "ifconfig.me" "icanhazip.com" "ipinfo.io/ip" "checkip.amazonaws.com"; do
         IP=$(curl -s --connect-timeout 3 "$service" 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
         [ ! -z "$IP" ] && break
@@ -279,13 +261,9 @@ get_ip_info() {
     echo "$IP" > /etc/elite-x/cached_ip
     echo -e "${NEON_GREEN}✅ IP detected: $IP${NC}"
     
-    # Get location and ISP
-    echo -e "${NEON_CYAN}📍 Fetching location and ISP...${NC}"
-    
     LOCATION="Unknown"
     ISP="Unknown"
     
-    # Try ip-api.com (most reliable)
     API_RESPONSE=$(curl -s --connect-timeout 3 "http://ip-api.com/json/$IP?fields=status,country,city,isp,org")
     if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
         COUNTRY=$(echo "$API_RESPONSE" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
@@ -301,7 +279,6 @@ get_ip_info() {
         fi
     fi
     
-    # Fallback to ipinfo.io
     if [ "$LOCATION" = "Unknown" ] || [ "$LOCATION" = "null" ]; then
         IPINFO=$(curl -s --connect-timeout 3 "ipinfo.io/$IP" 2>/dev/null)
         if [ ! -z "$IPINFO" ]; then
@@ -361,7 +338,7 @@ check_subdomain() {
     fi
 }
 
-# ==================== FIXED EDNS PROXY (OPTIMIZED) ====================
+# ==================== FIXED EDNS PROXY ====================
 install_edns_proxy() {
     echo -e "${NEON_CYAN}Installing optimized EDNS proxy...${NC}"
     
@@ -376,7 +353,7 @@ LISTEN_IP = '0.0.0.0'
 LISTEN_PORT = 53
 DNSTT_IP = '127.0.0.1'
 DNSTT_PORT = 5300
-BUFFER_SIZE = 16384  # Increased for faster throughput
+BUFFER_SIZE = 16384
 
 def add_edns0(data, max_size=4096):
     if len(data) < 12:
@@ -430,7 +407,7 @@ def handle_query(server_socket, data, client_addr):
     try:
         modified = add_edns0(data, 4096)
         dnstt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        dnstt.settimeout(2)  # Lower timeout for faster response
+        dnstt.settimeout(2)
         dnstt.sendto(modified, (DNSTT_IP, DNSTT_PORT))
         response, _ = dnstt.recvfrom(BUFFER_SIZE)
         modified_resp = add_edns0(response, 512)
@@ -443,8 +420,8 @@ def handle_query(server_socket, data, client_addr):
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)  # 1MB buffer
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)  # 1MB buffer
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
     sock.bind((LISTEN_IP, LISTEN_PORT))
     
     while True:
@@ -501,7 +478,7 @@ EOF
     chmod +x /usr/local/bin/elite-x-live
 }
 
-# ==================== FIXED TRAFFIC ANALYZER (NO SYNTAX ERROR) ====================
+# ==================== FIXED TRAFFIC ANALYZER ====================
 setup_traffic_analyzer() {
     cat > /usr/local/bin/elite-x-analyzer <<'EOF'
 #!/bin/bash
@@ -516,7 +493,6 @@ echo -e "${NEON_CYAN}╔══════════════════�
 echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                 TRAFFIC ANALYZER                                  ${NEON_CYAN}║${NC}"
 echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 
-# Calculate total traffic
 rx_total=0
 tx_total=0
 for net_dev in /sys/class/net/*; do
@@ -537,7 +513,6 @@ echo -e "${NEON_WHITE}System Total RX: ${NEON_GREEN}${rx_gb} GB${NC}"
 echo -e "${NEON_WHITE}System Total TX: ${NEON_GREEN}${tx_gb} GB${NC}"
 echo ""
 
-# List user traffic
 if [ -d "$USER_DB" ]; then
     for user_file in "$USER_DB"/*; do
         if [ -f "$user_file" ]; then
@@ -1468,7 +1443,6 @@ esac
 echo "$SELECTED_LOCATION" > /etc/elite-x/location
 echo "$MTU" > /etc/elite-x/mtu
 
-# Set ultra mode by default
 mkdir -p /etc/elite-x
 echo "ultra" > /etc/elite-x/speed_mode
 
@@ -1484,7 +1458,6 @@ fi
 mkdir -p /etc/elite-x/{banner,users,traffic}
 echo "$TDOMAIN" > /etc/elite-x/subdomain
 
-# Create banners
 cat > /etc/elite-x/banner/default <<'EOF'
 ╔═════════════════════════════════╗
         ELITE-X VPN SERVICE
@@ -1511,7 +1484,6 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-pr
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
-# Backup and configure systemd-resolved
 if [ -f /etc/systemd/resolved.conf ]; then
     cp /etc/systemd/resolved.conf /etc/systemd/resolved.conf.backup 2>/dev/null || true
     echo -e "${NEON_CYAN}Configuring systemd-resolved...${NC}"
@@ -1702,9 +1674,9 @@ else
 fi
 echo ""
 
-# Auto-open menu
-echo -e "${NEON_GREEN}Opening dashboard in 3 seconds...${NC}"
-sleep 3
+# FIXED: Force open dashboard
+echo -e "${NEON_GREEN}${BLINK}🚀 OPENING DASHBOARD NOW...${NC}"
+sleep 2
 /usr/local/bin/elite-x
 
 self_destruct
