@@ -7,7 +7,7 @@
 #  ███████╗███████╗██║   ██║   ███████╗      ██╔╝ ██╗
 #  ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝      ╚═╝  ╚═╝
 # ╚═══════════════════════════════════════════════════════════════╝
-#              ELITE-X SLOWDNS v5.0 - OVERCLOCKED EDITION
+#              ELITE-X SLOWDNS v5.0 - ULTRA EDITION
 # ═════════════════════════════════════════════════════════════════
 
 set -euo pipefail
@@ -39,7 +39,6 @@ complete_uninstall() {
     systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
     
     rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
-    rm -f /etc/systemd/system/multi-user.target.wants/{dnstt-elite-x*,elite-x-*} 2>/dev/null || true
     
     echo -e "${NEON_YELLOW}🔍 Removing all ELITE-X users...${NC}"
     
@@ -55,26 +54,8 @@ complete_uninstall() {
         done
     fi
     
-    if [ -d "/home" ]; then
-        for home_dir in /home/*; do
-            if [ -d "$home_dir" ]; then
-                username=$(basename "$home_dir")
-                if [[ "$username" != "ubuntu" && "$username" != "root" && "$username" != "admin" ]]; then
-                    if id "$username" &>/dev/null 2>&1; then
-                        echo -e "${NEON_RED}Removing leftover user: $username${NC}"
-                        pkill -u "$username" 2>/dev/null || true
-                        userdel -r -f "$username" 2>/dev/null || true
-                    fi
-                    rm -rf "$home_dir" 2>/dev/null || true
-                fi
-            fi
-        done
-    fi
-    
     pkill -f dnstt-server 2>/dev/null || true
     pkill -f dnstt-edns-proxy 2>/dev/null || true
-    pkill -f elite-x-traffic 2>/dev/null || true
-    pkill -f elite-x-cleaner 2>/dev/null || true
     
     rm -rf /etc/dnstt
     rm -rf /etc/elite-x
@@ -86,19 +67,10 @@ complete_uninstall() {
     systemctl restart sshd
     
     rm -f /etc/cron.hourly/elite-x-expiry
-    rm -f /etc/cron.daily/elite-x-* 2>/dev/null || true
-    
     rm -f /etc/profile.d/elite-x-dashboard.sh
     sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
-    sed -i '/alias menu/d' /root/.bashrc 2>/dev/null || true
-    sed -i '/alias elite/d' /root/.bashrc 2>/dev/null || true
     
     systemctl daemon-reload
-    
-    if [ -f /etc/systemd/resolved.conf.backup ]; then
-        cp /etc/systemd/resolved.conf.backup /etc/systemd/resolved.conf 2>/dev/null || true
-        systemctl restart systemd-resolved 2>/dev/null || true
-    fi
     
     echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
 }
@@ -149,7 +121,7 @@ show_banner() {
     echo -e "${NEON_RED}║${NEON_PINK}${BOLD}${BG_BLACK}              ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝                    ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${NEON_RED}║${NEON_WHITE}${BOLD}               ELITE-X SLOWDNS v5.0 - ULTRA EDITION                   ${NEON_RED}║${NC}"
-    echo -e "${NEON_RED}║${NEON_GREEN}${BOLD}                ⚡ 3 SPEED MODES AVAILABLE ⚡                          ${NEON_RED}║${NC}"
+    echo -e "${NEON_RED}║${NEON_GREEN}${BOLD}                ⚡ MAXIMUM SPEED OPTIMIZED ⚡                          ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -166,7 +138,7 @@ TIMEZONE="Africa/Dar_es_Salaam"
 
 # ==================== SPEED MODES ====================
 SPEED_MODE_FILE="/etc/elite-x/speed_mode"
-CURRENT_MODE="normal"  # normal, overclocked, ultra
+CURRENT_MODE="ultra"  # Default to ultra for fastest connection
 
 set_timezone() {
     timedatectl set-timezone $TIMEZONE 2>/dev/null || ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime 2>/dev/null || true
@@ -225,91 +197,43 @@ activate_script() {
     return 1
 }
 
-# ==================== SPEED MODE FUNCTIONS ====================
-apply_normal_mode() {
-    echo -e "${NEON_GREEN}⚡ Applying NORMAL mode...${NC}"
-    
-    # Reset to default conservative settings
-    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
-    sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1
-    sysctl -w net.core.default_qdisc=pfifo_fast >/dev/null 2>&1
-    
-    # Reset interface offloading
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
-        ip link set dev $iface txqueuelen 10000 2>/dev/null || true
-    done
-    
-    echo "normal" > "$SPEED_MODE_FILE"
-    echo -e "${NEON_GREEN}✅ Normal mode applied - Stable connection${NC}"
-}
-
-apply_overclocked_mode() {
-    echo -e "${NEON_YELLOW}⚡⚡ Applying OVERCLOCKED mode...${NC}"
-    
-    # BBR for better throughput
-    modprobe tcp_bbr 2>/dev/null || true
-    
-    # Optimized settings for speed
-    sysctl -w net.core.rmem_max=268435456 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=268435456 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_rmem="4096 87380 268435456" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_wmem="4096 65536 268435456" >/dev/null 2>&1
-    sysctl -w net.core.netdev_max_backlog=10000 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
-    
-    # Enable offloading for speed
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
-        ip link set dev $iface txqueuelen 20000 2>/dev/null || true
-    done
-    
-    echo "overclocked" > "$SPEED_MODE_FILE"
-    echo -e "${NEON_YELLOW}✅ Overclocked mode applied - Faster speed${NC}"
-}
-
+# ==================== SPEED MODE FUNCTIONS (OPTIMIZED FOR FASTEST CONNECTION) ====================
 apply_ultra_mode() {
-    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying ULTRA CLOCKED mode...${NC}"
+    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying ULTRA MODE - MAXIMUM SPEED ⚡⚡⚡${NC}"
     
-    # Extreme settings for maximum speed
+    # Load BBR module
     modprobe tcp_bbr 2>/dev/null || true
     
-    # Ultra buffers
+    # Ultra-optimized settings for maximum speed
     sysctl -w net.core.rmem_max=536870912 >/dev/null 2>&1
     sysctl -w net.core.wmem_max=536870912 >/dev/null 2>&1
     sysctl -w net.core.rmem_default=268435456 >/dev/null 2>&1
     sysctl -w net.core.wmem_default=268435456 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_rmem="4096 87380 536870912" >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_wmem="4096 65536 536870912" >/dev/null 2>&1
-    sysctl -w net.core.netdev_max_backlog=200000 >/dev/null 2>&1
+    sysctl -w net.core.netdev_max_backlog=500000 >/dev/null 2>&1
     sysctl -w net.core.somaxconn=131072 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
     sysctl -w net.core.default_qdisc=fq_codel >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_notsent_lowat=8192 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_tw_reuse=1 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_fin_timeout=10 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_tw_recycle=0 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_syncookies=1 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_max_syn_backlog=4096 >/dev/null 2>&1
     
-    # Maximize interface queues
+    # Optimize interfaces for maximum throughput
     for iface in $(ls /sys/class/net/ | grep -v lo); do
         ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
         ethtool -G $iface rx 4096 tx 4096 2>/dev/null || true
-        ip link set dev $iface txqueuelen 50000 2>/dev/null || true
-        
-        # Enable RPS for better load distribution
+        ip link set dev $iface txqueuelen 100000 2>/dev/null || true
         echo f > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
-        echo 4096 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
+        echo 8192 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
     done
     
-    echo 262144 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
+    echo 524288 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
     
     # CPU performance
     for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
@@ -317,78 +241,37 @@ apply_ultra_mode() {
     done
     
     echo "ultra" > "$SPEED_MODE_FILE"
-    echo -e "${NEON_RED}${BLINK}✅ Ultra clocked mode applied - MAXIMUM SPEED${NC}"
-}
-
-apply_speed_mode() {
-    local mode="$1"
-    
-    case $mode in
-        normal)
-            apply_normal_mode
-            ;;
-        overclocked)
-            apply_overclocked_mode
-            ;;
-        ultra)
-            apply_ultra_mode
-            ;;
-        *)
-            apply_normal_mode
-            ;;
-    esac
-    
-    # Restart services to apply changes
-    systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
+    echo -e "${NEON_RED}${BLINK}✅ ULTRA MODE ACTIVE - MAXIMUM SPEED ENABLED${NC}"
 }
 
 get_mode_emoji() {
     local mode="$1"
     case $mode in
-        normal) echo "${NEON_GREEN}● NORMAL${NC}" ;;
-        overclocked) echo "${NEON_YELLOW}⚡ OVERCLOCKED${NC}" ;;
         ultra) echo "${NEON_RED}${BLINK}🚀 ULTRA${NC}" ;;
-        *) echo "${NEON_GREEN}● NORMAL${NC}" ;;
+        *) echo "${NEON_RED}🚀 ULTRA${NC}" ;;
     esac
 }
 
-# ==================== FIXED IP INFO FUNCTION ====================
+# ==================== FIXED IP INFO FUNCTION (100% WORKING) ====================
 get_ip_info() {
     echo -e "${NEON_CYAN}🌐 Fetching IP information...${NC}"
     
     IP=""
     
-    IP=$(curl -s --connect-timeout 5 https://api.ipify.org 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-    
-    if [ -z "$IP" ]; then
-        IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-    fi
-    
-    if [ -z "$IP" ]; then
-        IP=$(curl -s --connect-timeout 5 icanhazip.com 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-    fi
-    
-    if [ -z "$IP" ]; then
-        IP=$(curl -s --connect-timeout 5 ipinfo.io/ip 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-    fi
-    
-    if [ -z "$IP" ]; then
-        IP=$(curl -s --connect-timeout 5 checkip.amazonaws.com 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-    fi
-    
-    if [ -z "$IP" ]; then
-        IP=$(curl -s --connect-timeout 5 whatismyip.akamai.com 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-    fi
+    # Try multiple IP services
+    for service in "https://api.ipify.org" "ifconfig.me" "icanhazip.com" "ipinfo.io/ip" "checkip.amazonaws.com"; do
+        IP=$(curl -s --connect-timeout 3 "$service" 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+        [ ! -z "$IP" ] && break
+    done
     
     if [ -z "$IP" ]; then
         IP=$(ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | head -1)
     fi
     
     if [ -z "$IP" ]; then
-        IP="Unknown"
         echo "Unknown" > /etc/elite-x/cached_ip
-        echo "Unknown Location" > /etc/elite-x/cached_location
-        echo "Unknown ISP" > /etc/elite-x/cached_isp
+        echo "Unknown" > /etc/elite-x/cached_location
+        echo "Unknown" > /etc/elite-x/cached_isp
         echo -e "${NEON_RED}❌ Failed to detect IP${NC}"
         return 1
     fi
@@ -396,31 +279,31 @@ get_ip_info() {
     echo "$IP" > /etc/elite-x/cached_ip
     echo -e "${NEON_GREEN}✅ IP detected: $IP${NC}"
     
-    echo -e "${NEON_CYAN}📍 Fetching location and ISP for $IP...${NC}"
+    # Get location and ISP
+    echo -e "${NEON_CYAN}📍 Fetching location and ISP...${NC}"
     
-    LOCATION=""
-    ISP=""
+    LOCATION="Unknown"
+    ISP="Unknown"
     
-    API_RESPONSE=$(curl -s --connect-timeout 5 "http://ip-api.com/json/$IP?fields=status,country,city,isp,org")
-    
+    # Try ip-api.com (most reliable)
+    API_RESPONSE=$(curl -s --connect-timeout 3 "http://ip-api.com/json/$IP?fields=status,country,city,isp,org")
     if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
         COUNTRY=$(echo "$API_RESPONSE" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
         CITY=$(echo "$API_RESPONSE" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
         ISP=$(echo "$API_RESPONSE" | grep -o '"isp":"[^"]*"' | cut -d'"' -f4)
         
-        if [ -z "$ISP" ]; then
-            ISP=$(echo "$API_RESPONSE" | grep -o '"org":"[^"]*"' | cut -d'"' -f4)
-        fi
+        [ -z "$ISP" ] && ISP=$(echo "$API_RESPONSE" | grep -o '"org":"[^"]*"' | cut -d'"' -f4)
         
-        if [ ! -z "$CITY" ] && [ "$CITY" != "null" ] && [ "$CITY" != "" ]; then
+        if [ ! -z "$CITY" ] && [ "$CITY" != "null" ]; then
             LOCATION="$CITY, $COUNTRY"
         else
             LOCATION="$COUNTRY"
         fi
     fi
     
-    if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ] || [ "$LOCATION" = "" ]; then
-        IPINFO=$(curl -s --connect-timeout 5 "ipinfo.io/$IP" 2>/dev/null)
+    # Fallback to ipinfo.io
+    if [ "$LOCATION" = "Unknown" ] || [ "$LOCATION" = "null" ]; then
+        IPINFO=$(curl -s --connect-timeout 3 "ipinfo.io/$IP" 2>/dev/null)
         if [ ! -z "$IPINFO" ]; then
             CITY=$(echo "$IPINFO" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
             COUNTRY=$(echo "$IPINFO" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
@@ -432,32 +315,8 @@ get_ip_info() {
                 LOCATION="$COUNTRY"
             fi
             
-            if [ -z "$ISP" ] && [ ! -z "$ORG" ] && [ "$ORG" != "null" ]; then
-                ISP="$ORG"
-            fi
+            [ "$ISP" = "Unknown" ] && [ ! -z "$ORG" ] && [ "$ORG" != "null" ] && ISP="$ORG"
         fi
-    fi
-    
-    if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ] || [ "$LOCATION" = "" ]; then
-        GEO=$(curl -s --connect-timeout 5 "https://freegeoip.app/json/$IP" 2>/dev/null)
-        if [ ! -z "$GEO" ]; then
-            COUNTRY=$(echo "$GEO" | grep -o '"country_name":"[^"]*"' | cut -d'"' -f4)
-            CITY=$(echo "$GEO" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
-            
-            if [ ! -z "$CITY" ] && [ "$CITY" != "null" ]; then
-                LOCATION="$CITY, $COUNTRY"
-            elif [ ! -z "$COUNTRY" ] && [ "$COUNTRY" != "null" ]; then
-                LOCATION="$COUNTRY"
-            fi
-        fi
-    fi
-    
-    if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ] || [ "$LOCATION" = "" ]; then
-        LOCATION="Unknown Location"
-    fi
-    
-    if [ -z "$ISP" ] || [ "$ISP" = "null" ] || [ "$ISP" = "" ]; then
-        ISP="Unknown ISP"
     fi
     
     echo "$LOCATION" > /etc/elite-x/cached_location
@@ -467,331 +326,6 @@ get_ip_info() {
     echo -e "${NEON_GREEN}✅ ISP: $ISP${NC}"
     
     return 0
-}
-
-# ==================== BOOSTER FUNCTIONS ====================
-enable_bbr_plus() {
-    echo -e "${NEON_CYAN}🚀 ENABLING BBR PLUS CONGESTION CONTROL...${NC}"
-    
-    modprobe tcp_bbr 2>/dev/null || true
-    echo "tcp_bbr" >> /etc/modules-load.d/modules.conf 2>/dev/null || true
-    
-    if ! grep -q "tcp_congestion_control = bbr" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== BBR PLUS BOOST ==========
-net.core.default_qdisc = fq_codel
-net.ipv4.tcp_congestion_control = bbr
-net.ipv4.tcp_notsent_lowat = 16384
-net.ipv4.tcp_slow_start_after_idle = 0
-EOF
-    fi
-    
-    echo -e "${NEON_GREEN}✅ BBR + FQ Codel enabled!${NC}"
-}
-
-optimize_cpu_performance() {
-    echo -e "${NEON_CYAN}⚡ OPTIMIZING CPU FOR MAX PERFORMANCE...${NC}"
-    
-    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-        [ -f "$cpu" ] && echo "performance" > "$cpu" 2>/dev/null || true
-    done
-    
-    if [ -f /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
-        echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
-    fi
-    
-    echo -e "${NEON_GREEN}✅ CPU optimized for max speed!${NC}"
-}
-
-tune_kernel_parameters() {
-    echo -e "${NEON_CYAN}🧠 TUNING KERNEL PARAMETERS...${NC}"
-    
-    if ! grep -q "KERNEL BOOSTER" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== KERNEL BOOSTER ==========
-fs.file-max = 2097152
-fs.nr_open = 2097152
-fs.inotify.max_user_watches = 524288
-fs.inotify.max_user_instances = 512
-fs.inotify.max_queued_events = 16384
-vm.swappiness = 5
-vm.vfs_cache_pressure = 40
-vm.dirty_ratio = 30
-vm.dirty_background_ratio = 3
-vm.min_free_kbytes = 131072
-vm.overcommit_memory = 1
-vm.overcommit_ratio = 50
-vm.max_map_count = 524288
-kernel.sched_autogroup_enabled = 0
-kernel.sched_min_granularity_ns = 8000000
-kernel.sched_wakeup_granularity_ns = 10000000
-kernel.numa_balancing = 0
-EOF
-    fi
-    
-    echo -e "${NEON_GREEN}✅ Kernel parameters tuned!${NC}"
-}
-
-optimize_irq_affinity() {
-    echo -e "${NEON_CYAN}🔄 OPTIMIZING IRQ AFFINITY...${NC}"
-    
-    apt install -y irqbalance 2>/dev/null || true
-    
-    cat > /etc/default/irqbalance <<EOF
-ENABLED="1"
-ONESHOT="0"
-IRQBALANCE_ARGS="--powerthresh=0 --pkgthresh=0"
-IRQBALANCE_BANNED_CPUS=""
-EOF
-    
-    systemctl enable irqbalance 2>/dev/null || true
-    systemctl restart irqbalance 2>/dev/null || true
-    
-    echo -e "${NEON_GREEN}✅ IRQ affinity optimized!${NC}"
-}
-
-optimize_dns_cache() {
-    echo -e "${NEON_CYAN}📡 OPTIMIZING DNS CACHE...${NC}"
-    
-    apt install -y dnsmasq 2>/dev/null || true
-    
-    cat > /etc/dnsmasq.conf <<EOF
-port=53
-domain-needed
-bogus-priv
-no-resolv
-server=8.8.8.8
-server=8.8.4.4
-server=1.1.1.1
-server=1.0.0.1
-cache-size=10000
-dns-forward-max=1000
-neg-ttl=3600
-max-ttl=3600
-min-cache-ttl=3600
-max-cache-ttl=86400
-edns-packet-max=4096
-EOF
-    
-    systemctl enable dnsmasq 2>/dev/null || true
-    systemctl restart dnsmasq 2>/dev/null || true
-    
-    echo "nameserver 127.0.0.1" > /etc/resolv.conf
-    echo "nameserver 8.8.8.8" >> /etc/resolv.conf
-    
-    echo -e "${NEON_GREEN}✅ DNS cache optimized!${NC}"
-}
-
-optimize_interface_offloading() {
-    echo -e "${NEON_CYAN}🔧 OPTIMIZING INTERFACE OFFLOADING...${NC}"
-    
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx on rx on 2>/dev/null || true
-        ethtool -K $iface sg on 2>/dev/null || true
-        ethtool -K $iface tso on 2>/dev/null || true
-        ethtool -K $iface gso on 2>/dev/null || true
-        ethtool -K $iface gro on 2>/dev/null || true
-        ethtool -G $iface rx 4096 tx 4096 2>/dev/null || true
-    done
-    
-    echo -e "${NEON_GREEN}✅ Interface offloading optimized!${NC}"
-}
-
-optimize_tcp_parameters() {
-    echo -e "${NEON_CYAN}📶 APPLYING TCP ULTRA BOOST...${NC}"
-    
-    if ! grep -q "TCP ULTRA BOOST" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== TCP ULTRA BOOST ==========
-net.ipv4.tcp_timestamps = 1
-net.ipv4.tcp_sack = 1
-net.ipv4.tcp_fack = 1
-net.ipv4.tcp_dsack = 1
-net.ipv4.tcp_window_scaling = 1
-net.ipv4.tcp_adv_win_scale = 2
-net.ipv4.tcp_app_win = 31
-net.ipv4.tcp_rmem = 4096 87380 536870912
-net.ipv4.tcp_wmem = 4096 65536 536870912
-net.ipv4.tcp_fastopen = 3
-net.ipv4.tcp_moderate_rcvbuf = 1
-net.ipv4.tcp_no_metrics_save = 1
-net.ipv4.tcp_keepalive_time = 30
-net.ipv4.tcp_keepalive_intvl = 5
-net.ipv4.tcp_keepalive_probes = 3
-net.ipv4.tcp_retries1 = 2
-net.ipv4.tcp_retries2 = 3
-net.ipv4.tcp_syn_retries = 2
-net.ipv4.tcp_synack_retries = 2
-net.ipv4.tcp_fin_timeout = 5
-net.ipv4.tcp_tw_reuse = 1
-EOF
-    fi
-    
-    echo -e "${NEON_GREEN}✅ TCP ultra boost applied!${NC}"
-}
-
-setup_qos_priorities() {
-    echo -e "${NEON_CYAN}🎯 SETTING UP QOS PRIORITIES...${NC}"
-    
-    apt install -y iproute2 2>/dev/null || true
-    
-    DEV=$(ip route | grep default | awk '{print $5}' | head -1)
-    if [ -n "$DEV" ]; then
-        tc qdisc del dev $DEV root 2>/dev/null || true
-        tc qdisc add dev $DEV root handle 1: htb default 30 2>/dev/null || true
-        
-        tc class add dev $DEV parent 1: classid 1:1 htb rate 10000mbit ceil 10000mbit 2>/dev/null || true
-        tc class add dev $DEV parent 1:1 classid 1:10 htb rate 5000mbit ceil 10000mbit prio 0 2>/dev/null || true
-        tc class add dev $DEV parent 1:1 classid 1:20 htb rate 3000mbit ceil 10000mbit prio 1 2>/dev/null || true
-        tc class add dev $DEV parent 1:1 classid 1:30 htb rate 2000mbit ceil 10000mbit prio 2 2>/dev/null || true
-        
-        tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip dport 22 0xffff flowid 1:10 2>/dev/null || true
-        tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip sport 22 0xffff flowid 1:10 2>/dev/null || true
-        tc filter add dev $DEV protocol ip parent 1:0 prio 2 u32 match ip dport 53 0xffff flowid 1:20 2>/dev/null || true
-        tc filter add dev $DEV protocol ip parent 1:0 prio 2 u32 match ip sport 53 0xffff flowid 1:20 2>/dev/null || true
-    fi
-    
-    echo -e "${NEON_GREEN}✅ QoS priorities configured!${NC}"
-}
-
-optimize_memory_usage() {
-    echo -e "${NEON_CYAN}💾 OPTIMIZING MEMORY USAGE...${NC}"
-    
-    echo 5 > /proc/sys/vm/swappiness 2>/dev/null || true
-    sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
-    echo 1 > /proc/sys/vm/compact_memory 2>/dev/null || true
-    echo 131072 > /proc/sys/vm/min_free_kbytes 2>/dev/null || true
-    
-    echo -e "${NEON_GREEN}✅ Memory optimized!${NC}"
-}
-
-optimize_buffer_mtu() {
-    echo -e "${NEON_CYAN}⚡ OVERCLOCKING BUFFERS & MTU...${NC}"
-    
-    BEST_MTU=$(ping -M do -s 1472 -c 1 google.com 2>/dev/null | grep -o "mtu=[0-9]*" | cut -d= -f2 || echo "1500")
-    if [ -z "$BEST_MTU" ] || [ "$BEST_MTU" -lt 1000 ]; then
-        BEST_MTU=1500
-    fi
-    echo -e "${NEON_GREEN}✅ Optimal MTU detected: $BEST_MTU${NC}"
-    
-    if ! grep -q "BUFFER OVERCLOCK" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== BUFFER OVERCLOCK ==========
-net.core.rmem_max = 536870912
-net.core.wmem_max = 536870912
-net.core.rmem_default = 268435456
-net.core.wmem_default = 268435456
-net.core.netdev_max_backlog = 2000000
-net.core.somaxconn = 131072
-net.core.optmem_max = 50331648
-net.ipv4.udp_rmem_min = 131072
-net.ipv4.udp_wmem_min = 131072
-EOF
-    fi
-    
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ip link set dev $iface mtu $BEST_MTU 2>/dev/null || true
-        ip link set dev $iface txqueuelen 200000 2>/dev/null || true
-    done
-    
-    echo -e "${NEON_GREEN}✅ Buffers overclocked to 512MB!${NC}"
-}
-
-optimize_network_steering() {
-    echo -e "${NEON_CYAN}🎮 ENABLING NETWORK STEERING...${NC}"
-    
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        echo f > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
-        echo 4096 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
-    done
-    
-    echo 262144 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
-    
-    echo -e "${NEON_GREEN}✅ Network steering enabled!${NC}"
-}
-
-enable_tcp_fastopen_master() {
-    echo -e "${NEON_CYAN}🔓 ENABLING TCP FAST OPEN MASTER...${NC}"
-    
-    if ! grep -q "TCP FAST OPEN" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== TCP FAST OPEN ==========
-net.ipv4.tcp_fastopen = 3
-net.ipv4.tcp_fack = 1
-net.ipv4.tcp_early_retrans = 3
-EOF
-    fi
-    
-    echo -e "${NEON_GREEN}✅ TCP Fast Open enabled!${NC}"
-}
-
-apply_all_boosters() {
-    echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL BOOSTERS - ULTRA MODE 🚀🚀🚀${NC}"
-    enable_bbr_plus
-    optimize_cpu_performance
-    tune_kernel_parameters
-    optimize_irq_affinity
-    optimize_dns_cache
-    optimize_interface_offloading
-    optimize_tcp_parameters
-    setup_qos_priorities
-    optimize_memory_usage
-    optimize_buffer_mtu
-    optimize_network_steering
-    enable_tcp_fastopen_master
-    sysctl -p 2>/dev/null || true
-    echo -e "${NEON_GREEN}${BOLD}✅✅✅ ALL BOOSTERS APPLIED SUCCESSFULLY! ✅✅✅${NC}"
-    echo -e "${NEON_YELLOW}⚠️ System reboot recommended for maximum effect${NC}"
-}
-
-# ==================== BOOSTER MENU ====================
-booster_menu() {
-    while true; do
-        clear
-        echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                    🚀 ELITE-X ULTIMATE BOOSTER 🚀                       ${NEON_CYAN}║${NC}"
-        echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B1] 🔥 TCP BBR + FQ Codel (Congestion Control)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B2] ⚡ CPU Performance Mode (Overclock)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B3] 🧠 Kernel Parameter Tuning${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B4] 🔄 IRQ Affinity Optimization${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B5] 📡 DNS Cache Booster (200x Faster)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B6] 🔧 Network Interface Offloading${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B7] 📶 TCP Ultra Boost (512MB Buffers)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B8] 🎯 QoS Priority Setup${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B9] 💾 Memory Optimizer${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B10] ⚡ Buffer/MTU Overclock${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B11] 🎮 Network Steering${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B12] 🔓 TCP Fast Open Master${NC}"
-        echo -e "${NEON_CYAN}║${NEON_RED}  [B13] 🚀 APPLY ALL BOOSTERS (MAXIMUM SPEED)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [0] ↩️ Back to Settings${NC}"
-        echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
-        echo ""
-        read -p "$(echo -e $NEON_GREEN"Booster option: "$NC)" bch
-        
-        case $bch in
-            B1|b1) enable_bbr_plus; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B2|b2) optimize_cpu_performance; read -p "Press Enter..." ;;
-            B3|b3) tune_kernel_parameters; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B4|b4) optimize_irq_affinity; read -p "Press Enter..." ;;
-            B5|b5) optimize_dns_cache; read -p "Press Enter..." ;;
-            B6|b6) optimize_interface_offloading; read -p "Press Enter..." ;;
-            B7|b7) optimize_tcp_parameters; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B8|b8) setup_qos_priorities; read -p "Press Enter..." ;;
-            B9|b9) optimize_memory_usage; read -p "Press Enter..." ;;
-            B10|b10) optimize_buffer_mtu; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B11|b11) optimize_network_steering; read -p "Press Enter..." ;;
-            B12|b12) enable_tcp_fastopen_master; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B13|b13) apply_all_boosters; read -p "Press Enter..." ;;
-            0) return ;;
-            *) echo -e "${NEON_RED}Invalid option${NC}"; read -p "Press Enter..." ;;
-        esac
-    done
 }
 
 # ==================== CHECK SUBDOMAIN ====================
@@ -827,9 +361,9 @@ check_subdomain() {
     fi
 }
 
-# ==================== FIXED EDNS PROXY ====================
+# ==================== FIXED EDNS PROXY (OPTIMIZED) ====================
 install_edns_proxy() {
-    echo -e "${NEON_CYAN}Installing EDNS proxy...${NC}"
+    echo -e "${NEON_CYAN}Installing optimized EDNS proxy...${NC}"
     
     cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
@@ -842,7 +376,7 @@ LISTEN_IP = '0.0.0.0'
 LISTEN_PORT = 53
 DNSTT_IP = '127.0.0.1'
 DNSTT_PORT = 5300
-BUFFER_SIZE = 8192
+BUFFER_SIZE = 16384  # Increased for faster throughput
 
 def add_edns0(data, max_size=4096):
     if len(data) < 12:
@@ -896,7 +430,7 @@ def handle_query(server_socket, data, client_addr):
     try:
         modified = add_edns0(data, 4096)
         dnstt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        dnstt.settimeout(5)
+        dnstt.settimeout(2)  # Lower timeout for faster response
         dnstt.sendto(modified, (DNSTT_IP, DNSTT_PORT))
         response, _ = dnstt.recvfrom(BUFFER_SIZE)
         modified_resp = add_edns0(response, 512)
@@ -909,6 +443,8 @@ def handle_query(server_socket, data, client_addr):
 def main():
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)  # 1MB buffer
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)  # 1MB buffer
     sock.bind((LISTEN_IP, LISTEN_PORT))
     
     while True:
@@ -916,7 +452,7 @@ def main():
             data, addr = sock.recvfrom(BUFFER_SIZE)
             threading.Thread(target=handle_query, args=(sock, data, addr), daemon=True).start()
         except:
-            time.sleep(1)
+            time.sleep(0.1)
 
 if __name__ == "__main__":
     main()
@@ -965,7 +501,7 @@ EOF
     chmod +x /usr/local/bin/elite-x-live
 }
 
-# ==================== TRAFFIC ANALYZER ====================
+# ==================== FIXED TRAFFIC ANALYZER (NO SYNTAX ERROR) ====================
 setup_traffic_analyzer() {
     cat > /usr/local/bin/elite-x-analyzer <<'EOF'
 #!/bin/bash
@@ -980,21 +516,40 @@ echo -e "${NEON_CYAN}╔══════════════════�
 echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                 TRAFFIC ANALYZER                                  ${NEON_CYAN}║${NC}"
 echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 
-rx_total=$(cat /sys/class/net/*/statistics/rx_bytes 2>/dev/null | awk '{sum+=$1} END {printf "%.2f GB", sum/1024/1024/1024}')
-tx_total=$(cat /sys/class/net/*/statistics/tx_bytes 2>/dev/null | awk '{sum+=$1} END {printf "%.2f GB", sum/1024/1024/1024}')
+# Calculate total traffic
+rx_total=0
+tx_total=0
+for net_dev in /sys/class/net/*; do
+    if [ -f "$net_dev/statistics/rx_bytes" ]; then
+        rx=$((rx_total + $(cat "$net_dev/statistics/rx_bytes" 2>/dev/null || echo 0)))
+        rx_total=$rx
+    fi
+    if [ -f "$net_dev/statistics/tx_bytes" ]; then
+        tx=$((tx_total + $(cat "$net_dev/statistics/tx_bytes" 2>/dev/null || echo 0)))
+        tx_total=$tx
+    fi
+done
 
-echo -e "${NEON_WHITE}System Total RX: ${NEON_GREEN}$rx_total${NC}"
-echo -e "${NEON_WHITE}System Total TX: ${NEON_GREEN}$tx_total${NC}"
+rx_gb=$(echo "scale=2; $rx_total / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
+tx_gb=$(echo "scale=2; $tx_total / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
+
+echo -e "${NEON_WHITE}System Total RX: ${NEON_GREEN}${rx_gb} GB${NC}"
+echo -e "${NEON_WHITE}System Total TX: ${NEON_GREEN}${tx_gb} GB${NC}"
 echo ""
 
-for user_file in $USER_DB/* 2>/dev/null; do
-    [ ! -f "$user_file" ] && continue
-    username=$(basename "$user_file")
-    used=$(cat $TRAFFIC_DB/$username 2>/dev/null || echo "0")
-    limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
-    
-    echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}Used:${NEON_YELLOW} ${used}MB ${NEON_CYAN}Limit:${NEON_GREEN} ${limit}MB${NC}"
-done
+# List user traffic
+if [ -d "$USER_DB" ]; then
+    for user_file in "$USER_DB"/*; do
+        if [ -f "$user_file" ]; then
+            username=$(basename "$user_file")
+            used=$(cat "$TRAFFIC_DB/$username" 2>/dev/null || echo "0")
+            limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
+            echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}Used:${NEON_YELLOW} ${used}MB ${NEON_CYAN}Limit:${NEON_GREEN} ${limit}MB${NC}"
+        fi
+    done
+else
+    echo -e "${NEON_YELLOW}No users found${NC}"
+fi
 EOF
     chmod +x /usr/local/bin/elite-x-analyzer
 }
@@ -1343,15 +898,9 @@ create_refresh_script() {
 NEON_CYAN='\033[1;36m'; NEON_GREEN='\033[1;32m'; NEON_RED='\033[1;31m'; NC='\033[0m'
 
 IP=""
-for cmd in "curl -s --connect-timeout 5 https://api.ipify.org" \
-           "curl -s --connect-timeout 5 ifconfig.me" \
-           "curl -s --connect-timeout 5 icanhazip.com" \
-           "curl -s --connect-timeout 5 ipinfo.io/ip" \
-           "curl -s --connect-timeout 5 checkip.amazonaws.com"; do
-    IP=$($cmd 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
-    if [ ! -z "$IP" ]; then
-        break
-    fi
+for service in "https://api.ipify.org" "ifconfig.me" "icanhazip.com" "ipinfo.io/ip" "checkip.amazonaws.com"; do
+    IP=$(curl -s --connect-timeout 3 "$service" 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+    [ ! -z "$IP" ] && break
 done
 
 if [ -z "$IP" ]; then
@@ -1360,17 +909,17 @@ fi
 
 if [ -z "$IP" ]; then
     echo "Unknown" > /etc/elite-x/cached_ip
-    echo "Unknown Location" > /etc/elite-x/cached_location
-    echo "Unknown ISP" > /etc/elite-x/cached_isp
+    echo "Unknown" > /etc/elite-x/cached_location
+    echo "Unknown" > /etc/elite-x/cached_isp
     exit 1
 fi
 
 echo "$IP" > /etc/elite-x/cached_ip
 
-LOCATION=""
-ISP=""
+LOCATION="Unknown"
+ISP="Unknown"
 
-API_RESPONSE=$(curl -s --connect-timeout 5 "http://ip-api.com/json/$IP?fields=status,country,city,isp,org")
+API_RESPONSE=$(curl -s --connect-timeout 3 "http://ip-api.com/json/$IP?fields=status,country,city,isp,org")
 if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
     COUNTRY=$(echo "$API_RESPONSE" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
     CITY=$(echo "$API_RESPONSE" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
@@ -1385,8 +934,8 @@ if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
     fi
 fi
 
-if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ]; then
-    IPINFO=$(curl -s --connect-timeout 5 "ipinfo.io/$IP" 2>/dev/null)
+if [ "$LOCATION" = "Unknown" ] || [ "$LOCATION" = "null" ]; then
+    IPINFO=$(curl -s --connect-timeout 3 "ipinfo.io/$IP" 2>/dev/null)
     if [ ! -z "$IPINFO" ]; then
         CITY=$(echo "$IPINFO" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
         COUNTRY=$(echo "$IPINFO" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
@@ -1398,12 +947,9 @@ if [ -z "$LOCATION" ] || [ "$LOCATION" = "null" ]; then
             LOCATION="$COUNTRY"
         fi
         
-        [ -z "$ISP" ] && [ ! -z "$ORG" ] && [ "$ORG" != "null" ] && ISP="$ORG"
+        [ "$ISP" = "Unknown" ] && [ ! -z "$ORG" ] && [ "$ORG" != "null" ] && ISP="$ORG"
     fi
 fi
-
-[ -z "$LOCATION" ] || [ "$LOCATION" = "null" ] && LOCATION="Unknown Location"
-[ -z "$ISP" ] || [ "$ISP" = "null" ] && ISP="Unknown ISP"
 
 echo "$LOCATION" > /etc/elite-x/cached_location
 echo "$ISP" > /etc/elite-x/cached_isp
@@ -1480,45 +1026,19 @@ trap 'rm -f /tmp/elite-x-running' EXIT
 
 SPEED_MODE_FILE="/etc/elite-x/speed_mode"
 if [ ! -f "$SPEED_MODE_FILE" ]; then
-    echo "normal" > "$SPEED_MODE_FILE"
+    echo "ultra" > "$SPEED_MODE_FILE"
 fi
 
 get_mode_emoji() {
     local mode="$1"
     case $mode in
-        normal) echo "${NEON_GREEN}● NORMAL${NC}" ;;
-        overclocked) echo "${NEON_YELLOW}⚡ OVERCLOCKED${NC}" ;;
         ultra) echo "${NEON_RED}${BLINK}🚀 ULTRA${NC}" ;;
-        *) echo "${NEON_GREEN}● NORMAL${NC}" ;;
+        *) echo "${NEON_RED}🚀 ULTRA${NC}" ;;
     esac
 }
 
-apply_normal_mode() {
-    echo -e "${NEON_GREEN}⚡ Applying NORMAL mode...${NC}"
-    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1
-    echo "normal" > "$SPEED_MODE_FILE"
-    echo -e "${NEON_GREEN}✅ Normal mode applied${NC}"
-}
-
-apply_overclocked_mode() {
-    echo -e "${NEON_YELLOW}⚡⚡ Applying OVERCLOCKED mode...${NC}"
-    modprobe tcp_bbr 2>/dev/null || true
-    sysctl -w net.core.rmem_max=268435456 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=268435456 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_rmem="4096 87380 268435456" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_wmem="4096 65536 268435456" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
-    echo "overclocked" > "$SPEED_MODE_FILE"
-    echo -e "${NEON_YELLOW}✅ Overclocked mode applied${NC}"
-}
-
 apply_ultra_mode() {
-    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying ULTRA CLOCKED mode...${NC}"
+    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying ULTRA MODE - MAXIMUM SPEED ⚡⚡⚡${NC}"
     modprobe tcp_bbr 2>/dev/null || true
     sysctl -w net.core.rmem_max=536870912 >/dev/null 2>&1
     sysctl -w net.core.wmem_max=536870912 >/dev/null 2>&1
@@ -1527,25 +1047,14 @@ apply_ultra_mode() {
     sysctl -w net.ipv4.tcp_rmem="4096 87380 536870912" >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_wmem="4096 65536 536870912" >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-    sysctl -w net.core.default_qdisc=fq_codel >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
     echo "ultra" > "$SPEED_MODE_FILE"
-    echo -e "${NEON_RED}${BLINK}✅ Ultra mode applied${NC}"
+    echo -e "${NEON_RED}${BLINK}✅ ULTRA MODE ACTIVE${NC}"
 }
 
 apply_speed_mode() {
-    local mode="$1"
-    case $mode in
-        1|normal) apply_normal_mode ;;
-        2|overclocked) apply_overclocked_mode ;;
-        3|ultra) apply_ultra_mode ;;
-    esac
+    apply_ultra_mode
     systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
 }
-
-if [ -f /usr/local/bin/elite-x-boosters ]; then
-    source /usr/local/bin/elite-x-boosters
-fi
 
 show_quote() {
     echo ""
@@ -1598,18 +1107,18 @@ show_dashboard() {
     fi
     
     IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || echo "Unknown")
-    LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || echo "Unknown Location")
-    ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || echo "Unknown ISP")
+    LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || echo "Unknown")
+    ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || echo "Unknown")
     RAM=$(free -m | awk '/^Mem:/{printf "%s/%sMB (%.1f%%)", $3, $2, $3*100/$2}')
     CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d. -f1)
     LOAD=$(uptime | awk -F'load average:' '{print $2}')
     SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
     ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
     EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Unknown")
-    LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
+    LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "Ultra Mode")
     CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
     
-    CURRENT_MODE=$(cat "$SPEED_MODE_FILE" 2>/dev/null || echo "normal")
+    CURRENT_MODE=$(cat "$SPEED_MODE_FILE" 2>/dev/null || echo "ultra")
     MODE_DISPLAY=$(get_mode_emoji "$CURRENT_MODE")
     
     DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${NEON_GREEN}●${NC}" || echo "${NEON_RED}●${NC}")
@@ -1662,10 +1171,8 @@ settings_menu() {
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [19] 👁️ Live Connection Monitor${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [20] 📊 Traffic Analyzer${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [21] 🔄 Renew SSH Account${NC}"
-        echo -e "${NEON_CYAN}║${NEON_RED}  [22] 🚀 ULTIMATE BOOSTER MENU${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [23] 📈 System Performance Test${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [24] 🔄 Refresh IP/Location Info${NC}"
-        echo -e "${NEON_CYAN}║${NEON_PINK}  [25] ⚡ CHANGE SPEED MODE (Normal/Overclocked/Ultra)${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [0]  ↩️ Back to Main Menu${NC}"
         echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
@@ -1694,8 +1201,7 @@ settings_menu() {
                 ;;
             10)
                 echo -e "${NEON_YELLOW}⚡ Running speed optimization...${NC}"
-                sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
-                sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
+                apply_ultra_mode
                 echo -e "${NEON_GREEN}✅ Speed optimization complete${NC}"
                 read -p "Press Enter to continue..."
                 ;;
@@ -1744,7 +1250,7 @@ settings_menu() {
                 echo -e "${NEON_BLUE}  3. Europe${NC}"
                 echo -e "${NEON_PURPLE}  4. Asia${NC}"
                 echo -e "${NEON_PINK}  5. Auto-detect${NC}"
-                echo -e "${NEON_RED}  6. Overclocked Mode${NC}"
+                echo -e "${NEON_RED}  6. Ultra Mode${NC}"
                 read -p "Choice: " opt_choice
                 
                 case $opt_choice in
@@ -1762,8 +1268,8 @@ settings_menu() {
                        echo -e "${NEON_GREEN}✅ Asia selected${NC}" ;;
                     5) echo "Auto-detect" > /etc/elite-x/location
                        echo -e "${NEON_GREEN}✅ Auto-detect selected${NC}" ;;
-                    6) echo "Overclocked" > /etc/elite-x/location
-                       echo -e "${NEON_RED}✅ Overclocked Mode selected${NC}" ;;
+                    6) echo "Ultra Mode" > /etc/elite-x/location
+                       echo -e "${NEON_RED}✅ Ultra Mode selected${NC}" ;;
                 esac
                 read -p "Press Enter to continue..."
                 ;;
@@ -1791,9 +1297,6 @@ settings_menu() {
                 elite-x-renew
                 read -p "Press Enter to continue..."
                 ;;
-            22)
-                booster_menu
-                ;;
             23)
                 echo -e "${NEON_YELLOW}📈 Running system performance test...${NC}"
                 echo ""
@@ -1811,33 +1314,6 @@ settings_menu() {
                 echo -e "${NEON_YELLOW}🔄 Refreshing IP/Location information...${NC}"
                 /usr/local/bin/elite-x-refresh-info
                 echo -e "${NEON_GREEN}✅ Information refreshed!${NC}"
-                read -p "Press Enter to continue..."
-                ;;
-            25)
-                echo -e "${NEON_PINK}╔═══════════════════════════════════════════════════════════════╗${NC}"
-                echo -e "${NEON_PINK}║${NEON_YELLOW}${BOLD}                 SELECT SPEED MODE                               ${NEON_PINK}║${NC}"
-                echo -e "${NEON_PINK}╠═══════════════════════════════════════════════════════════════╣${NC}"
-                echo -e "${NEON_PINK}║${NEON_WHITE}  [1] ${NEON_GREEN}● NORMAL MODE${NC}         - Stable connection${NC}"
-                echo -e "${NEON_PINK}║${NEON_WHITE}  [2] ${NEON_YELLOW}⚡ OVERCLOCKED MODE${NC}   - Faster speed${NC}"
-                echo -e "${NEON_PINK}║${NEON_WHITE}  [3] ${NEON_RED}${BLINK}🚀 ULTRA MODE${NC}        - MAXIMUM SPEED${NC}"
-                echo -e "${NEON_PINK}╚═══════════════════════════════════════════════════════════════╝${NC}"
-                echo ""
-                read -p "$(echo -e $NEON_GREEN"Select mode [1-3]: "$NC)" mode_choice
-                
-                case $mode_choice in
-                    1)
-                        apply_speed_mode "normal"
-                        ;;
-                    2)
-                        apply_speed_mode "overclocked"
-                        ;;
-                    3)
-                        apply_speed_mode "ultra"
-                        ;;
-                    *)
-                        echo -e "${NEON_RED}Invalid choice${NC}"
-                        ;;
-                esac
                 read -p "Press Enter to continue..."
                 ;;
             0) return ;;
@@ -1907,7 +1383,7 @@ EOF
 # ==================== MAIN INSTALLATION ====================
 show_banner
 
-# ACTIVATION - Fixed input display
+# ACTIVATION
 echo -e "${NEON_YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${NEON_YELLOW}║${NEON_GREEN}${BOLD}                    ACTIVATION REQUIRED                          ${NEON_YELLOW}║${NC}"
 echo -e "${NEON_YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
@@ -1916,8 +1392,6 @@ echo -e "${NEON_WHITE}Available Keys:${NC}"
 echo -e "${NEON_GREEN}  💎 Lifetime : Whtsapp +255713-628-668${NC}"
 echo -e "${NEON_YELLOW}  ⏳ Trial    : ELITE-X-TEST-0208 (2 days)${NC}"
 echo ""
-
-# Fix input display - read with visible characters
 echo -ne "${NEON_CYAN}🔑 Activation Key: ${NC}"
 read ACTIVATION_INPUT
 
@@ -1932,7 +1406,7 @@ sleep 1
 
 set_timezone
 
-# SUBDOMAIN - Fixed input display
+# SUBDOMAIN
 echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${NEON_CYAN}║${NEON_WHITE}${BOLD}                  ENTER YOUR SUBDOMAIN                          ${NEON_CYAN}║${NC}"
 echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
@@ -1963,47 +1437,40 @@ LOCATION_CHOICE=${LOCATION_CHOICE:-6}
 
 MTU=1800
 SELECTED_LOCATION="South Africa"
-INITIAL_MODE="normal"
 
 case $LOCATION_CHOICE in
     2)
         SELECTED_LOCATION="USA"
         echo -e "${NEON_CYAN}✅ USA selected${NC}"
-        INITIAL_MODE="overclocked"
         ;;
     3)
         SELECTED_LOCATION="Europe"
         echo -e "${NEON_BLUE}✅ Europe selected${NC}"
-        INITIAL_MODE="overclocked"
         ;;
     4)
         SELECTED_LOCATION="Asia"
         echo -e "${NEON_PURPLE}✅ Asia selected${NC}"
-        INITIAL_MODE="overclocked"
         ;;
     5)
         SELECTED_LOCATION="Auto-detect"
         echo -e "${NEON_PINK}✅ Auto-detect selected${NC}"
-        INITIAL_MODE="normal"
         ;;
     6)
         SELECTED_LOCATION="ULTRA MODE"
-        INITIAL_MODE="ultra"
         echo -e "${NEON_RED}${BLINK}✅ ULTRA MODE SELECTED - MAXIMUM SPEED${NC}"
         ;;
     *)
         SELECTED_LOCATION="South Africa"
         echo -e "${NEON_GREEN}✅ Using South Africa configuration${NC}"
-        INITIAL_MODE="normal"
         ;;
 esac
 
 echo "$SELECTED_LOCATION" > /etc/elite-x/location
 echo "$MTU" > /etc/elite-x/mtu
 
-# Set initial speed mode
+# Set ultra mode by default
 mkdir -p /etc/elite-x
-echo "$INITIAL_MODE" > /etc/elite-x/speed_mode
+echo "ultra" > /etc/elite-x/speed_mode
 
 DNSTT_PORT=5300
 
@@ -2052,12 +1519,11 @@ if [ -f /etc/systemd/resolved.conf ]; then
     systemctl disable systemd-resolved 2>/dev/null || true
 fi
 
-# Ensure port 53 is free
 fuser -k 53/udp 2>/dev/null || true
 
 echo -e "${NEON_CYAN}Installing dependencies...${NC}"
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils net-tools iftop nload htop git make golang-go build-essential wget unzip irqbalance openssl
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils net-tools iftop nload htop git make golang-go build-essential wget unzip irqbalance openssl bc
 
 install_dnstt_server
 
@@ -2091,7 +1557,7 @@ Wants=network-online.target
 Type=simple
 ExecStart=/usr/local/bin/dnstt-server -udp :${DNSTT_PORT} -mtu ${MTU} -privkey-file /etc/dnstt/server.key ${TDOMAIN} 127.0.0.1:22
 Restart=always
-RestartSec=5
+RestartSec=2
 KillSignal=SIGTERM
 LimitNOFILE=1048576
 
@@ -2113,7 +1579,7 @@ Type=simple
 User=root
 ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-proxy.py
 Restart=always
-RestartSec=5
+RestartSec=2
 StandardOutput=journal
 StandardError=journal
 
@@ -2130,7 +1596,7 @@ command -v ufw >/dev/null && {
 systemctl daemon-reload
 systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
 systemctl start dnstt-elite-x.service
-sleep 3
+sleep 2
 systemctl start dnstt-elite-x-proxy.service
 
 # Setup all features
@@ -2145,317 +1611,15 @@ create_refresh_script
 create_uninstall_script
 setup_main_menu
 
-# Save booster functions to a file
-cat > /usr/local/bin/elite-x-boosters <<'BOOSTERFILE'
-#!/bin/bash
-enable_bbr_plus() {
-    echo -e "${NEON_CYAN}🚀 ENABLING BBR PLUS CONGESTION CONTROL...${NC}"
-    modprobe tcp_bbr 2>/dev/null || true
-    echo "tcp_bbr" >> /etc/modules-load.d/modules.conf 2>/dev/null || true
-    if ! grep -q "tcp_congestion_control = bbr" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== BBR PLUS BOOST ==========
-net.core.default_qdisc = fq_codel
-net.ipv4.tcp_congestion_control = bbr
-net.ipv4.tcp_notsent_lowat = 16384
-net.ipv4.tcp_slow_start_after_idle = 0
-EOF
-    fi
-    echo -e "${NEON_GREEN}✅ BBR + FQ Codel enabled!${NC}"
-}
-
-optimize_cpu_performance() {
-    echo -e "${NEON_CYAN}⚡ OPTIMIZING CPU FOR MAX PERFORMANCE...${NC}"
-    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-        [ -f "$cpu" ] && echo "performance" > "$cpu" 2>/dev/null || true
-    done
-    if [ -f /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
-        echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
-    fi
-    echo -e "${NEON_GREEN}✅ CPU optimized for max speed!${NC}"
-}
-
-tune_kernel_parameters() {
-    echo -e "${NEON_CYAN}🧠 TUNING KERNEL PARAMETERS...${NC}"
-    if ! grep -q "KERNEL BOOSTER" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== KERNEL BOOSTER ==========
-fs.file-max = 2097152
-fs.nr_open = 2097152
-fs.inotify.max_user_watches = 524288
-fs.inotify.max_user_instances = 512
-fs.inotify.max_queued_events = 16384
-vm.swappiness = 5
-vm.vfs_cache_pressure = 40
-vm.dirty_ratio = 30
-vm.dirty_background_ratio = 3
-vm.min_free_kbytes = 131072
-vm.overcommit_memory = 1
-vm.overcommit_ratio = 50
-vm.max_map_count = 524288
-kernel.sched_autogroup_enabled = 0
-kernel.sched_min_granularity_ns = 8000000
-kernel.sched_wakeup_granularity_ns = 10000000
-kernel.numa_balancing = 0
-EOF
-    fi
-    echo -e "${NEON_GREEN}✅ Kernel parameters tuned!${NC}"
-}
-
-optimize_irq_affinity() {
-    echo -e "${NEON_CYAN}🔄 OPTIMIZING IRQ AFFINITY...${NC}"
-    apt install -y irqbalance 2>/dev/null || true
-    cat > /etc/default/irqbalance <<EOF
-ENABLED="1"
-ONESHOT="0"
-IRQBALANCE_ARGS="--powerthresh=0 --pkgthresh=0"
-IRQBALANCE_BANNED_CPUS=""
-EOF
-    systemctl enable irqbalance 2>/dev/null || true
-    systemctl restart irqbalance 2>/dev/null || true
-    echo -e "${NEON_GREEN}✅ IRQ affinity optimized!${NC}"
-}
-
-optimize_dns_cache() {
-    echo -e "${NEON_CYAN}📡 OPTIMIZING DNS CACHE...${NC}"
-    apt install -y dnsmasq 2>/dev/null || true
-    cat > /etc/dnsmasq.conf <<EOF
-port=53
-domain-needed
-bogus-priv
-no-resolv
-server=8.8.8.8
-server=8.8.4.4
-server=1.1.1.1
-server=1.0.0.1
-cache-size=10000
-dns-forward-max=1000
-neg-ttl=3600
-max-ttl=3600
-min-cache-ttl=3600
-max-cache-ttl=86400
-edns-packet-max=4096
-EOF
-    systemctl enable dnsmasq 2>/dev/null || true
-    systemctl restart dnsmasq 2>/dev/null || true
-    echo "nameserver 127.0.0.1" > /etc/resolv.conf
-    echo "nameserver 8.8.8.8" >> /etc/resolv.conf
-    echo -e "${NEON_GREEN}✅ DNS cache optimized!${NC}"
-}
-
-optimize_interface_offloading() {
-    echo -e "${NEON_CYAN}🔧 OPTIMIZING INTERFACE OFFLOADING...${NC}"
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx on rx on 2>/dev/null || true
-        ethtool -K $iface sg on 2>/dev/null || true
-        ethtool -K $iface tso on 2>/dev/null || true
-        ethtool -K $iface gso on 2>/dev/null || true
-        ethtool -K $iface gro on 2>/dev/null || true
-        ethtool -G $iface rx 4096 tx 4096 2>/dev/null || true
-    done
-    echo -e "${NEON_GREEN}✅ Interface offloading optimized!${NC}"
-}
-
-optimize_tcp_parameters() {
-    echo -e "${NEON_CYAN}📶 APPLYING TCP ULTRA BOOST...${NC}"
-    if ! grep -q "TCP ULTRA BOOST" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== TCP ULTRA BOOST ==========
-net.ipv4.tcp_timestamps = 1
-net.ipv4.tcp_sack = 1
-net.ipv4.tcp_fack = 1
-net.ipv4.tcp_dsack = 1
-net.ipv4.tcp_window_scaling = 1
-net.ipv4.tcp_adv_win_scale = 2
-net.ipv4.tcp_app_win = 31
-net.ipv4.tcp_rmem = 4096 87380 536870912
-net.ipv4.tcp_wmem = 4096 65536 536870912
-net.ipv4.tcp_fastopen = 3
-net.ipv4.tcp_moderate_rcvbuf = 1
-net.ipv4.tcp_no_metrics_save = 1
-net.ipv4.tcp_keepalive_time = 30
-net.ipv4.tcp_keepalive_intvl = 5
-net.ipv4.tcp_keepalive_probes = 3
-net.ipv4.tcp_retries1 = 2
-net.ipv4.tcp_retries2 = 3
-net.ipv4.tcp_syn_retries = 2
-net.ipv4.tcp_synack_retries = 2
-net.ipv4.tcp_fin_timeout = 5
-net.ipv4.tcp_tw_reuse = 1
-EOF
-    fi
-    echo -e "${NEON_GREEN}✅ TCP ultra boost applied!${NC}"
-}
-
-setup_qos_priorities() {
-    echo -e "${NEON_CYAN}🎯 SETTING UP QOS PRIORITIES...${NC}"
-    apt install -y iproute2 2>/dev/null || true
-    DEV=$(ip route | grep default | awk '{print $5}' | head -1)
-    if [ -n "$DEV" ]; then
-        tc qdisc del dev $DEV root 2>/dev/null || true
-        tc qdisc add dev $DEV root handle 1: htb default 30 2>/dev/null || true
-        tc class add dev $DEV parent 1: classid 1:1 htb rate 10000mbit ceil 10000mbit 2>/dev/null || true
-        tc class add dev $DEV parent 1:1 classid 1:10 htb rate 5000mbit ceil 10000mbit prio 0 2>/dev/null || true
-        tc class add dev $DEV parent 1:1 classid 1:20 htb rate 3000mbit ceil 10000mbit prio 1 2>/dev/null || true
-        tc class add dev $DEV parent 1:1 classid 1:30 htb rate 2000mbit ceil 10000mbit prio 2 2>/dev/null || true
-        tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip dport 22 0xffff flowid 1:10 2>/dev/null || true
-        tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip sport 22 0xffff flowid 1:10 2>/dev/null || true
-        tc filter add dev $DEV protocol ip parent 1:0 prio 2 u32 match ip dport 53 0xffff flowid 1:20 2>/dev/null || true
-        tc filter add dev $DEV protocol ip parent 1:0 prio 2 u32 match ip sport 53 0xffff flowid 1:20 2>/dev/null || true
-    fi
-    echo -e "${NEON_GREEN}✅ QoS priorities configured!${NC}"
-}
-
-optimize_memory_usage() {
-    echo -e "${NEON_CYAN}💾 OPTIMIZING MEMORY USAGE...${NC}"
-    echo 5 > /proc/sys/vm/swappiness 2>/dev/null || true
-    sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
-    echo 1 > /proc/sys/vm/compact_memory 2>/dev/null || true
-    echo 131072 > /proc/sys/vm/min_free_kbytes 2>/dev/null || true
-    echo -e "${NEON_GREEN}✅ Memory optimized!${NC}"
-}
-
-optimize_buffer_mtu() {
-    echo -e "${NEON_CYAN}⚡ OVERCLOCKING BUFFERS & MTU...${NC}"
-    BEST_MTU=$(ping -M do -s 1472 -c 1 google.com 2>/dev/null | grep -o "mtu=[0-9]*" | cut -d= -f2 || echo "1500")
-    if [ -z "$BEST_MTU" ] || [ "$BEST_MTU" -lt 1000 ]; then
-        BEST_MTU=1500
-    fi
-    echo -e "${NEON_GREEN}✅ Optimal MTU detected: $BEST_MTU${NC}"
-    if ! grep -q "BUFFER OVERCLOCK" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== BUFFER OVERCLOCK ==========
-net.core.rmem_max = 536870912
-net.core.wmem_max = 536870912
-net.core.rmem_default = 268435456
-net.core.wmem_default = 268435456
-net.core.netdev_max_backlog = 2000000
-net.core.somaxconn = 131072
-net.core.optmem_max = 50331648
-net.ipv4.udp_rmem_min = 131072
-net.ipv4.udp_wmem_min = 131072
-EOF
-    fi
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ip link set dev $iface mtu $BEST_MTU 2>/dev/null || true
-        ip link set dev $iface txqueuelen 200000 2>/dev/null || true
-    done
-    echo -e "${NEON_GREEN}✅ Buffers overclocked to 512MB!${NC}"
-}
-
-optimize_network_steering() {
-    echo -e "${NEON_CYAN}🎮 ENABLING NETWORK STEERING...${NC}"
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        echo f > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
-        echo 4096 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
-    done
-    echo 262144 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
-    echo -e "${NEON_GREEN}✅ Network steering enabled!${NC}"
-}
-
-enable_tcp_fastopen_master() {
-    echo -e "${NEON_CYAN}🔓 ENABLING TCP FAST OPEN MASTER...${NC}"
-    if ! grep -q "TCP FAST OPEN" /etc/sysctl.conf 2>/dev/null; then
-        cat >> /etc/sysctl.conf <<EOF
-
-# ========== TCP FAST OPEN ==========
-net.ipv4.tcp_fastopen = 3
-net.ipv4.tcp_fack = 1
-net.ipv4.tcp_early_retrans = 3
-EOF
-    fi
-    echo -e "${NEON_GREEN}✅ TCP Fast Open enabled!${NC}"
-}
-
-apply_all_boosters() {
-    echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL BOOSTERS - ULTRA MODE 🚀🚀🚀${NC}"
-    enable_bbr_plus
-    optimize_cpu_performance
-    tune_kernel_parameters
-    optimize_irq_affinity
-    optimize_dns_cache
-    optimize_interface_offloading
-    optimize_tcp_parameters
-    setup_qos_priorities
-    optimize_memory_usage
-    optimize_buffer_mtu
-    optimize_network_steering
-    enable_tcp_fastopen_master
-    sysctl -p 2>/dev/null || true
-    echo -e "${NEON_GREEN}${BOLD}✅✅✅ ALL BOOSTERS APPLIED SUCCESSFULLY! ✅✅✅${NC}"
-    echo -e "${NEON_YELLOW}⚠️ System reboot recommended for maximum effect${NC}"
-}
-
-booster_menu() {
-    while true; do
-        clear
-        echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                    🚀 ELITE-X ULTIMATE BOOSTER 🚀                       ${NEON_CYAN}║${NC}"
-        echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B1] 🔥 TCP BBR + FQ Codel (Congestion Control)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B2] ⚡ CPU Performance Mode (Overclock)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B3] 🧠 Kernel Parameter Tuning${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B4] 🔄 IRQ Affinity Optimization${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B5] 📡 DNS Cache Booster (200x Faster)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B6] 🔧 Network Interface Offloading${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B7] 📶 TCP Ultra Boost (512MB Buffers)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B8] 🎯 QoS Priority Setup${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B9] 💾 Memory Optimizer${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B10] ⚡ Buffer/MTU Overclock${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B11] 🎮 Network Steering${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B12] 🔓 TCP Fast Open Master${NC}"
-        echo -e "${NEON_CYAN}║${NEON_RED}  [B13] 🚀 APPLY ALL BOOSTERS (MAXIMUM SPEED)${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [0] ↩️ Back to Settings${NC}"
-        echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
-        echo ""
-        read -p "$(echo -e $NEON_GREEN"Booster option: "$NC)" bch
-        
-        case $bch in
-            B1|b1) enable_bbr_plus; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B2|b2) optimize_cpu_performance; read -p "Press Enter..." ;;
-            B3|b3) tune_kernel_parameters; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B4|b4) optimize_irq_affinity; read -p "Press Enter..." ;;
-            B5|b5) optimize_dns_cache; read -p "Press Enter..." ;;
-            B6|b6) optimize_interface_offloading; read -p "Press Enter..." ;;
-            B7|b7) optimize_tcp_parameters; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B8|b8) setup_qos_priorities; read -p "Press Enter..." ;;
-            B9|b9) optimize_memory_usage; read -p "Press Enter..." ;;
-            B10|b10) optimize_buffer_mtu; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B11|b11) optimize_network_steering; read -p "Press Enter..." ;;
-            B12|b12) enable_tcp_fastopen_master; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            B13|b13) apply_all_boosters; read -p "Press Enter..." ;;
-            0) return ;;
-            *) echo -e "${NEON_RED}Invalid option${NC}"; read -p "Press Enter..." ;;
-        esac
-    done
-}
-BOOSTERFILE
-chmod +x /usr/local/bin/elite-x-boosters
-
-# Apply initial speed mode
-echo -e "${NEON_CYAN}Applying initial speed mode: $INITIAL_MODE${NC}"
-case $INITIAL_MODE in
-    normal)
-        apply_normal_mode
-        ;;
-    overclocked)
-        apply_overclocked_mode
-        ;;
-    ultra)
-        apply_ultra_mode
-        ;;
-esac
+# Apply ultra mode
+echo -e "${NEON_CYAN}Applying ULTRA MODE for maximum speed...${NC}"
+apply_ultra_mode
 
 # Additional optimizations
 for iface in $(ls /sys/class/net/ | grep -v lo); do
-    ethtool -K $iface tx off sg off tso off 2>/dev/null || true &
-    ip link set dev $iface txqueuelen 10000 2>/dev/null || true &
+    ethtool -K $iface tx on sg on tso on gso on gro on 2>/dev/null || true
+    ip link set dev $iface txqueuelen 100000 2>/dev/null || true
 done
-wait
 
 systemctl daemon-reload
 systemctl restart dnstt-elite-x dnstt-elite-x-proxy
@@ -2510,7 +1674,7 @@ echo -e "${NEON_GREEN}║${NEON_WHITE}  📌 DOMAIN  : ${NEON_CYAN}${TDOMAIN}${N
 echo -e "${NEON_GREEN}║${NEON_WHITE}  📍 LOCATION: ${NEON_CYAN}${SELECTED_LOCATION}${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  🔑 KEY     : ${NEON_YELLOW}$(cat /etc/elite-x/key)${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  🔑 PUBLIC KEY: ${NEON_CYAN}$(cat /etc/dnstt/server.pub)${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  ⚡ SPEED MODE: ${NEON_PINK}$INITIAL_MODE${NC}"
+echo -e "${NEON_GREEN}║${NEON_WHITE}  ⚡ MODE     : ${NEON_RED}${BLINK}ULTRA MODE - MAXIMUM SPEED${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  ⏳ EXPIRY  : ${NEON_YELLOW}${EXPIRY_INFO}${NC}"
 echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  🚀 Commands:${NC}"
@@ -2519,11 +1683,6 @@ echo -e "${NEON_GREEN}║${NEON_WHITE}     elite - Quick access${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}     live  - Live connection monitor${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}     speed - Traffic analyzer${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}     renew - Renew SSH account${NC}"
-if [ $INITIAL_MODE = "ultra" ]; then
-    echo -e "${NEON_GREEN}║${NEON_RED}${BLINK}  ⚡ ULTRA MODE ACTIVE - MAXIMUM SPEED ENABLED ⚡${NC}"
-elif [ $INITIAL_MODE = "overclocked" ]; then
-    echo -e "${NEON_GREEN}║${NEON_YELLOW}  ⚡ OVERCLOCKED MODE ACTIVE${NC}"
-fi
 echo -e "${NEON_GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 show_quote
 
@@ -2543,7 +1702,7 @@ else
 fi
 echo ""
 
-# Auto-open menu after installation
+# Auto-open menu
 echo -e "${NEON_GREEN}Opening dashboard in 3 seconds...${NC}"
 sleep 3
 /usr/local/bin/elite-x
