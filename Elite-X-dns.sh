@@ -121,7 +121,7 @@ show_banner() {
     echo -e "${NEON_RED}║${NEON_PINK}${BOLD}${BG_BLACK}              ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝                    ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${NEON_RED}║${NEON_WHITE}${BOLD}               ELITE-X SLOWDNS v5.0 - ULTRA EDITION                   ${NEON_RED}║${NC}"
-    echo -e "${NEON_RED}║${NEON_GREEN}${BOLD}                ⚡ 3 SPEED MODES + BOOSTER MENU ⚡                     ${NEON_RED}║${NC}"
+    echo -e "${NEON_RED}║${NEON_GREEN}${BOLD}                ⚡ REAL TRAFFIC MONITORING ⚡                          ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -921,7 +921,21 @@ if [ -d "$USER_DB" ]; then
             username=$(basename "$user_file")
             used=$(cat "$TRAFFIC_DB/$username" 2>/dev/null || echo "0")
             limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
-            echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}Used:${NEON_YELLOW} ${used}MB ${NEON_CYAN}Limit:${NEON_GREEN} ${limit}MB${NC}"
+            
+            # Calculate percentage if limit > 0
+            if [ "$limit" -gt 0 ] 2>/dev/null; then
+                percent=$((used * 100 / limit))
+                if [ "$percent" -gt 90 ]; then
+                    percent_disp="${NEON_RED}${percent}%${NC}"
+                elif [ "$percent" -gt 70 ]; then
+                    percent_disp="${NEON_YELLOW}${percent}%${NC}"
+else
+                    percent_disp="${NEON_GREEN}${percent}%${NC}"
+                fi
+                echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}Used:${NEON_YELLOW} ${used}MB ${NEON_CYAN}Limit:${NEON_GREEN} ${limit}MB ${NEON_CYAN}($percent_disp)${NC}"
+            else
+                echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}Used:${NEON_YELLOW} ${used}MB ${NEON_CYAN}Limit:${NEON_GREEN} Unlimited${NC}"
+            fi
         fi
     done
 else
@@ -983,19 +997,95 @@ EOF
     chmod +x /usr/local/bin/elite-x-update
 }
 
-# ==================== TRAFFIC MONITOR ====================
+# ==================== FIXED TRAFFIC MONITOR WITH REAL USAGE ====================
 setup_traffic_monitor() {
     cat > /usr/local/bin/elite-x-traffic <<'EOF'
 #!/bin/bash
+
 TRAFFIC_DB="/etc/elite-x/traffic"
 USER_DB="/etc/elite-x/users"
 mkdir -p $TRAFFIC_DB
 
+# Function to get traffic for a user
+get_user_traffic() {
+    local username="$1"
+    local traffic_file="$TRAFFIC_DB/$username"
+    
+    # Get all PIDs for this user
+    local user_pids=$(pgrep -u "$username" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
+    
+    if [ ! -z "$user_pids" ]; then
+        # Sum up traffic from all user processes using /proc/net/dev
+        local total_rx=0
+        local total_tx=0
+        
+        # For each PID, get traffic from /proc/[pid]/net/dev
+        for pid in $(echo "$user_pids" | tr '|' ' '); do
+            if [ -f "/proc/$pid/net/dev" ]; then
+                # Get interface traffic for this process
+                while read line; do
+                    if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+) ]]; then
+                        iface="${BASH_REMATCH[1]}"
+                        rx_bytes="${BASH_REMATCH[2]}"
+                        tx_bytes="${BASH_REMATCH[10]}"
+                        
+                        # Only count for non-loopback interfaces
+                        if [ "$iface" != "lo" ]; then
+                            total_rx=$((total_rx + rx_bytes))
+                            total_tx=$((total_tx + tx_bytes))
+                        fi
+                    fi
+                done < "/proc/$pid/net/dev" 2>/dev/null
+            fi
+        done
+        
+        # Convert to MB
+        total_mb=$(( (total_rx + total_tx) / 1048576 ))
+        echo "$total_mb" > "$traffic_file"
+    else
+        # No active processes, keep last known value or 0
+        if [ ! -f "$traffic_file" ]; then
+            echo "0" > "$traffic_file"
+        fi
+    fi
+}
+
+# Function to enforce traffic limits
+enforce_limits() {
+    for user_file in "$USER_DB"/*; do
+        if [ -f "$user_file" ]; then
+            username=$(basename "$user_file")
+            limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
+            
+            if [ -f "$TRAFFIC_DB/$username" ] && [ "$limit" -gt 0 ] 2>/dev/null; then
+                used=$(cat "$TRAFFIC_DB/$username")
+                
+                if [ "$used" -ge "$limit" ]; then
+                    # User exceeded limit - kill all connections
+                    echo "$(date): User $username exceeded limit ($used/${limit}MB)" >> /var/log/elite-x-traffic.log
+                    pkill -u "$username" 2>/dev/null || true
+                    
+                    # Lock the account
+                    usermod -L "$username" 2>/dev/null || true
+                    
+                    # Update status in user file
+                    sed -i 's/^Status:.*/Status: LOCKED (Traffic Limit)/' "$user_file" 2>/dev/null || echo "Status: LOCKED (Traffic Limit)" >> "$user_file"
+                fi
+            fi
+        fi
+    done
+}
+
+# Main loop
 while true; do
     if [ -d "$USER_DB" ]; then
         for user_file in "$USER_DB"/*; do
-            [ -f "$user_file" ] && echo "0" > "$TRAFFIC_DB/$(basename "$user_file")" 2>/dev/null
+            if [ -f "$user_file" ]; then
+                username=$(basename "$user_file")
+                get_user_traffic "$username"
+            fi
         done
+        enforce_limits
     fi
     sleep 60
 done
@@ -1036,7 +1126,9 @@ while true; do
                 if [ ! -z "$expire_date" ]; then
                     current_date=$(date +%Y-%m-%d)
                     if [[ "$current_date" > "$expire_date" ]] || [ "$current_date" = "$expire_date" ]; then
-                        userdel -r "$username" 2>/dev/null || true
+                        echo "$(date): Removing expired user $username" >> /var/log/elite-x-cleaner.log
+                        pkill -u "$username" 2>/dev/null || true
+                        userdel -r -f "$username" 2>/dev/null || true
                         rm -f "$user_file"
                         rm -f "$TRAFFIC_DB/$username"
                     fi
@@ -1097,7 +1189,7 @@ install_dnstt_server() {
     fi
 }
 
-# ==================== USER MANAGEMENT SCRIPT ====================
+# ==================== USER MANAGEMENT SCRIPT (FIXED WITH REAL TRAFFIC) ====================
 setup_user_script() {
     cat > /usr/local/bin/elite-x-user <<'EOF'
 #!/bin/bash
@@ -1147,6 +1239,7 @@ Password: $password
 Expire: $expire_date
 Traffic_Limit: $traffic_limit
 Created: $(date +"%Y-%m-%d")
+Status: ACTIVE
 INFO
     
     echo "0" > $TD/$username
@@ -1171,7 +1264,7 @@ INFO
 list_users() {
     clear
     echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                     ACTIVE USERS (WITH PASSWORDS)                  ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                     ACTIVE USERS (REAL TRAFFIC)                    ${NEON_CYAN}║${NC}"
     echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
     
     if [ -z "$(ls -A $UD 2>/dev/null)" ]; then
@@ -1180,8 +1273,9 @@ list_users() {
         return
     fi
     
-    printf "${NEON_WHITE}%-12s %-15s %-12s %-8s %-8s %-10s %s${NC}\n" "USERNAME" "PASSWORD" "EXPIRE" "LIMIT" "USED" "CONNS" "STATUS"
-    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────${NC}"
+    # Table header
+    printf "${NEON_WHITE}%-12s %-15s %-12s %-10s %-10s %-8s %s${NC}\n" "USERNAME" "PASSWORD" "EXPIRE" "LIMIT(MB)" "USED(MB)" "USAGE%" "STATUS"
+    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────────────${NC}"
     
     for user_file in $UD/*; do
         [ ! -f "$user_file" ] && continue
@@ -1190,35 +1284,83 @@ list_users() {
         password=$(grep "Password:" "$user_file" | cut -d' ' -f2-)
         expire=$(grep "Expire:" "$user_file" | cut -d' ' -f2)
         limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
-        used=$(cat $TD/$username 2>/dev/null || echo "0")
         
-        conn_count=0
+        # Get REAL traffic usage from /proc/net/dev for this user's processes
+        used=0
         user_pids=$(pgrep -u "$username" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
         if [ ! -z "$user_pids" ]; then
-            conn_count=$(ss -tnp 2>/dev/null | grep -E "pid=($user_pids)" | grep -c ESTAB || echo "0")
+            total_rx=0
+            total_tx=0
+            for pid in $(echo "$user_pids" | tr '|' ' '); do
+                if [ -f "/proc/$pid/net/dev" ]; then
+                    while read line; do
+                        if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+) ]]; then
+                            iface="${BASH_REMATCH[1]}"
+                            if [ "$iface" != "lo" ]; then
+                                rx_bytes=$(echo "$line" | awk '{print $2}')
+                                tx_bytes=$(echo "$line" | awk '{print $10}')
+                                total_rx=$((total_rx + rx_bytes))
+                                total_tx=$((total_tx + tx_bytes))
+                            fi
+                        fi
+                    done < "/proc/$pid/net/dev" 2>/dev/null
+                fi
+            done
+            used=$(( (total_rx + total_tx) / 1048576 ))
         fi
         
-        if passwd -S "$username" 2>/dev/null | grep -q "L"; then
-            status="${NEON_RED}LOCKED${NC}"
+        # Save current usage to file
+        echo "$used" > "$TD/$username"
+        
+        # Calculate usage percentage
+        if [ "$limit" -gt 0 ] 2>/dev/null; then
+            percent=$((used * 100 / limit))
+            if [ "$percent" -ge 100 ]; then
+                percent_disp="${NEON_RED}${percent}%${NC}"
+                # Auto-lock if over limit
+                usermod -L "$username" 2>/dev/null || true
+                status="${NEON_RED}LIMIT EXCEEDED${NC}"
+            elif [ "$percent" -ge 80 ]; then
+                percent_disp="${NEON_YELLOW}${percent}%${NC}"
+                if passwd -S "$username" 2>/dev/null | grep -q "L"; then
+                    status="${NEON_RED}LOCKED${NC}"
+                else
+                    status="${NEON_GREEN}ACTIVE${NC}"
+                fi
+            else
+                percent_disp="${NEON_GREEN}${percent}%${NC}"
+                if passwd -S "$username" 2>/dev/null | grep -q "L"; then
+                    status="${NEON_RED}LOCKED${NC}"
+                else
+                    status="${NEON_GREEN}ACTIVE${NC}"
+                fi
+            fi
         else
-            status="${NEON_GREEN}ACTIVE${NC}"
+            percent_disp="${NEON_GREEN}---${NC}"
+            if passwd -S "$username" 2>/dev/null | grep -q "L"; then
+                status="${NEON_RED}LOCKED${NC}"
+            else
+                status="${NEON_GREEN}ACTIVE${NC}"
+            fi
         fi
         
+        # Truncate password if too long
         if [ ${#password} -gt 14 ]; then
             display_pass="${password:0:11}..."
         else
             display_pass="$password"
         fi
         
-        printf "${NEON_CYAN}%-12s ${NEON_YELLOW}%-15s ${NEON_GREEN}%-12s ${NEON_WHITE}%-8s ${NEON_PURPLE}%-8s ${NEON_BLUE}%-10s ${NEON_CYAN}%b${NC}\n" \
-               "$username" "$display_pass" "$expire" "$limit" "$used" "$conn_count" "$status"
+        printf "${NEON_CYAN}%-12s ${NEON_YELLOW}%-15s ${NEON_GREEN}%-12s ${NEON_WHITE}%-10s ${NEON_PURPLE}%-10s ${NEON_BLUE}%-8b ${NEON_CYAN}%b${NC}\n" \
+               "$username" "$display_pass" "$expire" "$limit" "$used" "$percent_disp" "$status"
     done
     
-    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────${NC}"
+    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────────────${NC}"
     
+    # Summary
     total_users=$(ls -1 $UD | wc -l)
     total_active=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
-    echo -e "${NEON_WHITE}Total Users: ${NEON_GREEN}$total_users${NC}  ${NEON_WHITE}Total Connections: ${NEON_GREEN}$total_active${NC}"
+    echo -e "${NEON_WHITE}Total Users: ${NEON_GREEN}$total_users${NC}  ${NEON_WHITE}Active Connections: ${NEON_GREEN}$total_active${NC}"
     
     show_quote
 }
@@ -1227,6 +1369,10 @@ lock_user() {
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
     if id "$u" &>/dev/null; then
         usermod -L "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u locked${NC}" || echo -e "${NEON_RED}❌ Failed to lock${NC}"
+        # Update status in user file
+        if [ -f "$UD/$u" ]; then
+            sed -i 's/^Status:.*/Status: LOCKED (Manual)/' "$UD/$u" 2>/dev/null || echo "Status: LOCKED (Manual)" >> "$UD/$u"
+        fi
     else
         echo -e "${NEON_RED}❌ User does not exist${NC}"
     fi
@@ -1237,6 +1383,10 @@ unlock_user() {
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
     if id "$u" &>/dev/null; then
         usermod -U "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u unlocked${NC}" || echo -e "${NEON_RED}❌ Failed to unlock${NC}"
+        # Update status in user file
+        if [ -f "$UD/$u" ]; then
+            sed -i 's/^Status:.*/Status: ACTIVE/' "$UD/$u" 2>/dev/null
+        fi
     else
         echo -e "${NEON_RED}❌ User does not exist${NC}"
     fi
@@ -1246,7 +1396,8 @@ unlock_user() {
 delete_user() { 
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
     if id "$u" &>/dev/null; then
-        userdel -r "$u" 2>/dev/null
+        pkill -u "$u" 2>/dev/null || true
+        userdel -r -f "$u" 2>/dev/null
         rm -f $UD/$u $TD/$u
         echo -e "${NEON_GREEN}✅ User $u deleted${NC}"
     else
@@ -1542,6 +1693,17 @@ show_dashboard() {
     ACTIVE_SSH=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
     UPTIME=$(uptime -p | sed 's/up //')
     
+    # Get total traffic usage across all users
+    total_traffic=0
+    if [ -d "/etc/elite-x/traffic" ]; then
+        for tf in /etc/elite-x/traffic/*; do
+            if [ -f "$tf" ]; then
+                val=$(cat "$tf" 2>/dev/null || echo "0")
+                total_traffic=$((total_traffic + val))
+            fi
+        done
+    fi
+    
     echo -e "${NEON_PURPLE}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${NEON_PURPLE}║${NEON_YELLOW}${BOLD}                    ELITE-X SLOWDNS v5.0 - ULTRA EDITION                  ${NEON_PURPLE}║${NC}"
     echo -e "${NEON_PURPLE}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
@@ -1554,6 +1716,7 @@ show_dashboard() {
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  📊 Load Avg  :${NEON_GREEN} $LOAD${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  ⏱️ Uptime    :${NEON_GREEN} $UPTIME${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  🔗 Active SSH:${NEON_GREEN} $ACTIVE_SSH${NC}"
+    echo -e "${NEON_PURPLE}║${NEON_WHITE}  📊 Total Traffic:${NEON_GREEN} ${total_traffic}MB${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  🌍 VPS Loc   :${NEON_GREEN} $LOCATION${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  📏 MTU       :${NEON_GREEN} $CURRENT_MTU${NC}"
     echo -e "${NEON_PURPLE}║${NEON_WHITE}  ⚙️ Mode      : $MODE_DISPLAY${NC}"
@@ -1776,7 +1939,7 @@ main_menu() {
         echo -e "${NEON_CYAN}║${NEON_GREEN}${BOLD}                         🎯 MAIN MENU 🎯                               ${NEON_CYAN}║${NC}"
         echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [1]  👤 Create SSH + DNS User${NC}"
-        echo -e "${NEON_CYAN}║${NEON_WHITE}  [2]  📋 List All Users (with passwords & connections)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [2]  📋 List All Users (with REAL traffic usage)${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [3]  🔒 Lock User${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [4]  🔓 Unlock User${NC}"
         echo -e "${NEON_CYAN}║${NEON_WHITE}  [5]  🗑️ Delete User${NC}"
