@@ -113,10 +113,13 @@ check_expiry() {
                 pkill -f dnstt-edns-proxy 2>/dev/null || true
                 pkill -f elite-x-traffic 2>/dev/null || true
                 pkill -f elite-x-cleaner 2>/dev/null || true
+                pkill -f elite-x-bandwidth 2>/dev/null || true
+                pkill -f elite-x-monitor 2>/dev/null || true
+                pkill -f elite-x-speed 2>/dev/null || true
                 
                 # Stop and disable services
-                systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
-                systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+                systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor 2>/dev/null || true
+                systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor 2>/dev/null || true
                 
                 # Remove service files
                 rm -rf /etc/systemd/system/dnstt-elite-x*
@@ -138,6 +141,8 @@ check_expiry() {
                 
                 # Remove cron jobs
                 rm -f /etc/cron.hourly/elite-x-expiry
+                rm -f /etc/cron.daily/elite-x-backup
+                rm -f /etc/cron.hourly/elite-x-bandwidth
                 
                 echo -e "${GREEN}✅ ELITE-X has been uninstalled.${NC}"
                 rm -f "$0"
@@ -255,7 +260,8 @@ After=network-online.target
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/dnstt-server -udp :${DNSTT_PORT} -mtu ${MTU} -privkey-file /etc/dnstt/server.key ${TDOMAIN} 127.0.0.1:22
-Restart=no
+Restart=always
+RestartSec=5
 KillSignal=SIGTERM
 LimitNOFILE=1048576
 
@@ -270,54 +276,123 @@ setup_edns_proxy() {
     
     cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
-import socket,threading,struct,time,os
+import socket
+import threading
+import struct
+import sys
+import time
+import os
+import signal
+
 L=5300
-def p(d,s):
- if len(d)<12:return d
- try:q,a,n,r=struct.unpack("!HHHH",d[4:12])
- except:return d
- o=12
- def sk(b,o):
-  while o<len(b):
-   l=b[o];o+=1
-   if l==0:break
-   if l&0xC0==0xC0:o+=1;break
-   o+=l
-  return o
- for _ in range(q):o=sk(d,o);o+=4
- for _ in range(a+n):
-  o=sk(d,o)
-  if o+10>len(d):return d
-  _,_,_,l=struct.unpack("!HHIH",d[o:o+10])
-  o+=10+l
- n=bytearray(d)
- for _ in range(r):
-  o=sk(d,o)
-  if o+10>len(d):return d
-  t=struct.unpack("!H",d[o:o+2])[0]
-  if t==41:
-   n[o+2:o+4]=struct.pack("!H",s)
-   return bytes(n)
-  _,_,l=struct.unpack("!HIH",d[o+2:o+10])
-  o+=10+l
- return d
-def h(sk,d,ad):
- u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
- u.settimeout(5)
- try:
-  u.sendto(p(d,1800),('127.0.0.1',L))
-  r,_=u.recvfrom(4096)
-  sk.sendto(p(r,512),ad)
- except:pass
- finally:u.close()
-s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-os.system("fuser -k 53/udp 2>/dev/null || true")
-time.sleep(2)
-s.bind(('0.0.0.0',53))
-while True:
- d,a=s.recvfrom(4096)
- threading.Thread(target=h,args=(s,d,a),daemon=True).start()
+running = True
+
+def signal_handler(sig, frame):
+    global running
+    running = False
+    sys.stderr.write("\nShutting down...\n")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+def modify_edns(d, max_size):
+    if len(d) < 12:
+        return d
+    try:
+        q, a, n, r = struct.unpack("!HHHH", d[4:12])
+    except:
+        return d
+    
+    o = 12
+    
+    def skip_name(b, o):
+        while o < len(b):
+            l = b[o]
+            o += 1
+            if l == 0:
+                break
+            if l & 0xC0 == 0xC0:
+                o += 1
+                break
+            o += l
+        return o
+    
+    for _ in range(q):
+        o = skip_name(d, o)
+        o += 4
+    
+    for _ in range(a + n):
+        o = skip_name(d, o)
+        if o + 10 > len(d):
+            return d
+        try:
+            _, _, _, l = struct.unpack("!HHIH", d[o:o+10])
+        except:
+            return d
+        o += 10 + l
+    
+    modified = bytearray(d)
+    for _ in range(r):
+        o = skip_name(d, o)
+        if o + 10 > len(d):
+            return d
+        t = struct.unpack("!H", d[o:o+2])[0]
+        if t == 41:
+            modified[o+2:o+4] = struct.pack("!H", max_size)
+            return bytes(modified)
+        _, _, l = struct.unpack("!HIH", d[o+2:o+10])
+        o += 10 + l
+    
+    return d
+
+def handle_request(sock, data, addr):
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client.settimeout(5)
+    try:
+        client.sendto(modify_edns(data, 1800), ('127.0.0.1', L))
+        response, _ = client.recvfrom(4096)
+        sock.sendto(modify_edns(response, 512), addr)
+    except Exception as e:
+        sys.stderr.write(f"Error: {e}\n")
+    finally:
+        client.close()
+
+def main():
+    global running
+    
+    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    os.system("fuser -k 53/udp 2>/dev/null || true")
+    time.sleep(2)
+    
+    for attempt in range(3):
+        try:
+            server.bind(('0.0.0.0', 53))
+            sys.stderr.write(f"✅ EDNS Proxy started on port 53 (forwarding to {L})\n")
+            sys.stderr.flush()
+            break
+        except Exception as e:
+            if attempt < 2:
+                sys.stderr.write(f"Attempt {attempt+1} failed, retrying...\n")
+                time.sleep(2)
+                os.system("fuser -k 53/udp 2>/dev/null || true")
+            else:
+                sys.stderr.write(f"❌ Failed to bind to port 53 after 3 attempts: {e}\n")
+                sys.exit(1)
+    
+    while running:
+        try:
+            data, addr = server.recvfrom(4096)
+            threading.Thread(target=handle_request, args=(server, data, addr), daemon=True).start()
+        except Exception as e:
+            if running:
+                sys.stderr.write(f"Error: {e}\n")
+                time.sleep(1)
+
+if __name__ == "__main__":
+    main()
 EOF
     chmod +x /usr/local/bin/dnstt-edns-proxy.py
 
@@ -325,37 +400,64 @@ EOF
 [Unit]
 Description=ELITE-X Proxy
 After=dnstt-elite-x.service
+Requires=dnstt-elite-x.service
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-proxy.py
-Restart=no
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOF
 }
 
-# ========== TRAFFIC MONITOR ==========
-setup_traffic_monitor() {
+# ========== ADVANCED TRAFFIC MONITOR ==========
+setup_advanced_traffic_monitor() {
     cat > /usr/local/bin/elite-x-traffic <<'EOF'
 #!/bin/bash
 TRAFFIC_DB="/etc/elite-x/traffic"
 USER_DB="/etc/elite-x/users"
 mkdir -p $TRAFFIC_DB
 
+# Log function
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /var/log/elite-x-traffic.log
+}
+
 monitor_user() {
     local username="$1"
     local traffic_file="$TRAFFIC_DB/$username"
+    local history_file="$TRAFFIC_DB/${username}.history"
     
     if command -v iptables >/dev/null 2>&1; then
+        # Monitor both upload and download traffic
         local upload=$(iptables -vnx -L OUTPUT | grep "$username" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "0")
         local download=$(iptables -vnx -L INPUT | grep "$username" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "0")
         local total=$((upload + download))
-        echo $((total / 1048576)) > "$traffic_file"
+        local total_mb=$((total / 1048576))
+        
+        # Save current usage
+        echo "$total_mb" > "$traffic_file"
+        
+        # Save to history with timestamp (keep last 24 entries)
+        echo "$(date +%s):$total_mb" >> "$history_file"
+        tail -n 24 "$history_file" > "${history_file}.tmp" && mv "${history_file}.tmp" "$history_file"
+        
+        # Check if user exceeded limit
+        if [ -f "$USER_DB/$username" ]; then
+            local limit=$(grep "Traffic_Limit:" "$USER_DB/$username" | cut -d' ' -f2)
+            if [ "$limit" -gt 0 ] && [ "$total_mb" -gt "$limit" ]; then
+                # Lock user if exceeded limit
+                usermod -L "$username" 2>/dev/null
+                log_message "User $username locked - exceeded traffic limit ($total_mb/$limit MB)"
+            fi
+        fi
     fi
 }
 
+log_message "Traffic monitor started"
 while true; do
     if [ -d "$USER_DB" ]; then
         for user_file in "$USER_DB"/*; do
@@ -367,15 +469,21 @@ done
 EOF
     chmod +x /usr/local/bin/elite-x-traffic
 
+    # Create log file
+    touch /var/log/elite-x-traffic.log
+    chmod 644 /var/log/elite-x-traffic.log
+
     cat > /etc/systemd/system/elite-x-traffic.service <<EOF
 [Unit]
-Description=ELITE-X Traffic Monitor
+Description=ELITE-X Advanced Traffic Monitor
 After=network.target
 
 [Service]
 Type=simple
+User=root
 ExecStart=/usr/local/bin/elite-x-traffic
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
@@ -389,6 +497,13 @@ setup_auto_remover() {
 
 USER_DB="/etc/elite-x/users"
 TRAFFIC_DB="/etc/elite-x/traffic"
+LOG_FILE="/var/log/elite-x-cleaner.log"
+
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+log_message "Auto cleaner started"
 
 while true; do
     if [ -d "$USER_DB" ]; then
@@ -400,9 +515,17 @@ while true; do
                 if [ ! -z "$expire_date" ]; then
                     current_date=$(date +%Y-%m-%d)
                     if [[ "$current_date" > "$expire_date" ]] || [ "$current_date" = "$expire_date" ]; then
-                        userdel -r "$username" 2>/dev/null || true
+                        # Kill user processes
+                        pkill -u "$username" 2>/dev/null || true
+                        sleep 2
+                        
+                        # Remove user
+                        userdel -r "$username" 2>/dev/null
                         rm -f "$user_file"
                         rm -f "$TRAFFIC_DB/$username"
+                        rm -f "$TRAFFIC_DB/${username}.history"
+                        
+                        log_message "Removed expired user: $username (expired on $expire_date)"
                     fi
                 fi
             fi
@@ -413,13 +536,21 @@ done
 EOF
     chmod +x /usr/local/bin/elite-x-cleaner
 
+    # Create log file
+    touch /var/log/elite-x-cleaner.log
+    chmod 644 /var/log/elite-x-cleaner.log
+
     cat > /etc/systemd/system/elite-x-cleaner.service <<EOF
 [Unit]
-Description=ELITE-X Auto Remover
+Description=ELITE-X Auto Remover Service
+After=network.target
+
 [Service]
 Type=simple
+User=root
 ExecStart=/usr/local/bin/elite-x-cleaner
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
@@ -432,13 +563,19 @@ setup_bandwidth_monitor() {
 #!/bin/bash
 LOG_FILE="/var/log/elite-x-bandwidth.log"
 
+log_message() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
+}
+
+log_message "Bandwidth monitor started"
+
 while true; do
     if [ -f /sys/class/net/eth0/statistics/rx_bytes ]; then
         rx_bytes=$(cat /sys/class/net/eth0/statistics/rx_bytes 2>/dev/null || echo "0")
         tx_bytes=$(cat /sys/class/net/eth0/statistics/tx_bytes 2>/dev/null || echo "0")
         rx_mb=$((rx_bytes / 1048576))
         tx_mb=$((tx_bytes / 1048576))
-        echo "$(date): RX: ${rx_mb}MB, TX: ${tx_mb}MB" >> "$LOG_FILE"
+        log_message "Total Bandwidth - RX: ${rx_mb}MB, TX: ${tx_mb}MB"
     fi
     sleep 300
 done
@@ -452,15 +589,17 @@ After=network.target
 
 [Service]
 Type=simple
+User=root
 ExecStart=/usr/local/bin/elite-x-bandwidth
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 EOF
 }
 
-# ========== SPEED TEST ==========
+# ========== BANDWIDTH SPEED TEST ==========
 setup_bandwidth_tester() {
     cat > /usr/local/bin/elite-x-speedtest <<'EOF'
 #!/bin/bash
@@ -476,6 +615,7 @@ echo -e "${CYAN}║${YELLOW}              ELITE-X BANDWIDTH SPEED TEST          
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
+# Test download speed
 echo -e "${YELLOW}Testing download speed...${NC}"
 DOWNLOAD_START=$(date +%s%N)
 curl -s -o /dev/null http://speedtest.tele2.net/100MB.zip &
@@ -486,6 +626,7 @@ DOWNLOAD_END=$(date +%s%N)
 DOWNLOAD_TIME=$(( ($DOWNLOAD_END - $DOWNLOAD_START) / 1000000 ))
 DOWNLOAD_SPEED=$(( 100 * 1000 / $DOWNLOAD_TIME ))
 
+# Test upload speed
 echo -e "${YELLOW}Testing upload speed...${NC}"
 UPLOAD_START=$(date +%s%N)
 dd if=/dev/zero bs=1M count=50 2>/dev/null | curl -s -X POST --data-binary @- https://httpbin.org/post -o /dev/null &
@@ -499,6 +640,7 @@ UPLOAD_SPEED=$(( 50 * 1000 / $UPLOAD_TIME ))
 echo -e "\n${GREEN}Results:${NC}"
 echo -e "Download Speed: ${YELLOW}${DOWNLOAD_SPEED} Mbps${NC}"
 echo -e "Upload Speed:   ${YELLOW}${UPLOAD_SPEED} Mbps${NC}"
+echo -e "Latency:        ${CYAN}$(ping -c 1 google.com 2>/dev/null | grep time= | cut -d= -f4)${NC}"
 EOF
     chmod +x /usr/local/bin/elite-x-speedtest
 }
@@ -511,16 +653,25 @@ BACKUP_DIR="/root/elite-x-backups"
 DATE=$(date +%Y%m%d-%H%M%S)
 mkdir -p "$BACKUP_DIR"
 
+# Backup configuration
 tar -czf "$BACKUP_DIR/elite-x-config-$DATE.tar.gz" /etc/elite-x 2>/dev/null || true
 tar -czf "$BACKUP_DIR/dnstt-keys-$DATE.tar.gz" /etc/dnstt 2>/dev/null || true
 
+# Backup user list
+if [ -d "/etc/elite-x/users" ]; then
+    cp -r /etc/elite-x/users "$BACKUP_DIR/users-$DATE" 2>/dev/null || true
+fi
+
+# Keep only last 10 backups
 cd "$BACKUP_DIR"
 ls -t elite-x-config-* | tail -n +11 | xargs -r rm 2>/dev/null || true
+ls -t dnstt-keys-* | tail -n +11 | xargs -r rm 2>/dev/null || true
 
 echo "Backup completed: $DATE" >> /var/log/elite-x-backup.log
 EOF
     chmod +x /usr/local/bin/elite-x-backup
 
+    # Daily cron job for backup
     cat > /etc/cron.daily/elite-x-backup <<'EOF'
 #!/bin/bash
 /usr/local/bin/elite-x-backup
@@ -533,18 +684,42 @@ setup_system_optimizer() {
     cat > /usr/local/bin/elite-x-optimize <<'EOF'
 #!/bin/bash
 
-echo -e "\033[1;33m🚀 Optimizing system...\033[0m"
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
 
+echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${YELLOW}              ELITE-X SYSTEM OPTIMIZER                          ${CYAN}║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+# Network optimizations
+echo -e "${YELLOW}Optimizing network parameters...${NC}"
 sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
 sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
 sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
 sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
 sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
 sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
+sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
+sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
+sysctl -w net.ipv4.tcp_mtu_probing=1 >/dev/null 2>&1
 
+# CPU optimizations
+echo -e "${YELLOW}Optimizing CPU performance...${NC}"
+for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+    echo "performance" > "$cpu" 2>/dev/null || true
+done
+
+# Memory optimizations
+echo -e "${YELLOW}Optimizing memory usage...${NC}"
 sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+sysctl -w vm.swappiness=10 >/dev/null 2>&1
+sysctl -w vm.vfs_cache_pressure=50 >/dev/null 2>&1
 
-echo -e "\033[0;32m✅ System optimization complete!\033[0m"
+echo -e "\n${GREEN}✅ System optimization complete!${NC}"
 EOF
     chmod +x /usr/local/bin/elite-x-optimize
 }
@@ -554,34 +729,59 @@ setup_connection_monitor() {
     cat > /usr/local/bin/elite-x-monitor <<'EOF'
 #!/bin/bash
 
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
 while true; do
     clear
-    echo -e "\033[1;36m╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "\033[1;36m║${YELLOW}              ELITE-X CONNECTION MONITOR                        ${CYAN}║${NC}"
-    echo -e "\033[1;36m╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}              ELITE-X REAL-TIME CONNECTION MONITOR              ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     
     echo -e "${GREEN}Active SSH Connections:${NC}"
+    echo "─────────────────────────────────"
     ss -tnp | grep -E ":22" | grep ESTAB | while read line; do
         IP=$(echo "$line" | awk '{print $5}' | cut -d: -f1)
-        echo -e "  ${GREEN}→${NC} $IP"
-    done
+        PORT=$(echo "$line" | awk '{print $5}' | cut -d: -f2)
+        USER=$(ps -o user= -p $(echo "$line" | grep -o "pid=[0-9]*" | cut -d= -f2) 2>/dev/null || echo "unknown")
+        echo -e "  ${GREEN}→${NC} $IP:$PORT ($USER)"
+    done | head -20
     
-    echo -e "\n${YELLOW}DNS Tunnel Connections:${NC}"
+    echo -e "\n${YELLOW}DNS Tunnel Connections (port 5300):${NC}"
+    echo "─────────────────────────────────"
     ss -unp | grep ":5300" 2>/dev/null | while read line; do
         IP=$(echo "$line" | awk '{print $5}' | cut -d: -f1)
         echo -e "  ${YELLOW}→${NC} $IP"
-    done
+    done | head -10
     
     SSH_COUNT=$(ss -tnp | grep -c ":22.*ESTAB" 2>/dev/null || echo "0")
     DNS_COUNT=$(ss -unp | grep -c ":5300" 2>/dev/null || echo "0")
     
-    echo -e "\n${CYAN}Total: $SSH_COUNT SSH, $DNS_COUNT DNS${NC}"
+    echo -e "\n${CYAN}Total Connections: $SSH_COUNT SSH, $DNS_COUNT DNS${NC}"
     echo -e "${WHITE}Press Ctrl+C to exit${NC}"
     sleep 2
 done
 EOF
     chmod +x /usr/local/bin/elite-x-monitor
+
+    cat > /etc/systemd/system/elite-x-monitor.service <<EOF
+[Unit]
+Description=ELITE-X Connection Monitor
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/elite-x-monitor
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
 }
 
 # ========== SPEED OPTIMIZATION MENU ==========
@@ -589,28 +789,118 @@ setup_manual_speed() {
     cat > /usr/local/bin/elite-x-speed <<'EOF'
 #!/bin/bash
 
-case "$1" in
-    manual)
-        echo -e "\033[1;33m⚡ Optimizing network...\033[0m"
-        sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
-        sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
-        sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
-        sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
-        sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-        sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
-        echo -e "\033[0;32m✅ Network optimized!\033[0m"
-        ;;
-    clean)
-        echo -e "\033[1;33m🧹 Cleaning junk files...\033[0m"
-        apt clean 2>/dev/null
-        apt autoclean 2>/dev/null
-        echo -e "\033[0;32m✅ Junk files cleaned!\033[0m"
-        ;;
-    *)
-        echo "Usage: elite-x-speed {manual|clean}"
-        exit 1
-        ;;
-esac
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'
+
+show_menu() {
+    clear
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}              ELITE-X SPEED OPTIMIZATION                        ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    echo -e "${GREEN}1.${NC} Quick Optimize (Network + CPU + RAM)"
+    echo -e "${GREEN}2.${NC} Network Only"
+    echo -e "${GREEN}3.${NC} CPU Only"
+    echo -e "${GREEN}4.${NC} RAM Only"
+    echo -e "${GREEN}5.${NC} Clean Junk Files"
+    echo -e "${GREEN}6.${NC} Turbo Mode (Aggressive Optimization)"
+    echo -e "${GREEN}7.${NC} Show Current System Stats"
+    echo -e "${GREEN}0.${NC} Back"
+    echo ""
+    read -p "$(echo -e $YELLOW"Choose option: "$NC)" opt
+    
+    case $opt in
+        1) quick_optimize ;;
+        2) optimize_network ;;
+        3) optimize_cpu ;;
+        4) optimize_ram ;;
+        5) clean_junk ;;
+        6) turbo_mode ;;
+        7) show_stats ;;
+        0) return ;;
+        *) echo -e "${RED}Invalid option${NC}"; sleep 2 ;;
+    esac
+}
+
+quick_optimize() {
+    echo -e "${YELLOW}⚡ Quick optimizing system...${NC}"
+    optimize_network
+    optimize_cpu
+    optimize_ram
+    clean_junk
+    echo -e "${GREEN}✅ Quick optimization complete!${NC}"
+    sleep 2
+}
+
+optimize_network() {
+    echo -e "${YELLOW}🌐 Optimizing network...${NC}"
+    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
+    sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
+    echo -e "${GREEN}✅ Network optimized!${NC}"
+    sleep 1
+}
+
+optimize_cpu() {
+    echo -e "${YELLOW}⚡ Optimizing CPU...${NC}"
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        echo "performance" > "$cpu" 2>/dev/null || true
+    done
+    echo -e "${GREEN}✅ CPU optimized!${NC}"
+    sleep 1
+}
+
+optimize_ram() {
+    echo -e "${YELLOW}💾 Optimizing RAM...${NC}"
+    sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+    sysctl -w vm.swappiness=10 >/dev/null 2>&1
+    echo -e "${GREEN}✅ RAM optimized!${NC}"
+    sleep 1
+}
+
+clean_junk() {
+    echo -e "${YELLOW}🧹 Cleaning junk files...${NC}"
+    apt clean 2>/dev/null
+    apt autoclean 2>/dev/null
+    find /var/log -type f -name "*.log" -exec truncate -s 0 {} \; 2>/dev/null || true
+    journalctl --vacuum-time=3d 2>/dev/null || true
+    echo -e "${GREEN}✅ Junk files cleaned!${NC}"
+    sleep 1
+}
+
+turbo_mode() {
+    echo -e "${YELLOW}🚀 Activating TURBO MODE...${NC}"
+    sysctl -w net.core.rmem_max=268435456 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=268435456 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="8192 87380 268435456" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="8192 65536 268435456" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
+    sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+    echo -e "${GREEN}✅ TURBO MODE activated!${NC}"
+    sleep 2
+}
+
+show_stats() {
+    echo -e "${CYAN}System Statistics:${NC}"
+    echo "──────────────────"
+    echo -e "CPU Load: $(uptime | awk -F'load average:' '{print $2}')"
+    echo -e "Memory: $(free -h | awk '/^Mem:/{print $3"/"$2}')"
+    echo -e "Disk: $(df -h / | awk 'NR==2{print $3"/"$2}')"
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
+while true; do
+    show_menu
+done
 EOF
     chmod +x /usr/local/bin/elite-x-speed
 }
@@ -619,7 +909,29 @@ EOF
 setup_updater() {
     cat > /usr/local/bin/elite-x-update <<'EOF'
 #!/bin/bash
-echo -e "\033[1;33m🔄 Update feature coming soon...\033[0m"
+
+echo -e "\033[1;33m🔄 Checking for updates...\033[0m"
+
+BACKUP_DIR="/root/elite-x-backup-$(date +%Y%m%d-%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+cp -r /etc/elite-x "$BACKUP_DIR/" 2>/dev/null || true
+cp -r /etc/dnstt "$BACKUP_DIR/" 2>/dev/null || true
+
+cd /tmp
+rm -rf Elite-X-dns.sh
+git clone https://github.com/NoXFiQ/Elite-X-dns.sh.git 2>/dev/null || {
+    echo -e "\033[0;31m❌ Failed to download update\033[0m"
+    exit 1
+}
+
+cd Elite-X-dns.sh
+chmod +x *.sh
+
+# Restore backup
+cp -r "$BACKUP_DIR/elite-x" /etc/ 2>/dev/null || true
+cp -r "$BACKUP_DIR/dnstt" /etc/ 2>/dev/null || true
+
+echo -e "\033[0;32m✅ Update complete!\033[0m"
 EOF
     chmod +x /usr/local/bin/elite-x-update
 }
@@ -629,11 +941,56 @@ setup_user_manager() {
     cat > /usr/local/bin/elite-x-user <<'EOF'
 #!/bin/bash
 
-RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m';NC='\033[0m'
+RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m';WHITE='\033[1;37m';NC='\033[0m'
+
+show_quote() {
+    echo ""
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}            Always Remember ELITE-X when you see X            ${CYAN}║${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
 
 UD="/etc/elite-x/users"
 TD="/etc/elite-x/traffic"
 mkdir -p $UD $TD
+
+# Function to calculate usage percentage with color
+calc_usage_percent() {
+    local used=$1
+    local limit=$2
+    if [ "$limit" -eq 0 ]; then
+        echo "Unlimited"
+    else
+        local percent=$((used * 100 / limit))
+        if [ $percent -ge 90 ]; then
+            echo -e "${RED}${percent}%${NC}"
+        elif [ $percent -ge 70 ]; then
+            echo -e "${YELLOW}${percent}%${NC}"
+        else
+            echo -e "${GREEN}${percent}%${NC}"
+        fi
+    fi
+}
+
+# Function to get traffic history
+get_traffic_history() {
+    local username="$1"
+    local history_file="$TD/${username}.history"
+    if [ -f "$history_file" ]; then
+        tail -n 24 "$history_file" | while read line; do
+            timestamp=$(echo $line | cut -d: -f1)
+            usage=$(echo $line | cut -d: -f2)
+            time=$(date -d @$timestamp +"%H:%M" 2>/dev/null || echo "??")
+            echo -n "$time:${usage}MB "
+        done
+        echo ""
+    else
+        echo "No history available"
+    fi
+}
 
 show_menu() {
     clear
@@ -643,22 +1000,28 @@ show_menu() {
     echo -e "${CYAN}║${WHITE}  [1] Add User                                                ${CYAN}║${NC}"
     echo -e "${CYAN}║${WHITE}  [2] List Users                                              ${CYAN}║${NC}"
     echo -e "${CYAN}║${WHITE}  [3] Renew User                                              ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [4] Lock User                                               ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [5] Unlock User                                             ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [6] Delete User                                             ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [7] Back                                                    ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}  [4] User Details                                            ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}  [5] Lock User                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}  [6] Unlock User                                             ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}  [7] Delete User                                             ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}  [8] Delete Multiple Users                                   ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}  [9] Export Users List                                       ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}  [0] Back to Main Menu                                       ${CYAN}║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    read -p "$(echo -e $GREEN"Choose option [1-7]: "$NC)" opt
+    read -p "$(echo -e $GREEN"Choose option [0-9]: "$NC)" opt
     
     case $opt in
         1) add_user ;;
         2) list_users ;;
         3) renew_user ;;
-        4) lock_user ;;
-        5) unlock_user ;;
-        6) delete_user ;;
-        7) return ;;
+        4) user_details ;;
+        5) lock_user ;;
+        6) unlock_user ;;
+        7) delete_user ;;
+        8) delete_multiple ;;
+        9) export_users ;;
+        0) return ;;
         *) echo -e "${RED}Invalid option${NC}"; sleep 2; show_menu ;;
     esac
 }
@@ -669,10 +1032,10 @@ add_user() {
     echo -e "${CYAN}║${YELLOW}                    ADD NEW USER                                  ${CYAN}║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     
-    read -p "Username: " username
-    read -p "Password: " password
-    read -p "Expire days: " days
-    read -p "Traffic limit (MB, 0 for unlimited): " traffic_limit
+    read -p "$(echo -e $GREEN"Username: "$NC)" username
+    read -p "$(echo -e $GREEN"Password: "$NC)" password
+    read -p "$(echo -e $GREEN"Expire days: "$NC)" days
+    read -p "$(echo -e $GREEN"Traffic limit (MB, 0 for unlimited): "$NC)" traffic_limit
     
     if id "$username" &>/dev/null; then
         echo -e "${RED}User already exists!${NC}"
@@ -692,7 +1055,7 @@ Username: $username
 Password: $password
 Expire: $expire_date
 Traffic_Limit: $traffic_limit
-Created: $(date +"%Y-%m-%d")
+Created: $(date +"%Y-%m-%d %H:%M:%S")
 INFO
     
     echo "0" > $TD/$username
@@ -710,6 +1073,7 @@ INFO
     echo "Expire    : $expire_date"
     echo "Traffic   : $traffic_limit MB"
     echo -e "${GREEN}════════════════════════════════════════════${NC}"
+    echo "$(date): Created user $username" >> /var/log/elite-x-users.log
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -727,8 +1091,11 @@ list_users() {
         return
     fi
     
-    printf "%-12s %-10s %-8s %-8s %-8s\n" "USERNAME" "EXPIRE" "LIMIT" "USED" "STATUS"
-    echo "------------------------------------------------------"
+    printf "%-12s %-10s %-8s %-8s %-10s %-8s\n" "USERNAME" "EXPIRE" "LIMIT" "USED" "USAGE%" "STATUS"
+    echo "──────────────────────────────────────────────────────────────"
+    
+    TOTAL_TRAFFIC=0
+    TOTAL_USERS=0
     
     for user in $UD/*; do
         [ ! -f "$user" ] && continue
@@ -736,10 +1103,19 @@ list_users() {
         ex=$(grep "Expire:" "$user" | cut -d' ' -f2)
         lm=$(grep "Traffic_Limit:" "$user" | cut -d' ' -f2)
         us=$(cat $TD/$u 2>/dev/null || echo "0")
-        st=$(passwd -S "$u" 2>/dev/null | grep -q "L" && echo "LOCK" || echo "OK")
-        printf "%-12s %-10s %-8s %-8s %-8s\n" "$u" "$ex" "$lm" "$us" "$st"
+        
+        # Calculate usage percentage
+        usage_percent=$(calc_usage_percent "$us" "$lm")
+        
+        st=$(passwd -S "$u" 2>/dev/null | grep -q "L" && echo "${RED}LOCK${NC}" || echo "${GREEN}OK${NC}")
+        printf "%-12s %-10s %-8s %-8s %-10b %-8b\n" "$u" "$ex" "$lm" "$us" "$usage_percent" "$st"
+        
+        TOTAL_TRAFFIC=$((TOTAL_TRAFFIC + us))
+        TOTAL_USERS=$((TOTAL_USERS + 1))
     done
     
+    echo "──────────────────────────────────────────────────────────────"
+    echo -e "Total Users: ${GREEN}$TOTAL_USERS${NC} | Total Traffic: ${YELLOW}$TOTAL_TRAFFIC MB${NC}"
     echo ""
     read -p "Press Enter to continue..."
     show_menu
@@ -751,7 +1127,7 @@ renew_user() {
     echo -e "${CYAN}║${YELLOW}                    RENEW USER                                   ${CYAN}║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     
-    read -p "Username: " u
+    read -p "$(echo -e $GREEN"Username: "$NC)" u
     
     if [ ! -f "$UD/$u" ]; then
         echo -e "${RED}User not found!${NC}"
@@ -767,31 +1143,69 @@ renew_user() {
     echo "Current limit: $current_limit MB"
     echo ""
     
-    read -p "Add days (0 to skip): " add_days
-    read -p "New limit MB (0 to keep current): " new_limit
+    read -p "$(echo -e $GREEN"Add how many days? (0 to skip): "$NC)" add_days
+    read -p "$(echo -e $GREEN"New traffic limit MB (0 to keep current): "$NC)" new_limit
     
     if [ "$add_days" -gt 0 ]; then
         new_expire=$(date -d "$current_expire + $add_days days" +"%Y-%m-%d")
         chage -E "$new_expire" "$u"
         sed -i "s/Expire:.*/Expire: $new_expire/" "$UD/$u"
-        echo "Expiry updated to: $new_expire"
+        echo -e "${GREEN}Expiry updated to: $new_expire${NC}"
     fi
     
     if [ "$new_limit" -gt 0 ]; then
         sed -i "s/Traffic_Limit:.*/Traffic_Limit: $new_limit/" "$UD/$u"
-        echo "Traffic limit updated to: $new_limit MB"
+        echo -e "${GREEN}Traffic limit updated to: $new_limit MB${NC}"
         echo "0" > "$TD/$u"
     fi
+    
+    echo "$(date): Renewed user $u (+$add_days days, limit: $new_limit MB)" >> /var/log/elite-x-users.log
+    read -p "Press Enter to continue..."
+    show_menu
+}
+
+user_details() {
+    clear
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}                    USER DETAILS                                 ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    
+    read -p "$(echo -e $GREEN"Username: "$NC)" u
+    
+    if [ ! -f "$UD/$u" ]; then
+        echo -e "${RED}User not found!${NC}"
+        read -p "Press Enter to continue..."
+        show_menu
+        return
+    fi
+    
+    # Display user info
+    echo -e "${YELLOW}User Information:${NC}"
+    echo "──────────────────"
+    cat "$UD/$u"
+    echo ""
+    
+    # Show traffic history
+    echo -e "${YELLOW}Traffic History (last 24 checks):${NC}"
+    get_traffic_history "$u"
+    
+    # Show active connections
+    echo -e "\n${YELLOW}Active Connections:${NC}"
+    ss -tnp | grep "$u" 2>/dev/null | while read line; do
+        echo "  $line"
+    done || echo "  No active connections"
     
     read -p "Press Enter to continue..."
     show_menu
 }
 
 lock_user() { 
-    read -p "Username: " u
+    read -p "$(echo -e $GREEN"Username: "$NC)" u
     if [ -f "$UD/$u" ]; then
         usermod -L "$u" 2>/dev/null
-        echo -e "${GREEN}User $u locked${NC}"
+        pkill -u "$u" 2>/dev/null || true
+        echo -e "${GREEN}✅ User $u locked and disconnected${NC}"
+        echo "$(date): Locked user $u" >> /var/log/elite-x-users.log
     else
         echo -e "${RED}User not found${NC}"
     fi
@@ -800,10 +1214,11 @@ lock_user() {
 }
 
 unlock_user() { 
-    read -p "Username: " u
+    read -p "$(echo -e $GREEN"Username: "$NC)" u
     if [ -f "$UD/$u" ]; then
         usermod -U "$u" 2>/dev/null
-        echo -e "${GREEN}User $u unlocked${NC}"
+        echo -e "${GREEN}✅ User $u unlocked${NC}"
+        echo "$(date): Unlocked user $u" >> /var/log/elite-x-users.log
     else
         echo -e "${RED}User not found${NC}"
     fi
@@ -812,14 +1227,46 @@ unlock_user() {
 }
 
 delete_user() { 
-    read -p "Username: " u
+    read -p "$(echo -e $GREEN"Username: "$NC)" u
     if [ -f "$UD/$u" ]; then
         userdel -r "$u" 2>/dev/null
-        rm -f $UD/$u $TD/$u
-        echo -e "${GREEN}User $u deleted${NC}"
+        rm -f $UD/$u $TD/$u $TD/${u}.history
+        echo -e "${GREEN}✅ User $u deleted${NC}"
+        echo "$(date): Deleted user $u" >> /var/log/elite-x-users.log
     else
         echo -e "${RED}User not found${NC}"
     fi
+    read -p "Press Enter to continue..."
+    show_menu
+}
+
+delete_multiple() {
+    echo -e "${YELLOW}Enter usernames to delete (space separated):${NC}"
+    read -a users
+    for u in "${users[@]}"; do
+        if [ -f "$UD/$u" ]; then
+            userdel -r "$u" 2>/dev/null
+            rm -f $UD/$u $TD/$u $TD/${u}.history
+            echo -e "${GREEN}✅ Deleted: $u${NC}"
+        else
+            echo -e "${RED}❌ Not found: $u${NC}"
+        fi
+    done
+    read -p "Press Enter to continue..."
+    show_menu
+}
+
+export_users() {
+    local export_file="/root/elite-x-users-$(date +%Y%m%d-%H%M%S).txt"
+    echo "ELITE-X Users List - $(date)" > "$export_file"
+    echo "=================================" >> "$export_file"
+    echo "" >> "$export_file"
+    
+    for user in $UD/*; do
+        [ -f "$user" ] && cat "$user" >> "$export_file" && echo "-------------------" >> "$export_file"
+    done
+    
+    echo -e "${GREEN}✅ Users exported to: $export_file${NC}"
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -838,7 +1285,17 @@ setup_main_menu() {
 #!/bin/bash
 
 RED='\033[0;31m';GREEN='\033[0;32m';YELLOW='\033[1;33m';CYAN='\033[0;36m'
-PURPLE='\033[0;35m';NC='\033[0m'
+PURPLE='\033[0;35m';WHITE='\033[1;37m';BOLD='\033[1m';NC='\033[0m'
+
+show_quote() {
+    echo ""
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}            Always Remember ELITE-X when you see X            ${CYAN}║${NC}"
+    echo -e "${CYAN}║${YELLOW}${BOLD}                                                               ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
 
 if [ -f /tmp/elite-x-running ]; then
     exit 0
@@ -846,100 +1303,319 @@ fi
 touch /tmp/elite-x-running
 trap 'rm -f /tmp/elite-x-running' EXIT
 
+check_expiry_menu() {
+    if [ -f "/etc/elite-x/activation_type" ] && [ -f "/etc/elite-x/activation_date" ] && [ -f "/etc/elite-x/expiry_days" ]; then
+        local act_type=$(cat "/etc/elite-x/activation_type")
+        if [ "$act_type" = "temporary" ]; then
+            local act_date=$(cat "/etc/elite-x/activation_date")
+            local expiry_days=$(cat "/etc/elite-x/expiry_days")
+            local current_date=$(date +%s)
+            local expiry_date=$(date -d "$act_date + $expiry_days days" +%s)
+            
+            if [ $current_date -ge $expiry_date ]; then
+                echo -e "${RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${RED}║${YELLOW}           TRIAL PERIOD EXPIRED                                  ${RED}║${NC}"
+                echo -e "${RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
+                echo -e "${RED}║${WHITE}  Your 2-day trial has ended.                                  ${RED}║${NC}"
+                echo -e "${RED}║${WHITE}  Script will now uninstall itself...                         ${RED}║${NC}"
+                echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
+                sleep 3
+                
+                echo -e "${YELLOW}🔄 Removing all users and data...${NC}"
+                
+                # Remove all SSH users created by the script
+                if [ -d "/etc/elite-x/users" ]; then
+                    for user_file in /etc/elite-x/users/*; do
+                        if [ -f "$user_file" ]; then
+                            username=$(basename "$user_file")
+                            echo -e "  Removing user: $username"
+                            userdel -r "$username" 2>/dev/null || true
+                            pkill -u "$username" 2>/dev/null || true
+                        fi
+                    done
+                fi
+                
+                # Kill any remaining processes
+                pkill -f dnstt-server 2>/dev/null || true
+                pkill -f dnstt-edns-proxy 2>/dev/null || true
+                pkill -f elite-x-traffic 2>/dev/null || true
+                pkill -f elite-x-cleaner 2>/dev/null || true
+                pkill -f elite-x-bandwidth 2>/dev/null || true
+                pkill -f elite-x-monitor 2>/dev/null || true
+                pkill -f elite-x-speed 2>/dev/null || true
+                
+                # Stop and disable services
+                systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor 2>/dev/null || true
+                systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor 2>/dev/null || true
+                
+                # Remove service files
+                rm -rf /etc/systemd/system/dnstt-elite-x*
+                rm -rf /etc/systemd/system/elite-x-*
+                
+                # Remove directories and files
+                rm -rf /etc/dnstt /etc/elite-x
+                rm -f /usr/local/bin/dnstt-*
+                rm -f /usr/local/bin/elite-x*
+                
+                # Remove banner from sshd_config
+                sed -i '/^Banner/d' /etc/ssh/sshd_config
+                systemctl restart sshd
+                
+                # Remove profile and bashrc entries
+                rm -f /etc/profile.d/elite-x-dashboard.sh
+                sed -i '/elite-x/d' ~/.bashrc
+                sed -i '/ELITE_X_SHOWN/d' ~/.bashrc
+                
+                # Remove cron jobs
+                rm -f /etc/cron.hourly/elite-x-expiry
+                rm -f /etc/cron.daily/elite-x-backup
+                rm -f /etc/cron.hourly/elite-x-bandwidth
+                
+                echo -e "${GREEN}✅ ELITE-X has been uninstalled.${NC}"
+                rm -f /tmp/elite-x-running
+                exit 0
+            fi
+        fi
+    fi
+}
+
+check_expiry_menu
+
 show_dashboard() {
     clear
+    
     IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || curl -s ifconfig.me 2>/dev/null || echo "Unknown")
+    LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || echo "Unknown")
+    ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || echo "Unknown")
+    RAM=$(free -m | awk '/^Mem:/{print $3"/"$2"MB"}')
+    CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1)
+    UPTIME=$(uptime | awk -F'up' '{print $2}' | awk -F',' '{print $1}')
     SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
     ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
     EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Unknown")
     LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
     CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
     
+    # Get active connections
+    SSH_CONN=$(ss -tnp | grep -c ":22.*ESTAB" 2>/dev/null || echo "0")
+    DNS_CONN=$(ss -unp | grep -c ":5300" 2>/dev/null || echo "0")
+    
     DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
     PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
+    TRAF=$(systemctl is-active elite-x-traffic 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
+    CLN=$(systemctl is-active elite-x-cleaner 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
+    BAND=$(systemctl is-active elite-x-bandwidth 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
+    MON=$(systemctl is-active elite-x-monitor 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
     
     echo -e "${PURPLE}╔════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${PURPLE}║${YELLOW}                    ELITE-X SLOWDNS v3.5                       ${PURPLE}║${NC}"
+    echo -e "${PURPLE}║${YELLOW}${BOLD}                    ELITE-X SLOWDNS v3.5                       ${PURPLE}║${NC}"
     echo -e "${PURPLE}╠════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${PURPLE}║  Subdomain :${GREEN} $SUB${NC}"
-    echo -e "${PURPLE}║  IP        :${GREEN} $IP${NC}"
-    echo -e "${PURPLE}║  VPS Loc   :${GREEN} $LOCATION | MTU: $CURRENT_MTU${NC}"
-    echo -e "${PURPLE}║  Services  : DNS:$DNS PRX:$PRX${NC}"
+    echo -e "${PURPLE}║${WHITE}  Subdomain :${GREEN} $SUB${NC}"
+    echo -e "${PURPLE}║${WHITE}  IP        :${GREEN} $IP${NC}"
+    echo -e "${PURPLE}║${WHITE}  Location  :${GREEN} $LOC${NC}"
+    echo -e "${PURPLE}║${WHITE}  ISP       :${GREEN} $ISP${NC}"
+    echo -e "${PURPLE}║${WHITE}  RAM       :${GREEN} $RAM | CPU: ${CPU}% | Uptime: ${UPTIME}${NC}"
+    echo -e "${PURPLE}║${WHITE}  VPS Loc   :${GREEN} $LOCATION | MTU: $CURRENT_MTU${NC}"
+    echo -e "${PURPLE}║${WHITE}  Services  : DNS:$DNS PRX:$PRX TRAF:$TRAF CLN:$CLN BAND:$BAND MON:$MON${NC}"
+    echo -e "${PURPLE}║${WHITE}  Connections: SSH: ${GREEN}$SSH_CONN${NC} | DNS: ${YELLOW}$DNS_CONN${NC}"
+    echo -e "${PURPLE}║${WHITE}  Developer :${PURPLE} ELITE-X TEAM${NC}"
     echo -e "${PURPLE}╠════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${PURPLE}║  Act Key   :${YELLOW} $ACTIVATION_KEY${NC}"
-    echo -e "${PURPLE}║  Expiry    :${YELLOW} $EXP${NC}"
+    echo -e "${PURPLE}║${WHITE}  Act Key   :${YELLOW} $ACTIVATION_KEY${NC}"
+    echo -e "${PURPLE}║${WHITE}  Expiry    :${YELLOW} $EXP${NC}"
     echo -e "${PURPLE}╚════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
+}
+
+system_info() {
+    clear
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}                    SYSTEM INFORMATION                           ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    echo -e "${GREEN}OS:${NC} $(lsb_release -d 2>/dev/null | cut -f2 || cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)"
+    echo -e "${GREEN}Kernel:${NC} $(uname -r)"
+    echo -e "${GREEN}Architecture:${NC} $(uname -m)"
+    echo -e "${GREEN}Hostname:${NC} $(hostname)"
+    echo -e "${GREEN}CPU:${NC} $(nproc) cores"
+    echo -e "${GREEN}Memory Total:${NC} $(free -h | awk '/^Mem:/{print $2}')"
+    echo -e "${GREEN}Memory Used:${NC} $(free -h | awk '/^Mem:/{print $3}')"
+    echo -e "${GREEN}Disk Total:${NC} $(df -h / | awk 'NR==2{print $2}')"
+    echo -e "${GREEN}Disk Used:${NC} $(df -h / | awk 'NR==2{print $3}')"
+    echo -e "${GREEN}Load Average:${NC} $(uptime | awk -F'load average:' '{print $2}')"
+    
+    echo ""
+    read -p "Press Enter to continue..."
 }
 
 settings_menu() {
     while true; do
         clear
         echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${CYAN}║${YELLOW}                      SETTINGS MENU                              ${CYAN}║${NC}"
+        echo -e "${CYAN}║${YELLOW}${BOLD}                      SETTINGS MENU                              ${CYAN}║${NC}"
         echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${CYAN}║  [8]  View Public Key${NC}"
-        echo -e "${CYAN}║  [9]  Change MTU${NC}"
-        echo -e "${CYAN}║  [10] Speed Optimization${NC}"
-        echo -e "${CYAN}║  [11] Clean Junk${NC}"
-        echo -e "${CYAN}║  [12] Restart Services${NC}"
-        echo -e "${CYAN}║  [13] Reboot VPS${NC}"
-        echo -e "${CYAN}║  [14] Uninstall${NC}"
-        echo -e "${CYAN}║  [0]  Back${NC}"
+        echo -e "${CYAN}║${WHITE}  [8]  🔑 View Public Key${NC}"
+        echo -e "${CYAN}║${WHITE}  [9]  Change MTU Value${NC}"
+        echo -e "${CYAN}║${WHITE}  [10] ⚡ Speed Optimization Menu${NC}"
+        echo -e "${CYAN}║${WHITE}  [11] 🧹 Clean Junk Files${NC}"
+        echo -e "${CYAN}║${WHITE}  [12] 🔄 Auto Expired Account Remover${NC}"
+        echo -e "${CYAN}║${WHITE}  [13] 📦 Update Script${NC}"
+        echo -e "${CYAN}║${WHITE}  [14] 🔄 Restart All Services${NC}"
+        echo -e "${CYAN}║${WHITE}  [15] 📊 System Info${NC}"
+        echo -e "${CYAN}║${WHITE}  [16] 💾 Backup Configuration${NC}"
+        echo -e "${CYAN}║${WHITE}  [17] 📈 Speed Test${NC}"
+        echo -e "${CYAN}║${WHITE}  [18] 👁️  Connection Monitor${NC}"
+        echo -e "${CYAN}║${WHITE}  [19] 🚀 Turbo Optimize${NC}"
+        echo -e "${CYAN}║${WHITE}  [20] 🔄 Reboot VPS${NC}"
+        echo -e "${CYAN}║${WHITE}  [21] 🗑️  Uninstall Script${NC}"
+        echo -e "${CYAN}║${WHITE}  [22] 🌍 Re-apply Location Optimization${NC}"
+        echo -e "${CYAN}║${WHITE}  [0]  Back to Main Menu${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
         read -p "$(echo -e $GREEN"Settings option: "$NC)" ch
         
         case $ch in
             8)
-                echo -e "${CYAN}Public Key:${NC}"
-                cat /etc/dnstt/server.pub
-                read -p "Press Enter..."
+                echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${CYAN}║${YELLOW}                    PUBLIC KEY                                   ${CYAN}║${NC}"
+                echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+                echo -e "${CYAN}║${GREEN}  $(cat /etc/dnstt/server.pub)${NC}"
+                echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+                read -p "Press Enter to continue..."
                 ;;
             9)
                 echo "Current MTU: $(cat /etc/elite-x/mtu)"
                 read -p "New MTU (1000-5000): " mtu
-                if [[ "$mtu" =~ ^[0-9]+$ ]] && [ $mtu -ge 1000 ] && [ $mtu -le 5000 ]; then
+                [[ "$mtu" =~ ^[0-9]+$ ]] && [ $mtu -ge 1000 ] && [ $mtu -le 5000 ] && {
                     echo "$mtu" > /etc/elite-x/mtu
                     sed -i "s/-mtu [0-9]*/-mtu $mtu/" /etc/systemd/system/dnstt-elite-x.service
                     systemctl daemon-reload
-                    systemctl restart dnstt-elite-x
-                    echo -e "${GREEN}MTU updated${NC}"
-                else
-                    echo -e "${RED}Invalid MTU${NC}"
-                fi
-                read -p "Press Enter..."
+                    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+                    echo -e "${GREEN}✅ MTU updated to $mtu${NC}"
+                } || echo -e "${RED}❌ Invalid (must be 1000-5000)${NC}"
+                read -p "Press Enter to continue..."
                 ;;
-            10) elite-x-speed manual; read -p "Press Enter..." ;;
-            11) elite-x-speed clean; read -p "Press Enter..." ;;
+            10) elite-x-speed; read -p "Press Enter to continue..." ;;
+            11) elite-x-speed clean; read -p "Press Enter to continue..." ;;
             12)
-                systemctl restart dnstt-elite-x dnstt-elite-x-proxy
-                echo -e "${GREEN}Services restarted${NC}"
-                read -p "Press Enter..."
+                systemctl enable --now elite-x-cleaner.service 2>/dev/null
+                echo -e "${GREEN}✅ Auto remover started${NC}"
+                read -p "Press Enter to continue..."
                 ;;
-            13)
+            13) elite-x-update; read -p "Press Enter to continue..." ;;
+            14)
+                systemctl restart dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor sshd 2>/dev/null
+                echo -e "${GREEN}✅ Services restarted${NC}"
+                read -p "Press Enter to continue..."
+                ;;
+            15) system_info ;;
+            16)
+                /usr/local/bin/elite-x-backup
+                echo -e "${GREEN}✅ Backup completed${NC}"
+                read -p "Press Enter to continue..."
+                ;;
+            17) /usr/local/bin/elite-x-speedtest; read -p "Press Enter to continue..." ;;
+            18) 
+                echo -e "${YELLOW}Starting connection monitor (Ctrl+C to exit)...${NC}"
+                sleep 2
+                /usr/local/bin/elite-x-monitor
+                ;;
+            19) /usr/local/bin/elite-x-optimize; read -p "Press Enter to continue..." ;;
+            20)
                 read -p "Reboot? (y/n): " c
                 [ "$c" = "y" ] && reboot
                 ;;
-            14)
+            21)
                 read -p "Uninstall? (YES): " c
                 [ "$c" = "YES" ] && {
-                    systemctl stop dnstt-elite-x dnstt-elite-x-proxy
-                    systemctl disable dnstt-elite-x dnstt-elite-x-proxy
-                    rm -f /etc/systemd/system/dnstt-elite-x*
+                    echo -e "${YELLOW}🔄 Removing all users and data...${NC}"
+                    
+                    # Remove all SSH users created by the script
+                    if [ -d "/etc/elite-x/users" ]; then
+                        for user_file in /etc/elite-x/users/*; do
+                            if [ -f "$user_file" ]; then
+                                username=$(basename "$user_file")
+                                echo -e "  Removing user: $username"
+                                userdel -r "$username" 2>/dev/null || true
+                                pkill -u "$username" 2>/dev/null || true
+                            fi
+                        done
+                    fi
+                    
+                    # Kill any remaining processes
+                    pkill -f dnstt-server 2>/dev/null || true
+                    pkill -f dnstt-edns-proxy 2>/dev/null || true
+                    pkill -f elite-x-traffic 2>/dev/null || true
+                    pkill -f elite-x-cleaner 2>/dev/null || true
+                    pkill -f elite-x-bandwidth 2>/dev/null || true
+                    pkill -f elite-x-monitor 2>/dev/null || true
+                    pkill -f elite-x-speed 2>/dev/null || true
+                    
+                    # Stop and disable services
+                    systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor 2>/dev/null || true
+                    systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor 2>/dev/null || true
+                    
+                    # Remove service files
+                    rm -rf /etc/systemd/system/dnstt-elite-x*
+                    rm -rf /etc/systemd/system/elite-x-*
+                    
+                    # Remove directories and files
                     rm -rf /etc/dnstt /etc/elite-x
                     rm -f /usr/local/bin/dnstt-*
                     rm -f /usr/local/bin/elite-x*
+                    
+                    # Remove banner from sshd_config
                     sed -i '/^Banner/d' /etc/ssh/sshd_config
                     systemctl restart sshd
-                    echo -e "${GREEN}Uninstalled${NC}"
+                    
+                    # Remove profile and bashrc entries
+                    rm -f /etc/profile.d/elite-x-dashboard.sh
+                    sed -i '/elite-x/d' ~/.bashrc
+                    sed -i '/ELITE_X_SHOWN/d' ~/.bashrc
+                    
+                    # Remove cron jobs
+                    rm -f /etc/cron.hourly/elite-x-expiry
+                    rm -f /etc/cron.daily/elite-x-backup
+                    rm -f /etc/cron.hourly/elite-x-bandwidth
+                    
+                    echo -e "${GREEN}✅ Uninstalled completely${NC}"
                     rm -f /tmp/elite-x-running
                     exit 0
                 }
-                read -p "Press Enter..."
+                read -p "Press Enter to continue..."
+                ;;
+            22)
+                echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${GREEN}           RE-APPLY LOCATION OPTIMIZATION                        ${NC}"
+                echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+                echo -e "${WHITE}Select your VPS location:${NC}"
+                echo -e "${GREEN}  1. South Africa (MTU 1800)${NC}"
+                echo -e "${CYAN}  2. USA${NC}"
+                echo -e "${BLUE}  3. Europe${NC}"
+                echo -e "${PURPLE}  4. Asia${NC}"
+                echo -e "${YELLOW}  5. Auto-detect${NC}"
+                read -p "Choice: " opt_choice
+                
+                case $opt_choice in
+                    1) echo "South Africa" > /etc/elite-x/location
+                       echo "1800" > /etc/elite-x/mtu
+                       sed -i "s/-mtu [0-9]*/-mtu 1800/" /etc/systemd/system/dnstt-elite-x.service
+                       systemctl daemon-reload
+                       systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+                       echo -e "${GREEN}✅ South Africa selected (MTU 1800)${NC}" ;;
+                    2) echo "USA" > /etc/elite-x/location
+                       echo -e "${GREEN}✅ USA selected${NC}" ;;
+                    3) echo "Europe" > /etc/elite-x/location
+                       echo -e "${GREEN}✅ Europe selected${NC}" ;;
+                    4) echo "Asia" > /etc/elite-x/location
+                       echo -e "${GREEN}✅ Asia selected${NC}" ;;
+                    5) echo "Auto-detect" > /etc/elite-x/location
+                       echo -e "${GREEN}✅ Auto-detect selected${NC}" ;;
+                esac
+                read -p "Press Enter to continue..."
                 ;;
             0) return ;;
-            *) echo -e "${RED}Invalid option${NC}"; read -p "Press Enter..." ;;
+            *) echo -e "${RED}Invalid option${NC}"; read -p "Press Enter to continue..." ;;
         esac
     done
 }
@@ -948,17 +1624,18 @@ main_menu() {
     while true; do
         show_dashboard
         echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${CYAN}║${GREEN}                         MAIN MENU                              ${CYAN}║${NC}"
+        echo -e "${CYAN}║${GREEN}${BOLD}                         MAIN MENU                              ${CYAN}║${NC}"
         echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${CYAN}║  [1] User Management Menu${NC}"
-        echo -e "${CYAN}║  [2] List All Users${NC}"
-        echo -e "${CYAN}║  [3] Lock User${NC}"
-        echo -e "${CYAN}║  [4] Unlock User${NC}"
-        echo -e "${CYAN}║  [5] Delete User${NC}"
-        echo -e "${CYAN}║  [6] Edit Banner${NC}"
-        echo -e "${CYAN}║  [7] Delete Banner${NC}"
-        echo -e "${CYAN}║  [S] Settings${NC}"
-        echo -e "${CYAN}║  [0] Exit${NC}"
+        echo -e "${CYAN}║${WHITE}  [1] 👤 User Management Menu${NC}"
+        echo -e "${CYAN}║${WHITE}  [2] 📊 View All Users${NC}"
+        echo -e "${CYAN}║${WHITE}  [3] 🔒 Lock User${NC}"
+        echo -e "${CYAN}║${WHITE}  [4] 🔓 Unlock User${NC}"
+        echo -e "${CYAN}║${WHITE}  [5] 🗑️  Delete User${NC}"
+        echo -e "${CYAN}║${WHITE}  [6] 📝 Create/Edit Banner${NC}"
+        echo -e "${CYAN}║${WHITE}  [7] ❌ Delete Banner${NC}"
+        echo -e "${CYAN}║${WHITE}  [8] 📈 Traffic Statistics${NC}"
+        echo -e "${CYAN}║${RED}  [S] ⚙️  Settings${NC}"
+        echo -e "${CYAN}║${WHITE}  [0] 🚪 Exit${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
         read -p "$(echo -e $GREEN"Main menu option: "$NC)" ch
@@ -970,24 +1647,40 @@ main_menu() {
             4) elite-x-user unlock ;;
             5) elite-x-user del ;;
             6)
-                nano /etc/elite-x/banner/ssh-banner
+                [ -f /etc/elite-x/banner/custom ] || cp /etc/elite-x/banner/default /etc/elite-x/banner/custom
+                nano /etc/elite-x/banner/custom
+                cp /etc/elite-x/banner/custom /etc/elite-x/banner/ssh-banner
                 systemctl restart sshd
-                echo -e "${GREEN}Banner saved${NC}"
-                read -p "Press Enter..."
+                echo -e "${GREEN}✅ Banner saved${NC}"
+                read -p "Press Enter to continue..."
                 ;;
             7)
+                rm -f /etc/elite-x/banner/custom
                 cp /etc/elite-x/banner/default /etc/elite-x/banner/ssh-banner
                 systemctl restart sshd
-                echo -e "${GREEN}Banner deleted${NC}"
-                read -p "Press Enter..."
+                echo -e "${GREEN}✅ Banner deleted${NC}"
+                read -p "Press Enter to continue..."
+                ;;
+            8)
+                echo -e "${YELLOW}Traffic Statistics:${NC}"
+                echo "──────────────────"
+                for user in /etc/elite-x/users/*; do
+                    if [ -f "$user" ]; then
+                        u=$(basename "$user")
+                        us=$(cat /etc/elite-x/traffic/$u 2>/dev/null || echo "0")
+                        echo -e "$u: ${CYAN}$us MB${NC}"
+                    fi
+                done
+                read -p "Press Enter to continue..."
                 ;;
             [Ss]) settings_menu ;;
             0) 
                 rm -f /tmp/elite-x-running
+                show_quote
                 echo -e "${GREEN}Goodbye!${NC}"
                 exit 0 
                 ;;
-            *) echo -e "${RED}Invalid option${NC}"; read -p "Press Enter..." ;;
+            *) echo -e "${RED}Invalid option${NC}"; read -p "Press Enter to continue..." ;;
         esac
     done
 }
@@ -1001,6 +1694,7 @@ chmod +x /usr/local/bin/elite-x
 start_all_services() {
     echo -e "${YELLOW}Starting all ELITE-X services...${NC}"
     
+    # Reload systemd
     systemctl daemon-reload
     
     # Start DNSTT Server
@@ -1012,6 +1706,7 @@ start_all_services() {
         echo -e "${GREEN}✅${NC}"
     else
         echo -e "${RED}❌${NC}"
+        journalctl -u dnstt-elite-x -n 5 --no-pager
     fi
     
     # Start DNSTT Proxy
@@ -1056,6 +1751,17 @@ start_all_services() {
         echo -e "${GREEN}✅${NC}"
     else
         echo -e "${RED}❌${NC}"
+    fi
+    
+    # Start Connection Monitor
+    echo -n "Starting Connection Monitor... "
+    systemctl enable elite-x-monitor.service 2>/dev/null
+    systemctl start elite-x-monitor.service 2>/dev/null
+    sleep 2
+    if systemctl is-active elite-x-monitor >/dev/null 2>&1; then
+        echo -e "${GREEN}✅${NC}"
+    else
+        echo -e "${YELLOW}⚠️${NC}"
     fi
 }
 
@@ -1173,10 +1879,15 @@ fi
 # Kill any remaining processes
 pkill -f dnstt-server 2>/dev/null || true
 pkill -f dnstt-edns-proxy 2>/dev/null || true
+pkill -f elite-x-traffic 2>/dev/null || true
+pkill -f elite-x-cleaner 2>/dev/null || true
+pkill -f elite-x-bandwidth 2>/dev/null || true
+pkill -f elite-x-monitor 2>/dev/null || true
+pkill -f elite-x-speed 2>/dev/null || true
 
 # Stop and disable services
-systemctl stop dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
-systemctl disable dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
+systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor 2>/dev/null || true
+systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor 2>/dev/null || true
 
 # Remove service files
 rm -rf /etc/systemd/system/dnstt-elite-x*
@@ -1198,6 +1909,8 @@ sed -i '/ELITE_X_SHOWN/d' ~/.bashrc 2>/dev/null || true
 
 # Remove cron jobs
 rm -f /etc/cron.hourly/elite-x-expiry
+rm -f /etc/cron.daily/elite-x-backup
+rm -f /etc/cron.hourly/elite-x-bandwidth
 
 echo -e "${GREEN}✅ Previous installation cleaned${NC}"
 sleep 2
@@ -1240,18 +1953,20 @@ if [ -f /etc/systemd/resolved.conf ]; then
   echo "Configuring systemd-resolved..."
   sed -i 's/^#\?DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf || true
   systemctl restart systemd-resolved 2>/dev/null || true
+  
+  # Simple resolv.conf setup
   echo "nameserver 8.8.8.8" > /etc/resolv.conf 2>/dev/null || echo "nameserver 8.8.8.8" | tee /etc/resolv.conf >/dev/null
   echo "nameserver 8.8.4.4" >> /etc/resolv.conf 2>/dev/null || echo "nameserver 8.8.4.4" | tee -a /etc/resolv.conf >/dev/null
 fi
 
 echo "Installing dependencies..."
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils net-tools
 
 # Setup all components
 setup_dnstt_server
 setup_edns_proxy
-setup_traffic_monitor
+setup_advanced_traffic_monitor
 setup_auto_remover
 setup_bandwidth_monitor
 setup_bandwidth_tester
@@ -1274,6 +1989,20 @@ sleep 3
 # Start all services
 start_all_services
 
+# Apply location optimizations
+if [ ! -z "${NEED_USA_OPT:-}" ] || [ ! -z "${NEED_EUROPE_OPT:-}" ] || [ ! -z "${NEED_ASIA_OPT:-}" ] || [ ! -z "${NEED_AUTO_OPT:-}" ]; then
+    cat >> /etc/sysctl.conf <<EOF
+net.ipv4.tcp_congestion_control = bbr
+net.core.default_qdisc = fq
+EOF
+    sysctl -p >/dev/null 2>&1
+fi
+
+# Network interface optimizations
+for iface in $(ls /sys/class/net/ | grep -v lo 2>/dev/null); do
+    ethtool -K $iface tx off sg off tso off 2>/dev/null || true
+done
+
 # Cache network information
 IP=$(curl -4 -s ifconfig.me 2>/dev/null || echo "Unknown")
 echo "$IP" > /etc/elite-x/cached_ip
@@ -1281,6 +2010,7 @@ echo "$IP" > /etc/elite-x/cached_ip
 if [ "$IP" != "Unknown" ]; then
     LOCATION_INFO=$(curl -s http://ip-api.com/json/$IP 2>/dev/null)
     echo "$LOCATION_INFO" | jq -r '.city + ", " + .country' 2>/dev/null > /etc/elite-x/cached_location || echo "Unknown" > /etc/elite-x/cached_location
+    echo "$LOCATION_INFO" | jq -r '.isp' 2>/dev/null > /etc/elite-x/cached_isp || echo "Unknown" > /etc/elite-x/cached_isp
 fi
 
 # Create profile script
@@ -1299,7 +2029,9 @@ cat >> ~/.bashrc <<'EOF'
 alias menu='elite-x'
 alias elitex='elite-x'
 alias speed='elite-x-speed'
+alias monitor='elite-x-monitor'
 alias test-speed='elite-x-speedtest'
+alias optimize='elite-x-optimize'
 EOF
 
 # Create expiry cron job
@@ -1310,6 +2042,9 @@ if [ -f /usr/local/bin/elite-x ]; then
 fi
 EOF
 chmod +x /etc/cron.hourly/elite-x-expiry
+
+# Create initial backup
+/usr/local/bin/elite-x-backup 2>/dev/null || true
 
 # Ensure expiry file exists
 if [ ! -f /etc/elite-x/expiry ]; then
@@ -1322,11 +2057,15 @@ echo " ELITE-X V3.5 INSTALLED SUCCESSFULLY "
 echo "╠════════════════════════════════════╣"
 echo "   Advanced • Secure • Ultra Fast    "
 echo "╚════════════════════════════════════╝"
+EXPIRY_INFO=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
+FINAL_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
+ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "ELITEX-2026-DAN-4D-08")
 echo "DOMAIN  : ${TDOMAIN}"
 echo "LOCATION: ${SELECTED_LOCATION}"
-echo "MTU     : ${MTU}"
+echo "MTU     : ${FINAL_MTU}"
 echo "KEY     : ${ACTIVATION_KEY}"
-echo "EXPIRE  : $(cat /etc/elite-x/expiry)"
+echo "EXPIRE  : ${EXPIRY_INFO}"
+echo "╚════════════════════════════════════╝"
 show_quote
 
 # Final service status check
@@ -1337,10 +2076,23 @@ systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1 && echo -e "${GREEN}✅ 
 systemctl is-active elite-x-traffic >/dev/null 2>&1 && echo -e "${GREEN}✅ Traffic Monitor: Running${NC}" || echo -e "${RED}❌ Traffic Monitor: Failed${NC}"
 systemctl is-active elite-x-cleaner >/dev/null 2>&1 && echo -e "${GREEN}✅ Auto Cleaner: Running${NC}" || echo -e "${RED}❌ Auto Cleaner: Failed${NC}"
 systemctl is-active elite-x-bandwidth >/dev/null 2>&1 && echo -e "${GREEN}✅ Bandwidth Monitor: Running${NC}" || echo -e "${RED}❌ Bandwidth Monitor: Failed${NC}"
+systemctl is-active elite-x-monitor >/dev/null 2>&1 && echo -e "${GREEN}✅ Connection Monitor: Running${NC}" || echo -e "${YELLOW}⚠️ Connection Monitor: Optional${NC}"
 
 echo -e "\n${CYAN}Port Status:${NC}"
 ss -uln | grep -q ":53 " && echo -e "${GREEN}✅ Port 53: Listening${NC}" || echo -e "${RED}❌ Port 53: Not listening${NC}"
 ss -uln | grep -q ":${DNSTT_PORT} " && echo -e "${GREEN}✅ Port ${DNSTT_PORT}: Listening${NC}" || echo -e "${RED}❌ Port ${DNSTT_PORT}: Not listening${NC}"
+
+echo -e "\n${GREEN}ELITE-X v3.5 Features:${NC}"
+echo -e "  ${YELLOW}→${NC} Renew User Option"
+echo -e "  ${YELLOW}→${NC} Advanced Traffic Monitoring with History"
+echo -e "  ${YELLOW}→${NC} Bandwidth Speed Test Tool"
+echo -e "  ${YELLOW}→${NC} Auto Backup System"
+echo -e "  ${YELLOW}→${NC} System Optimizer (Turbo Mode)"
+echo -e "  ${YELLOW}→${NC} Real-time Connection Monitor"
+echo -e "  ${YELLOW}→${NC} User Details with Traffic History"
+echo -e "  ${YELLOW}→${NC} Multiple User Delete"
+echo -e "  ${YELLOW}→${NC} Export Users List"
+echo -e "  ${YELLOW}→${NC} Complete Uninstall (removes all users & data)"
 
 read -p "Open menu now? (y/n): " open
 if [ "$open" = "y" ]; then
@@ -1349,6 +2101,7 @@ if [ "$open" = "y" ]; then
     /usr/local/bin/elite-x
 else
     echo -e "${YELLOW}You can type 'menu' or 'elite-x' anytime to open the dashboard.${NC}"
+    echo -e "${YELLOW}Other commands: speed, monitor, test-speed, optimize${NC}"
 fi
 
 self_destruct
