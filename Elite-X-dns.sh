@@ -525,10 +525,17 @@ fi
 
 echo "Installing dependencies..."
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils python3-pip
 
 echo "Installing dnstt-server..."
-curl -fsSL https://dnstt.network/dnstt-server-linux-amd64 -o /usr/local/bin/dnstt-server
+# Try multiple download sources for dnstt-server
+if ! curl -fsSL https://dnstt.network/dnstt-server-linux-amd64 -o /usr/local/bin/dnstt-server 2>/dev/null; then
+    echo -e "${YELLOW}⚠️  Primary download failed, trying alternative source...${NC}"
+    curl -fsSL https://github.com/NoXFiQ/Elite-X-dns.sh/raw/main/dnstt-server -o /usr/local/bin/dnstt-server 2>/dev/null || {
+        echo -e "${RED}❌ Failed to download dnstt-server${NC}"
+        exit 1
+    }
+fi
 chmod +x /usr/local/bin/dnstt-server
 
 echo "Generating keys..."
@@ -544,7 +551,7 @@ fi
 
 # Generate new keys
 cd /etc/dnstt
-dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub
+/usr/local/bin/dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub
 cd ~
 
 # Set proper permissions
@@ -556,13 +563,19 @@ cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
 Description=ELITE-X DNSTT Server
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
+User=root
+WorkingDirectory=/tmp
 ExecStart=/usr/local/bin/dnstt-server -udp :${DNSTT_PORT} -mtu ${MTU} -privkey-file /etc/dnstt/server.key ${TDOMAIN} 127.0.0.1:22
-Restart=no
+Restart=always
+RestartSec=5
 KillSignal=SIGTERM
 LimitNOFILE=1048576
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -571,63 +584,128 @@ EOF
 echo "Installing EDNS proxy..."
 cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
-import socket,threading,struct
+import socket
+import threading
+import struct
+import sys
+import time
+import os
+
 L=5300
+
 def p(d,s):
- if len(d)<12:return d
- try:q,a,n,r=struct.unpack("!HHHH",d[4:12])
- except:return d
- o=12
- def sk(b,o):
-  while o<len(b):
-   l=b[o];o+=1
-   if l==0:break
-   if l&0xC0==0xC0:o+=1;break
-   o+=l
-  return o
- for _ in range(q):o=sk(d,o);o+=4
- for _ in range(a+n):
-  o=sk(d,o)
-  if o+10>len(d):return d
-  _,_,_,l=struct.unpack("!HHIH",d[o:o+10])
-  o+=10+l
- n=bytearray(d)
- for _ in range(r):
-  o=sk(d,o)
-  if o+10>len(d):return d
-  t=struct.unpack("!H",d[o:o+2])[0]
-  if t==41:
-   n[o+2:o+4]=struct.pack("!H",s)
-   return bytes(n)
-  _,_,l=struct.unpack("!HIH",d[o+2:o+10])
-  o+=10+l
- return d
+    if len(d)<12:
+        return d
+    try:
+        q,a,n,r=struct.unpack("!HHHH",d[4:12])
+    except:
+        return d
+    o=12
+    def sk(b,o):
+        while o<len(b):
+            l=b[o]
+            o+=1
+            if l==0:
+                break
+            if l&0xC0==0xC0:
+                o+=1
+                break
+            o+=l
+        return o
+    for _ in range(q):
+        o=sk(d,o)
+        o+=4
+    for _ in range(a+n):
+        o=sk(d,o)
+        if o+10>len(d):
+            return d
+        try:
+            _,_,_,l=struct.unpack("!HHIH",d[o:o+10])
+        except:
+            return d
+        o+=10+l
+    n=bytearray(d)
+    for _ in range(r):
+        o=sk(d,o)
+        if o+10>len(d):
+            return d
+        t=struct.unpack("!H",d[o:o+2])[0]
+        if t==41:
+            n[o+2:o+4]=struct.pack("!H",s)
+            return bytes(n)
+        _,_,l=struct.unpack("!HIH",d[o+2:o+10])
+        o+=10+l
+    return d
+
 def h(sk,d,ad):
- u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
- u.settimeout(5)
- try:
-  u.sendto(p(d,1800),('127.0.0.1',L))
-  r,_=u.recvfrom(4096)
-  sk.sendto(p(r,512),ad)
- except:pass
- finally:u.close()
-s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-s.bind(('0.0.0.0',53))
-while True:
- d,a=s.recvfrom(4096)
- threading.Thread(target=h,args=(s,d,a),daemon=True).start()
+    u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    u.settimeout(5)
+    try:
+        u.sendto(p(d,1800),('127.0.0.1',L))
+        r,_=u.recvfrom(4096)
+        sk.sendto(p(r,512),ad)
+    except Exception as e:
+        sys.stderr.write(f"Error in handler: {e}\n")
+    finally:
+        u.close()
+
+def main():
+    # Try to bind to port 53
+    s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    # Check if port 53 is already in use
+    try:
+        s.bind(('0.0.0.0',53))
+    except Exception as e:
+        sys.stderr.write(f"Failed to bind to port 53: {e}\n")
+        sys.stderr.write("Attempting to free port 53...\n")
+        # Try to kill process using port 53
+        os.system("fuser -k 53/udp 2>/dev/null || true")
+        time.sleep(2)
+        try:
+            s.bind(('0.0.0.0',53))
+        except Exception as e:
+            sys.stderr.write(f"Still failed to bind: {e}\n")
+            sys.exit(1)
+    
+    sys.stderr.write("✅ EDNS Proxy started on port 53\n")
+    sys.stderr.flush()
+    
+    while True:
+        try:
+            d,a=s.recvfrom(4096)
+            threading.Thread(target=h,args=(s,d,a),daemon=True).start()
+        except Exception as e:
+            sys.stderr.write(f"Error in main loop: {e}\n")
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
 EOF
 chmod +x /usr/local/bin/dnstt-edns-proxy.py
+
+# Test Python script syntax
+python3 -m py_compile /usr/local/bin/dnstt-edns-proxy.py 2>/dev/null || {
+    echo -e "${YELLOW}⚠️  Python syntax check failed, installing full Python...${NC}"
+    apt install -y python3-full
+}
 
 cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
 [Unit]
 Description=ELITE-X Proxy
 After=dnstt-elite-x.service
+Requires=dnstt-elite-x.service
+Wants=network.target
 
 [Service]
 Type=simple
+User=root
 ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-proxy.py
-Restart=no
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -635,9 +713,47 @@ EOF
 
 command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp || true
 
+# Stop any existing services first
+systemctl stop dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
+
+# Kill any process using port 53
+fuser -k 53/udp 2>/dev/null || true
+sleep 2
+
 systemctl daemon-reload
 systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
 systemctl start dnstt-elite-x.service dnstt-elite-x-proxy.service
+
+# Wait for services to start
+sleep 5
+
+# Check service status
+echo -e "\n${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║${YELLOW}                    SERVICE STATUS                                 ${CYAN}║${NC}"
+echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+
+if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+    echo -e "${GREEN}✅ DNSTT Server is running${NC}"
+else
+    echo -e "${RED}❌ DNSTT Server failed to start${NC}"
+    echo -e "${YELLOW}📋 Service logs:${NC}"
+    journalctl -u dnstt-elite-x -n 10 --no-pager
+fi
+
+if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
+    echo -e "${GREEN}✅ DNSTT Proxy is running${NC}"
+else
+    echo -e "${RED}❌ DNSTT Proxy failed to start${NC}"
+    echo -e "${YELLOW}📋 Service logs:${NC}"
+    journalctl -u dnstt-elite-x-proxy -n 10 --no-pager
+fi
+
+# Check if port 53 is listening
+if ss -uln | grep -q ":53 "; then
+    echo -e "${GREEN}✅ Port 53 is listening${NC}"
+else
+    echo -e "${RED}❌ Port 53 is not listening${NC}"
+fi
 
 setup_traffic_monitor
 setup_manual_speed
@@ -1238,6 +1354,11 @@ echo "KEY : ${ACTIVATION_KEY}"
 echo "KEY EXPIRE  : ${EXPIRY_INFO}"
 echo "╚════════════════════════════════════╝"
 show_quote
+
+# Final service status check
+echo -e "\n${CYAN}Final Service Status:${NC}"
+systemctl status dnstt-elite-x --no-pager | grep "Active:"
+systemctl status dnstt-elite-x-proxy --no-pager | grep "Active:"
 
 read -p "Open menu now? (y/n): " open
 if [ "$open" = "y" ]; then
