@@ -9,7 +9,7 @@
 # ╚═══════════════════════════════════════════════════════════════╝
 #              ELITE-X SLOWDNS v5.1 - REVOLUTION EDITION
 # ═════════════════════════════════════════════════════════════════
-# FIXED: resolv.conf error, uninstall menu, service stability
+# FIXED: DNS Server, AI Predictive Engine, All Services
 
 set -euo pipefail
 
@@ -324,7 +324,7 @@ check_subdomain() {
     fi
 }
 
-# ==================== UNIQUE FEATURE 1: AI PREDICTIVE MODE ====================
+# ==================== FIXED AI PREDICTIVE ENGINE ====================
 setup_ai_predictive() {
     cat > /usr/local/bin/elite-x-ai <<'EOF'
 #!/bin/bash
@@ -335,28 +335,43 @@ NEON_RED='\033[1;31m'; NEON_PURPLE='\033[1;35m'; NC='\033[0m'
 AI_PREDICT_FILE="/etc/elite-x/ai_predictions"
 LOG_FILE="/var/log/elite-x-ai.log"
 
+# Create log file if it doesn't exist
+touch "$LOG_FILE" 2>/dev/null || true
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
 }
 
 predict_network_quality() {
-    # Collect 60 seconds of data
+    log "Starting network analysis"
+    
+    # Collect 12 samples over 60 seconds (5 seconds each)
     local samples=()
     local losses=0
+    local total_latency=0
+    local latency_count=0
     
     for i in {1..12}; do
-        ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1
-        if [ $? -ne 0 ]; then
+        # Use timeout to prevent hanging
+        local start_time=$(date +%s%N)
+        if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
+            samples+=("ok")
+            local end_time=$(date +%s%N)
+            local latency=$(( ($end_time - $start_time) / 1000000 ))
+            total_latency=$((total_latency + latency))
+            latency_count=$((latency_count + 1))
+        else
             losses=$((losses + 1))
             samples+=("loss")
-        else
-            samples+=("ok")
         fi
-        sleep 5
+        sleep 3  # Wait 3 seconds between pings (total ~60 seconds)
     done
     
     local loss_percent=$((losses * 100 / 12))
-    local trend="stable"
+    local avg_latency=0
+    [ $latency_count -gt 0 ] && avg_latency=$((total_latency / latency_count))
+    
+    log "Analysis complete - Loss: ${loss_percent}%, Avg Latency: ${avg_latency}ms"
     
     # Analyze pattern
     local consecutive_loss=0
@@ -370,9 +385,10 @@ predict_network_quality() {
         fi
     done
     
+    local trend="stable"
     if [ $max_consecutive -ge 3 ]; then
         trend="deteriorating"
-    elif [ $loss_percent -lt 10 ]; then
+    elif [ $loss_percent -lt 10 ] && [ $avg_latency -lt 100 ]; then
         trend="improving"
     fi
     
@@ -383,18 +399,27 @@ predict_network_quality() {
     if [ $loss_percent -gt 20 ] || [ "$trend" = "deteriorating" ]; then
         prediction="unstable_next_5min"
         recommended_mtu=1300
-    elif [ $loss_percent -gt 10 ]; then
+    elif [ $loss_percent -gt 10 ] || [ $avg_latency -gt 200 ]; then
         prediction="moderate_issues"
         recommended_mtu=1400
-    elif [ $loss_percent -lt 5 ] && [ "$trend" = "improving" ]; then
+    elif [ $loss_percent -lt 5 ] && [ $avg_latency -lt 50 ] && [ "$trend" = "improving" ]; then
         prediction="excellent_next_5min"
         recommended_mtu=1800
     fi
     
     # Save prediction
-    echo "{\"timestamp\":\"$(date +%s)\",\"loss\":$loss_percent,\"trend\":\"$trend\",\"prediction\":\"$prediction\",\"recommended_mtu\":$recommended_mtu}" > "$AI_PREDICT_FILE"
+    cat > "$AI_PREDICT_FILE" <<INNEREOF
+{
+  "timestamp": $(date +%s),
+  "loss": $loss_percent,
+  "latency": $avg_latency,
+  "trend": "$trend",
+  "prediction": "$prediction",
+  "recommended_mtu": $recommended_mtu
+}
+INNEREOF
     
-    log "AI Analysis - Loss: ${loss_percent}%, Trend: ${trend}, Prediction: ${prediction}"
+    log "AI Analysis - Loss: ${loss_percent}%, Latency: ${avg_latency}ms, Trend: ${trend}, Prediction: ${prediction}"
     
     echo "$recommended_mtu"
 }
@@ -403,15 +428,14 @@ apply_ai_prediction() {
     local recommended_mtu=$(predict_network_quality)
     local current_mtu=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1500")
     
-    # Only change if different by more than 100
-    local diff=$((recommended_mtu - current_mtu))
-    diff=${diff#-}
-    
-    if [ $diff -ge 100 ]; then
+    # Only change if different
+    if [ "$recommended_mtu" != "$current_mtu" ]; then
         echo "$recommended_mtu" > /etc/elite-x/mtu
-        sed -i "s/-mtu [0-9]*/-mtu $recommended_mtu/" /etc/systemd/system/dnstt-elite-x.service
-        systemctl daemon-reload
-        systemctl restart dnstt-elite-x
+        if [ -f /etc/systemd/system/dnstt-elite-x.service ]; then
+            sed -i "s/-mtu [0-9]*/-mtu $recommended_mtu/" /etc/systemd/system/dnstt-elite-x.service
+            systemctl daemon-reload
+            systemctl restart dnstt-elite-x
+        fi
         log "AI adjusted MTU from $current_mtu to $recommended_mtu"
         echo -e "${NEON_PURPLE}🤖 AI adjusted MTU to $recommended_mtu for optimal stability${NC}"
     fi
@@ -419,12 +443,12 @@ apply_ai_prediction() {
 
 show_ai_status() {
     if [ -f "$AI_PREDICT_FILE" ]; then
-        local data=$(cat "$AI_PREDICT_FILE")
-        local timestamp=$(echo "$data" | grep -o '"timestamp":"[^"]*"' | cut -d'"' -f4)
-        local loss=$(echo "$data" | grep -o '"loss":[0-9]*' | cut -d: -f2)
-        local trend=$(echo "$data" | grep -o '"trend":"[^"]*"' | cut -d'"' -f4)
-        local prediction=$(echo "$data" | grep -o '"prediction":"[^"]*"' | cut -d'"' -f4)
-        local recommended=$(echo "$data" | grep -o '"recommended_mtu":[0-9]*' | cut -d: -f2)
+        local timestamp=$(grep -o '"timestamp":[0-9]*' "$AI_PREDICT_FILE" | cut -d: -f2)
+        local loss=$(grep -o '"loss":[0-9]*' "$AI_PREDICT_FILE" | cut -d: -f2)
+        local latency=$(grep -o '"latency":[0-9]*' "$AI_PREDICT_FILE" | cut -d: -f2)
+        local trend=$(grep -o '"trend":"[^"]*"' "$AI_PREDICT_FILE" | cut -d'"' -f4)
+        local prediction=$(grep -o '"prediction":"[^"]*"' "$AI_PREDICT_FILE" | cut -d'"' -f4)
+        local recommended=$(grep -o '"recommended_mtu":[0-9]*' "$AI_PREDICT_FILE" | cut -d: -f2)
         
         local time_ago=$(( $(date +%s) - timestamp ))
         local mins_ago=$((time_ago / 60))
@@ -432,13 +456,20 @@ show_ai_status() {
         echo -e "${NEON_PURPLE}🤖 AI PREDICTIVE ENGINE STATUS${NC}"
         echo -e "${NEON_WHITE}Last Analysis: ${NEON_CYAN}${mins_ago} minutes ago${NC}"
         echo -e "${NEON_WHITE}Packet Loss: ${NEON_YELLOW}${loss}%${NC}"
+        echo -e "${NEON_WHITE}Avg Latency: ${NEON_CYAN}${latency}ms${NC}"
         echo -e "${NEON_WHITE}Network Trend: ${NEON_GREEN}${trend}${NC}"
         echo -e "${NEON_WHITE}Prediction: ${NEON_PURPLE}${prediction}${NC}"
         echo -e "${NEON_WHITE}Recommended MTU: ${NEON_CYAN}${recommended}${NC}"
     else
-        echo -e "${NEON_YELLOW}AI Predictive Engine has not run yet${NC}"
+        echo -e "${NEON_YELLOW}AI Predictive Engine has not run yet.${NC}"
+        echo -e "${NEON_YELLOW}First analysis will complete in about 60 seconds.${NC}"
     fi
 }
+
+# Run initial prediction immediately
+if [ ! -f "$AI_PREDICT_FILE" ]; then
+    predict_network_quality > /dev/null 2>&1 &
+fi
 
 case "$1" in
     status) show_ai_status ;;
@@ -458,12 +489,14 @@ EOF
 [Unit]
 Description=ELITE-X AI Predictive Engine
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/elite-x-ai
 Restart=always
 RestartSec=60
+User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -480,12 +513,14 @@ NEON_RED='\033[1;31m'; NEON_PURPLE='\033[1;35m'; NC='\033[0m'
 
 QUANTUM_LOG="/var/log/elite-x-quantum.log"
 
+# Create log file
+touch "$QUANTUM_LOG" 2>/dev/null || true
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$QUANTUM_LOG"
 }
 
 create_quantum_tunnel() {
-    # Create multiple redundant DNS paths
     log "Creating quantum stability tunnel with 3 redundant paths"
     
     # Clear existing rules
@@ -510,8 +545,7 @@ monitor_quantum_stability() {
         # Test all paths
         local path_ok=0
         for port in 53 5353; do
-            dig +time=1 +tries=1 @127.0.0.1 -p $port google.com >/dev/null 2>&1
-            if [ $? -eq 0 ]; then
+            if dig +time=1 +tries=1 @127.0.0.1 -p $port google.com >/dev/null 2>&1; then
                 path_ok=1
                 loss_count=0
                 break
@@ -521,6 +555,7 @@ monitor_quantum_stability() {
         # If all paths failed, increment loss count
         if [ $path_ok -eq 0 ]; then
             loss_count=$((loss_count + 1))
+            log "All paths failed (count: $loss_count)"
         fi
         
         # If multiple consecutive failures, recreate tunnel
@@ -543,12 +578,14 @@ EOF
 [Unit]
 Description=ELITE-X Quantum Stability Tunnel
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/elite-x-quantum
 Restart=always
 RestartSec=10
+User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -565,22 +602,35 @@ NEON_RED='\033[1;31m'; NEON_PURPLE='\033[1;35m'; NC='\033[0m'
 
 HEALER_LOG="/var/log/elite-x-healer.log"
 
+# Create log file
+touch "$HEALER_LOG" 2>/dev/null || true
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$HEALER_LOG"
+}
+
+check_service() {
+    local service="$1"
+    if ! systemctl is-active "$service" >/dev/null 2>&1; then
+        log "$service is down, restarting"
+        systemctl restart "$service" 2>/dev/null
+        return 1
+    fi
+    return 0
 }
 
 check_tunnel_health() {
     # Check if DNS server is responding
     if ! dig +time=2 +tries=1 @127.0.0.1 -p 5300 google.com >/dev/null 2>&1; then
         log "DNS server not responding, attempting repair"
-        systemctl restart dnstt-elite-x 2>/dev/null
+        check_service "dnstt-elite-x"
         sleep 2
     fi
     
     # Check if proxy is responding
     if ! dig +time=2 +tries=1 @127.0.0.1 -p 53 google.com >/dev/null 2>&1; then
         log "DNS proxy not responding, attempting repair"
-        systemctl restart dnstt-elite-x-proxy 2>/dev/null
+        check_service "dnstt-elite-x-proxy"
         sleep 2
     fi
     
@@ -596,14 +646,21 @@ check_tunnel_health() {
 }
 
 heal_broken_connections() {
+    # Check all services
+    check_service "dnstt-elite-x"
+    check_service "dnstt-elite-x-proxy"
+    check_service "elite-x-ai"
+    check_service "elite-x-quantum"
+    check_service "elite-x-zeroloss"
+    
     # Kill stuck connections
     for pid in $(ps aux | grep dnstt | grep -v grep | awk '{print $2}'); do
-        local cpu=$(ps -p $pid -o %cpu | tail -1 | tr -d ' ')
-        local time=$(ps -p $pid -o etime | tail -1 | tr -d ' ')
+        local cpu=$(ps -p $pid -o %cpu | tail -1 | tr -d ' ' 2>/dev/null || echo "0")
+        local time=$(ps -p $pid -o etime | tail -1 | tr -d ' ' 2>/dev/null || echo "0")
         
-        # If process using >50% CPU for >5 minutes, restart it
-        if [ "${cpu%.*}" -gt 50 ] && [ ${#time} -gt 5 ]; then
-            log "Process $pid using high CPU, restarting"
+        # If process using >80% CPU for >5 minutes, restart it
+        if [ "${cpu%.*}" -gt 80 ] && [ ${#time} -gt 5 ]; then
+            log "Process $pid using high CPU ($cpu%), restarting"
             kill -9 $pid 2>/dev/null || true
         fi
     done
@@ -612,7 +669,7 @@ heal_broken_connections() {
 while true; do
     check_tunnel_health
     heal_broken_connections
-    sleep 10
+    sleep 30
 done
 EOF
     chmod +x /usr/local/bin/elite-x-healer
@@ -621,12 +678,14 @@ EOF
 [Unit]
 Description=ELITE-X Self-Healing Tunnel
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/elite-x-healer
 Restart=always
-RestartSec=10
+RestartSec=30
+User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -644,6 +703,9 @@ NEON_RED='\033[1;31m'; NEON_PURPLE='\033[1;35m'; NC='\033[0m'
 ZERO_LOSS_FILE="/etc/elite-x/zero_loss_stats"
 ZERO_LOSS_LOG="/var/log/elite-x-zeroloss.log"
 
+# Create log file
+touch "$ZERO_LOSS_LOG" 2>/dev/null || true
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$ZERO_LOSS_LOG"
 }
@@ -654,11 +716,9 @@ calculate_zero_loss() {
     
     # Count packets from dnstt process
     local pid=$(pgrep -f dnstt-server 2>/dev/null | head -1)
-    if [ ! -z "$pid" ]; then
-        if [ -f "/proc/$pid/net/udp" ]; then
-            sent=$(cat "/proc/$pid/net/udp" | wc -l)
-            received=$(cat "/proc/$pid/net/udp" | grep -c "00000000:0000")
-        fi
+    if [ ! -z "$pid" ] && [ -f "/proc/$pid/net/udp" ]; then
+        sent=$(cat "/proc/$pid/net/udp" 2>/dev/null | wc -l)
+        received=$(cat "/proc/$pid/net/udp" 2>/dev/null | grep -c "00000000:0000" || echo "0")
     fi
     
     local loss_percent=0
@@ -667,7 +727,14 @@ calculate_zero_loss() {
     fi
     
     # Save stats
-    echo "{\"timestamp\":$(date +%s),\"sent\":$sent,\"received\":$received,\"loss\":$loss_percent}" > "$ZERO_LOSS_FILE"
+    cat > "$ZERO_LOSS_FILE" <<INNEREOF
+{
+  "timestamp": $(date +%s),
+  "sent": $sent,
+  "received": $received,
+  "loss": $loss_percent
+}
+INNEREOF
     
     echo $loss_percent
 }
@@ -687,23 +754,28 @@ apply_zero_loss_correction() {
         local new_mtu=$((current_mtu - 100))
         [ $new_mtu -lt 1200 ] && new_mtu=1200
         
-        echo "$new_mtu" > /etc/elite-x/mtu.tmp
-        sed -i "s/-mtu [0-9]*/-mtu $new_mtu/" /etc/systemd/system/dnstt-elite-x.service
-        systemctl daemon-reload
-        systemctl restart dnstt-elite-x
-        
-        log "MTU reduced from $current_mtu to $new_mtu to reduce loss"
+        if [ -f /etc/systemd/system/dnstt-elite-x.service ]; then
+            echo "$new_mtu" > /etc/elite-x/mtu.tmp
+            sed -i "s/-mtu [0-9]*/-mtu $new_mtu/" /etc/systemd/system/dnstt-elite-x.service
+            systemctl daemon-reload
+            systemctl restart dnstt-elite-x
+            log "MTU reduced from $current_mtu to $new_mtu to reduce loss"
+        fi
     fi
 }
 
 show_zero_loss_stats() {
     if [ -f "$ZERO_LOSS_FILE" ]; then
-        local data=$(cat "$ZERO_LOSS_FILE")
-        local sent=$(echo "$data" | grep -o '"sent":[0-9]*' | cut -d: -f2)
-        local received=$(echo "$data" | grep -o '"received":[0-9]*' | cut -d: -f2)
-        local loss=$(echo "$data" | grep -o '"loss":[0-9]*' | cut -d: -f2)
+        local timestamp=$(grep -o '"timestamp":[0-9]*' "$ZERO_LOSS_FILE" | cut -d: -f2)
+        local sent=$(grep -o '"sent":[0-9]*' "$ZERO_LOSS_FILE" | cut -d: -f2)
+        local received=$(grep -o '"received":[0-9]*' "$ZERO_LOSS_FILE" | cut -d: -f2)
+        local loss=$(grep -o '"loss":[0-9]*' "$ZERO_LOSS_FILE" | cut -d: -f2)
+        
+        local time_ago=$(( $(date +%s) - timestamp ))
+        local mins_ago=$((time_ago / 60))
         
         echo -e "${NEON_PURPLE}🔵 ZERO-LOSS TECHNOLOGY STATS${NC}"
+        echo -e "${NEON_WHITE}Last Update: ${NEON_CYAN}${mins_ago} minutes ago${NC}"
         echo -e "${NEON_WHITE}Packets Sent: ${NEON_CYAN}$sent${NC}"
         echo -e "${NEON_WHITE}Packets Received: ${NEON_GREEN}$received${NC}"
         
@@ -736,12 +808,14 @@ EOF
 [Unit]
 Description=ELITE-X Zero-Loss Technology
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/elite-x-zeroloss
 Restart=always
 RestartSec=30
+User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -758,51 +832,57 @@ NEON_RED='\033[1;31m'; NEON_PURPLE='\033[1;35m'; NC='\033[0m'
 
 CORE_LOG="/var/log/elite-x-core.log"
 
+# Create log file
+touch "$CORE_LOG" 2>/dev/null || true
+
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$CORE_LOG"
+}
+
+check_service_status() {
+    local service="$1"
+    local name="$2"
+    local color="$3"
+    
+    if systemctl is-active "$service" >/dev/null 2>&1; then
+        echo -e "  ${color}●${NC} $name: ${NEON_GREEN}RUNNING${NC}"
+        return 0
+    else
+        echo -e "  ${NEON_RED}●${NC} $name: ${NEON_RED}STOPPED${NC}"
+        log "$service is stopped"
+        return 1
+    fi
 }
 
 check_all_services() {
     local all_ok=true
     
     # Check DNS server
-    if ! systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
-        echo -e "${NEON_RED}❌ DNSTT Server is DOWN${NC}"
+    if ! check_service_status "dnstt-elite-x" "DNSTT Server" "$NEON_GREEN"; then
         systemctl restart dnstt-elite-x 2>/dev/null
         all_ok=false
     fi
     
     # Check proxy
-    if ! systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
-        echo -e "${NEON_RED}❌ DNSTT Proxy is DOWN${NC}"
+    if ! check_service_status "dnstt-elite-x-proxy" "DNSTT Proxy" "$NEON_GREEN"; then
         systemctl restart dnstt-elite-x-proxy 2>/dev/null
         all_ok=false
     fi
     
     # Check AI service
-    if ! systemctl is-active elite-x-ai >/dev/null 2>&1; then
-        systemctl start elite-x-ai 2>/dev/null
-    fi
+    check_service_status "elite-x-ai" "AI Predictive" "$NEON_PURPLE" >/dev/null || true
     
     # Check Quantum tunnel
-    if ! systemctl is-active elite-x-quantum >/dev/null 2>&1; then
-        systemctl start elite-x-quantum 2>/dev/null
-    fi
+    check_service_status "elite-x-quantum" "Quantum Tunnel" "$NEON_CYAN" >/dev/null || true
     
     # Check Healer
-    if ! systemctl is-active elite-x-healer >/dev/null 2>&1; then
-        systemctl start elite-x-healer 2>/dev/null
-    fi
+    check_service_status "elite-x-healer" "Self-Healing" "$NEON_GREEN" >/dev/null || true
     
     # Check Zero-Loss
-    if ! systemctl is-active elite-x-zeroloss >/dev/null 2>&1; then
-        systemctl start elite-x-zeroloss 2>/dev/null
-    fi
+    check_service_status "elite-x-zeroloss" "Zero-Loss" "$NEON_BLUE" >/dev/null || true
     
     if $all_ok; then
         echo -e "${NEON_GREEN}✅ All core services are running${NC}"
-    else
-        echo -e "${NEON_YELLOW}⚠️ Some services were restarted${NC}"
     fi
 }
 
@@ -813,47 +893,7 @@ show_service_status() {
     echo -e "${NEON_PURPLE}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
     
-    # DNSTT Server
-    if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
-        echo -e "  ${NEON_GREEN}●${NC} DNSTT Server: ${NEON_GREEN}RUNNING${NC}"
-    else
-        echo -e "  ${NEON_RED}●${NC} DNSTT Server: ${NEON_RED}STOPPED${NC}"
-    fi
-    
-    # DNSTT Proxy
-    if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
-        echo -e "  ${NEON_GREEN}●${NC} DNSTT Proxy: ${NEON_GREEN}RUNNING${NC}"
-    else
-        echo -e "  ${NEON_RED}●${NC} DNSTT Proxy: ${NEON_RED}STOPPED${NC}"
-    fi
-    
-    # AI Predictive
-    if systemctl is-active elite-x-ai >/dev/null 2>&1; then
-        echo -e "  ${NEON_PURPLE}●${NC} AI Predictive: ${NEON_GREEN}RUNNING${NC}"
-    else
-        echo -e "  ${NEON_RED}●${NC} AI Predictive: ${NEON_RED}STOPPED${NC}"
-    fi
-    
-    # Quantum Stability
-    if systemctl is-active elite-x-quantum >/dev/null 2>&1; then
-        echo -e "  ${NEON_CYAN}●${NC} Quantum Tunnel: ${NEON_GREEN}RUNNING${NC}"
-    else
-        echo -e "  ${NEON_RED}●${NC} Quantum Tunnel: ${NEON_RED}STOPPED${NC}"
-    fi
-    
-    # Self-Healing
-    if systemctl is-active elite-x-healer >/dev/null 2>&1; then
-        echo -e "  ${NEON_GREEN}●${NC} Self-Healing: ${NEON_GREEN}RUNNING${NC}"
-    else
-        echo -e "  ${NEON_RED}●${NC} Self-Healing: ${NEON_RED}STOPPED${NC}"
-    fi
-    
-    # Zero-Loss
-    if systemctl is-active elite-x-zeroloss >/dev/null 2>&1; then
-        echo -e "  ${NEON_BLUE}●${NC} Zero-Loss: ${NEON_GREEN}RUNNING${NC}"
-    else
-        echo -e "  ${NEON_RED}●${NC} Zero-Loss: ${NEON_RED}STOPPED${NC}"
-    fi
+    check_all_services
     
     echo ""
     
@@ -862,15 +902,19 @@ show_service_status() {
     echo -e "${NEON_WHITE}Current MTU: ${NEON_CYAN}$mtu${NC}"
     
     # Show AI prediction
+    echo ""
     /usr/local/bin/elite-x-ai status 2>/dev/null || true
     
     # Show Zero-Loss stats
+    echo ""
     /usr/local/bin/elite-x-zeroloss stats 2>/dev/null || true
 }
 
 restart_all() {
     echo -e "${NEON_YELLOW}Restarting all ELITE-X services...${NC}"
-    systemctl restart dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss 2>/dev/null
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null
+    sleep 3
+    systemctl restart elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss 2>/dev/null
     sleep 2
     show_service_status
 }
@@ -881,7 +925,7 @@ case "$1" in
     check) check_all_services ;;
     *)
         while true; do
-            check_all_services
+            check_all_services >/dev/null
             sleep 30
         done
         ;;
@@ -893,12 +937,14 @@ EOF
 [Unit]
 Description=ELITE-X Core Service Manager
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/elite-x-core
 Restart=always
 RestartSec=30
+User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -1197,6 +1243,7 @@ install_dnstt_server() {
     DNSTT_URLS=(
         "https://github.com/Elite-X-Team/dnstt-server/raw/main/dnstt-server"
         "https://raw.githubusercontent.com/NoXFiQ/Elite-X-dns/main/dnstt-server"
+        "https://github.com/x2ios/slowdns/raw/main/dnstt-server"
         "https://dnstt.network/dnstt-server-linux-amd64"
     )
 
@@ -1204,7 +1251,7 @@ install_dnstt_server() {
 
     for url in "${DNSTT_URLS[@]}"; do
         echo -e "${NEON_CYAN}Trying: $url${NC}"
-        if curl -L -f -o /usr/local/bin/dnstt-server "$url" 2>/dev/null; then
+        if curl -L -f --progress-bar -o /usr/local/bin/dnstt-server "$url" 2>/dev/null; then
             if [ -s /usr/local/bin/dnstt-server ]; then
                 chmod +x /usr/local/bin/dnstt-server
                 echo -e "${NEON_GREEN}✅ Download successful${NC}"
@@ -1216,6 +1263,12 @@ install_dnstt_server() {
 
     if [ $DOWNLOAD_SUCCESS -eq 0 ]; then
         echo -e "${NEON_RED}❌ Failed to download dnstt-server${NC}"
+        exit 1
+    fi
+    
+    # Verify the binary works
+    if ! /usr/local/bin/dnstt-server -h >/dev/null 2>&1; then
+        echo -e "${NEON_RED}❌ Downloaded dnstt-server is not executable${NC}"
         exit 1
     fi
 }
@@ -1231,6 +1284,7 @@ import threading
 import time
 import sys
 import signal
+import os
 
 LISTEN_IP = '0.0.0.0'
 LISTEN_PORT = 53
@@ -1257,32 +1311,38 @@ def handle_query(server_socket, data, client_addr):
         response, _ = dnstt_sock.recvfrom(BUFFER_SIZE)
         server_socket.sendto(response, client_addr)
         dnstt_sock.close()
-    except:
+    except Exception as e:
         pass
 
 def main():
     print(f"ELITE-X Proxy starting on port {LISTEN_PORT}")
     
     # Try to free up port 53
-    import os
     os.system("fuser -k 53/udp 2>/dev/null || true")
     time.sleep(2)
     
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        sock.bind((LISTEN_IP, LISTEN_PORT))
-    except Exception as e:
-        print(f"Failed to bind: {e}")
-        sys.exit(1)
-    
-    print("Proxy is ready")
+    # Try multiple times to bind
+    for attempt in range(3):
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            sock.bind((LISTEN_IP, LISTEN_PORT))
+            print("Proxy is ready")
+            break
+        except Exception as e:
+            if attempt < 2:
+                print(f"Attempt {attempt+1} failed, retrying...")
+                time.sleep(2)
+                os.system("fuser -k 53/udp 2>/dev/null || true")
+            else:
+                print(f"Failed to bind: {e}")
+                sys.exit(1)
     
     while running:
         try:
             data, addr = sock.recvfrom(BUFFER_SIZE)
             threading.Thread(target=handle_query, args=(sock, data, addr), daemon=True).start()
-        except:
+        except Exception as e:
             time.sleep(0.1)
 
 if __name__ == "__main__":
@@ -1343,6 +1403,7 @@ sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
 
 # Restore resolv.conf
 if [ -f /etc/resolv.conf.backup ]; then
+    chattr -i /etc/resolv.conf 2>/dev/null || true
     cp /etc/resolv.conf.backup /etc/resolv.conf 2>/dev/null || true
 fi
 
@@ -1500,9 +1561,11 @@ settings_menu() {
                 read -p "$(echo -e $NEON_GREEN"New MTU (1200-1800): "$NC)" mtu
                 if [[ "$mtu" =~ ^[0-9]+$ ]] && [ $mtu -ge 1200 ] && [ $mtu -le 1800 ]; then
                     echo "$mtu" > /etc/elite-x/mtu
-                    sed -i "s/-mtu [0-9]*/-mtu $mtu/" /etc/systemd/system/dnstt-elite-x.service
-                    systemctl daemon-reload
-                    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+                    if [ -f /etc/systemd/system/dnstt-elite-x.service ]; then
+                        sed -i "s/-mtu [0-9]*/-mtu $mtu/" /etc/systemd/system/dnstt-elite-x.service
+                        systemctl daemon-reload
+                        systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+                    fi
                     echo -e "${NEON_GREEN}✅ MTU updated to $mtu${NC}"
                 else
                     echo -e "${NEON_RED}❌ Invalid MTU${NC}"
@@ -1510,7 +1573,9 @@ settings_menu() {
                 read -p "Press Enter..."
                 ;;
             10)
-                systemctl restart dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss
+                systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null
+                sleep 3
+                systemctl restart elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss 2>/dev/null
                 echo -e "${NEON_GREEN}✅ Services restarted${NC}"
                 read -p "Press Enter..."
                 ;;
@@ -1723,6 +1788,7 @@ fix_resolv_conf
 
 # Kill any process using port 53
 fuser -k 53/udp 2>/dev/null || true
+fuser -k 5300/udp 2>/dev/null || true
 sleep 2
 
 echo -e "${NEON_CYAN}Installing dependencies...${NC}"
@@ -1754,6 +1820,7 @@ cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
 Description=ELITE-X DNSTT Server
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
@@ -1761,6 +1828,7 @@ ExecStart=/usr/local/bin/dnstt-server -udp :${DNSTT_PORT} -mtu ${MTU} -privkey-f
 Restart=always
 RestartSec=5
 LimitNOFILE=1048576
+User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -1773,12 +1841,14 @@ cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
 Description=ELITE-X Proxy
 After=dnstt-elite-x.service
 Requires=dnstt-elite-x.service
+Wants=network.target
 
 [Service]
 Type=simple
 ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-proxy.py
 Restart=always
 RestartSec=5
+User=root
 
 [Install]
 WantedBy=multi-user.target
@@ -1802,17 +1872,33 @@ command -v ufw >/dev/null && {
     ufw reload 2>/dev/null || true
 }
 
-# Start services
+# Start services in correct order
 systemctl daemon-reload
-systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
-systemctl enable elite-x-ai.service elite-x-quantum.service elite-x-healer.service elite-x-zeroloss.service elite-x-core.service
 
-# Start in correct order
+# Enable all services
+systemctl enable dnstt-elite-x.service
+systemctl enable dnstt-elite-x-proxy.service
+systemctl enable elite-x-ai.service
+systemctl enable elite-x-quantum.service
+systemctl enable elite-x-healer.service
+systemctl enable elite-x-zeroloss.service
+systemctl enable elite-x-core.service
+
+# Start in sequence
+echo -e "${NEON_CYAN}Starting DNSTT Server...${NC}"
 systemctl start dnstt-elite-x.service
 sleep 3
+
+echo -e "${NEON_CYAN}Starting DNSTT Proxy...${NC}"
 systemctl start dnstt-elite-x-proxy.service
 sleep 2
-systemctl start elite-x-ai.service elite-x-quantum.service elite-x-healer.service elite-x-zeroloss.service elite-x-core.service
+
+echo -e "${NEON_CYAN}Starting AI and support services...${NC}"
+systemctl start elite-x-ai.service
+systemctl start elite-x-quantum.service
+systemctl start elite-x-healer.service
+systemctl start elite-x-zeroloss.service
+systemctl start elite-x-core.service
 
 # Cache network info
 /usr/local/bin/elite-x-refresh-info
@@ -1833,6 +1919,7 @@ alias menu='elite-x'
 alias elite='elite-x'
 alias ai='elite-x-ai status'
 alias core='elite-x-core status'
+alias stats='elite-x-zeroloss stats'
 EOF
 
 ensure_key_files
@@ -1848,19 +1935,33 @@ echo -e "${NEON_GREEN}║${NEON_WHITE}  MTU     : ${NEON_CYAN}${MTU}${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  KEY     : ${NEON_YELLOW}$(cat /etc/elite-x/key)${NC}"
 echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${NEON_GREEN}║${NEON_WHITE}  ✨ UNIQUE FEATURES:${NC}"
-echo -e "${NEON_GREEN}║${NEON_PURPLE}     • AI Predictive Engine${NC}"
+echo -e "${NEON_GREEN}║${NEON_PURPLE}     • AI Predictive Engine (FIXED)${NC}"
 echo -e "${NEON_GREEN}║${NEON_CYAN}     • Quantum Stability Tunnel${NC}"
 echo -e "${NEON_GREEN}║${NEON_GREEN}     • Self-Healing Technology${NC}"
 echo -e "${NEON_GREEN}║${NEON_BLUE}     • Zero-Loss Optimization${NC}"
 echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  Commands: menu, elite, ai, core                     ${NEON_GREEN}║${NC}"
+echo -e "${NEON_GREEN}║${NEON_WHITE}  Commands: menu, elite, ai, core, stats             ${NEON_GREEN}║${NC}"
 echo -e "${NEON_GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 
 # Check service status
 sleep 2
 echo -e "\n${NEON_CYAN}Service Status:${NC}"
-systemctl is-active dnstt-elite-x >/dev/null 2>&1 && echo -e "  ${NEON_GREEN}●${NC} DNSTT Server: RUNNING" || echo -e "  ${NEON_RED}●${NC} DNSTT Server: FAILED"
-systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1 && echo -e "  ${NEON_GREEN}●${NC} DNSTT Proxy: RUNNING" || echo -e "  ${NEON_RED}●${NC} DNSTT Proxy: FAILED"
+if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+    echo -e "  ${NEON_GREEN}●${NC} DNSTT Server: RUNNING"
+else
+    echo -e "  ${NEON_RED}●${NC} DNSTT Server: FAILED"
+fi
+
+if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
+    echo -e "  ${NEON_GREEN}●${NC} DNSTT Proxy: RUNNING"
+else
+    echo -e "  ${NEON_RED}●${NC} DNSTT Proxy: FAILED"
+fi
+
+if systemctl is-active elite-x-ai >/dev/null 2>&1; then
+    echo -e "  ${NEON_PURPLE}●${NC} AI Predictive: RUNNING"
+fi
+
 echo ""
 
 # Auto-open menu
