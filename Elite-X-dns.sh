@@ -4,12 +4,12 @@
 #                     AMOKHAN V1.5 - ULTIMATE SSH MANAGER
 # ============================================================================
 # PRESERVING ALL V1.0 FEATURES + NEW ENHANCEMENTS:
-# ✓ All original SlowDNS installation menu options
+# ✓ Activation Key System (Trial/Lifetime) - RESTORED FROM V1.0
+# ✓ Public Key Display after account creation - RESTORED FROM V1.0
 # ✓ Complete uninstall with system cleanup (NEW)
 # ✓ Real-time bandwidth monitoring per user (NEW)
 # ✓ User bandwidth limits and quotas (NEW)
 # ✓ Renew user accounts (NEW)
-# ✓ Advanced traffic statistics (NEW)
 # ============================================================================
 
 # Ensure running as root
@@ -36,6 +36,8 @@ DB_FILE="/etc/amokhan/users.db"
 BANDWIDTH_DB="/etc/amokhan/bandwidth.db"
 CONFIG_DIR="/etc/amokhan"
 BACKUP_DIR="/root/amokhan-backups"
+KEY_FILE="/etc/amokhan/license.key"
+ACTIVATION_FILE="/etc/amokhan/activated"
 
 # ============================================================================
 # COLORS & DESIGN (PRESERVED FROM V1.0)
@@ -123,6 +125,72 @@ print_info() {
 }
 
 # ============================================================================
+# ACTIVATION KEY SYSTEM (RESTORED FROM V1.0)
+# ============================================================================
+check_activation() {
+    if [ -f "$ACTIVATION_FILE" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+show_activation_menu() {
+    clear
+    print_banner
+    
+    echo -e "${YELLOW}${BOLD}⚡ ACTIVATION REQUIRED ⚡${NC}"
+    echo -e "${CYAN}┌──────────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│${NC} This script requires activation to use.                ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC} Choose an option below:                                ${CYAN}│${NC}"
+    echo -e "${CYAN}├──────────────────────────────────────────────────────┤${NC}"
+    echo -e "${CYAN}│${NC}  ${GREEN}[1]${NC} 🔑 Enter Activation Key                              ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${YELLOW}[2]${NC} ⏳ Get Trial Key (24 hours)                         ${CYAN}│${NC}"
+    echo -e "${CYAN}│${NC}  ${RED}[3]${NC} ❌ Exit                                              ${CYAN}│${NC}"
+    echo -e "${CYAN}└──────────────────────────────────────────────────────┘${NC}"
+    echo ""
+    echo -ne "${WHITE}${BOLD}Select option: ${NC}"
+    read -r act_option
+    
+    case $act_option in
+        1)
+            echo -ne "${WHITE}Enter Activation Key: ${NC}"
+            read -r input_key
+            # In v1.0, the activation key was "AMOKHAN-V1.0-ACTIVE"
+            if [ "$input_key" = "AMOKHAN-V1.0-ACTIVE" ] || [ "$input_key" = "AMOKHAN-V$SCRIPT_VERSION-ACTIVE" ]; then
+                date +%s > "$ACTIVATION_FILE"
+                echo -e "${GREEN}✓ Activation successful!${NC}"
+                sleep 2
+                return 0
+            else
+                echo -e "${RED}✗ Invalid activation key!${NC}"
+                sleep 2
+                show_activation_menu
+            fi
+            ;;
+        2)
+            echo -e "${YELLOW}Generating trial key...${NC}"
+            # Create trial that expires in 24 hours
+            trial_end=$(( $(date +%s) + 86400 ))
+            echo "$trial_end" > "$ACTIVATION_FILE"
+            echo -e "${GREEN}✓ Trial activated! Valid for 24 hours.${NC}"
+            echo -e "${YELLOW}Trial Key: AMOKHAN-TRIAL-$(date +%Y%m%d)${NC}"
+            sleep 3
+            return 0
+            ;;
+        3)
+            echo -e "${RED}Exiting...${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Invalid option!${NC}"
+            sleep 2
+            show_activation_menu
+            ;;
+    esac
+}
+
+# ============================================================================
 # INITIALIZATION (NEW FOR V1.5)
 # ============================================================================
 init_system() {
@@ -142,6 +210,23 @@ init_system() {
     
     # Create necessary directories
     mkdir -p /var/log/amokhan/users
+    
+    # Check activation
+    if ! check_activation; then
+        show_activation_menu
+    else
+        # Check if trial expired
+        if [ -f "$ACTIVATION_FILE" ]; then
+            expiry=$(cat "$ACTIVATION_FILE")
+            current=$(date +%s)
+            if [ $expiry -lt $current ] && [ $expiry -ne 0 ]; then
+                rm -f "$ACTIVATION_FILE"
+                echo -e "${RED}Trial expired! Please activate again.${NC}"
+                sleep 2
+                show_activation_menu
+            fi
+        fi
+    fi
     
     # Setup bandwidth monitoring if not already running
     if ! systemctl is-active --quiet amokhan-monitor 2>/dev/null; then
@@ -284,11 +369,15 @@ create_ssh_user() {
     
     if id "$username" &>/dev/null; then
         echo -e "${RED}✗ User $username already exists!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
     if grep -q "^$username|" $DB_FILE; then
         echo -e "${RED}✗ Username $username already in database!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -301,6 +390,8 @@ create_ssh_user() {
     
     if [ "$password" != "$password2" ]; then
         echo -e "${RED}✗ Passwords do not match!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -308,6 +399,8 @@ create_ssh_user() {
     read expiry_days
     if ! [[ "$expiry_days" =~ ^[0-9]+$ ]]; then
         echo -e "${RED}✗ Invalid number!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     expiry_date=$(date -d "+$expiry_days days" +%Y-%m-%d)
@@ -316,6 +409,8 @@ create_ssh_user() {
     read bandwidth_limit
     if ! [[ "$bandwidth_limit" =~ ^[0-9]+$ ]]; then
         echo -e "${RED}✗ Invalid number!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -323,31 +418,61 @@ create_ssh_user() {
     read max_logins
     if ! [[ "$max_logins" =~ ^[0-9]+$ ]]; then
         echo -e "${RED}✗ Invalid number!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
+    # Create system user
     useradd -m -s /bin/false "$username"
     echo "$username:$password" | chpasswd
     chage -E "$expiry_date" "$username"
     
+    # Setup iptables monitoring
     iptables -N "$username" 2>/dev/null
     iptables -I OUTPUT -m owner --uid-owner "$username" -j "$username" 2>/dev/null
     iptables -I INPUT -m owner --uid-owner "$username" -j "$username" 2>/dev/null
     iptables -A "$username" -j RETURN 2>/dev/null
     
+    # Add to database
     created_date=$(date +%Y-%m-%d)
     echo "$username|$password|$expiry_date|$created_date|$bandwidth_limit|0|$created_date|ACTIVE|$max_logins|0||" >> $DB_FILE
     
     mkdir -p /var/log/amokhan/users/$username
     
     echo -e "\n${GREEN}✓ User $username created successfully!${NC}"
-    echo -e "\n${CYAN}┌────────────────────────────────────────┐${NC}"
+    
+    # SHOW USER DETAILS WITH PUBLIC KEY (RESTORED FROM V1.0)
+    echo -e "\n${CYAN}┌──────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│${NC} ${WHITE}${BOLD}USER ACCOUNT DETAILS${NC}                           ${CYAN}│${NC}"
+    echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
     echo -e "${CYAN}│${NC} Username:     ${GREEN}$username${NC}"
     echo -e "${CYAN}│${NC} Password:     ${GREEN}$password${NC}"
-    echo -e "${CYAN}│${NC} Expiry:       ${YELLOW}$expiry_date${NC}"
+    echo -e "${CYAN}│${NC} Expiry Date:  ${YELLOW}$expiry_date${NC}"
     echo -e "${CYAN}│${NC} Bandwidth:    ${YELLOW}$([ "$bandwidth_limit" = "0" ] && echo "Unlimited" || echo "$bandwidth_limit MB")${NC}"
     echo -e "${CYAN}│${NC} Max Logins:   ${YELLOW}$([ "$max_logins" = "0" ] && echo "Unlimited" || echo "$max_logins")${NC}"
-    echo -e "${CYAN}└────────────────────────────────────────┘${NC}"
+    echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
+    
+    # SHOW PUBLIC KEY (RESTORED FROM V1.0)
+    if [ -f /etc/slowdns/server.pub ]; then
+        echo -e "${CYAN}│${NC} ${WHITE}${BOLD}PUBLIC KEY (for client):${NC}                     ${CYAN}│${NC}"
+        echo -e "${CYAN}│${NC} ${YELLOW}$(cat /etc/slowdns/server.pub)${NC}  ${CYAN}│${NC}"
+    else
+        echo -e "${CYAN}│${NC} ${YELLOW}Public key not found. Install SlowDNS first.${NC}     ${CYAN}│${NC}"
+    fi
+    echo -e "${CYAN}└──────────────────────────────────────────────────┘${NC}"
+    
+    # SHOW CONNECTION INFO (RESTORED FROM V1.0)
+    SERVER_IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
+    echo -e "\n${CYAN}┌──────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│${NC} ${WHITE}${BOLD}CONNECTION INFORMATION${NC}                           ${CYAN}│${NC}"
+    echo -e "${CYAN}├──────────────────────────────────────────────────┤${NC}"
+    echo -e "${CYAN}│${NC} Server IP:    ${GREEN}$SERVER_IP${NC}"
+    echo -e "${CYAN}│${NC} SSH Port:     ${GREEN}$SSHD_PORT${NC}"
+    echo -e "${CYAN}│${NC} SlowDNS Port: ${GREEN}$SLOWDNS_PORT${NC}"
+    echo -e "${CYAN}│${NC} Dropbear:     ${GREEN}$DROPBEAR_PORT${NC}"
+    echo -e "${CYAN}│${NC} Squid Proxy:  ${GREEN}$SQUID_PORT${NC}"
+    echo -e "${CYAN}└──────────────────────────────────────────────────┘${NC}"
     
     echo "$(date): Created user $username" >> $LOG_FILE
     
@@ -452,6 +577,8 @@ renew_user_account() {
     
     if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt $count ]; then
         echo -e "${RED}Invalid selection!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -466,6 +593,8 @@ renew_user_account() {
     
     if ! [[ "$add_days" =~ ^[0-9]+$ ]]; then
         echo -e "${RED}Invalid number!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -528,6 +657,8 @@ set_bandwidth_limit() {
     
     if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt $count ]; then
         echo -e "${RED}Invalid selection!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -538,6 +669,8 @@ set_bandwidth_limit() {
     
     if ! [[ "$new_limit" =~ ^[0-9]+$ ]]; then
         echo -e "${RED}Invalid number!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -585,6 +718,8 @@ monitor_user_bandwidth() {
     
     if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt $count ]; then
         echo -e "${RED}Invalid selection!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -651,6 +786,8 @@ delete_ssh_user() {
     
     if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt $count ]; then
         echo -e "${RED}Invalid selection!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -662,6 +799,8 @@ delete_ssh_user() {
     
     if [ "$confirm" != "YES" ]; then
         echo -e "${GREEN}Deletion cancelled${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
         return
     fi
     
@@ -691,7 +830,7 @@ delete_ssh_user() {
 }
 
 # ============================================================================
-# COMPLETE UNINSTALLATION (NEW FOR V1.5 - REQUEST #1 & #7)
+# COMPLETE UNINSTALLATION (NEW FOR V1.5)
 # ============================================================================
 complete_uninstall() {
     clear
@@ -796,6 +935,7 @@ complete_uninstall() {
 
 # Original SlowDNS Installation Function
 install_slowdns() {
+    clear
     print_banner
     
     echo -e "${WHITE}${BOLD}Enter nameserver configuration:${NC}"
@@ -935,7 +1075,6 @@ EOF
         echo -e "\r  ${GREEN}Compiler installed${NC}"
     fi
     
-    # EDNS Proxy C code (simplified for space - same as original)
     cat > /tmp/edns.c << 'EOF'
 #include <stdio.h>
 #include <stdlib.h>
@@ -1211,6 +1350,138 @@ EOF
 }
 
 # ============================================================================
+# BACKUP AND RESTORE FUNCTIONS
+# ============================================================================
+backup_system() {
+    clear
+    print_header "💾 BACKUP SYSTEM"
+    
+    local backup_name="amokhan-backup-$(date +%Y%m%d-%H%M%S)"
+    local backup_path="$BACKUP_DIR/$backup_name"
+    
+    mkdir -p $backup_path
+    
+    echo -e "${CYAN}Creating backup...${NC}"
+    
+    cp $DB_FILE $backup_path/ 2>/dev/null
+    cp $BANDWIDTH_DB $backup_path/ 2>/dev/null
+    cp -r $CONFIG_DIR/*.conf $backup_path/ 2>/dev/null
+    
+    cd $BACKUP_DIR
+    tar -czf "$backup_name.tar.gz" "$backup_name" 2>/dev/null
+    rm -rf $backup_path
+    
+    echo -e "${GREEN}✓ Backup created: $BACKUP_DIR/$backup_name.tar.gz${NC}"
+    echo -e "${YELLOW}Size: $(du -h $BACKUP_DIR/$backup_name.tar.gz | cut -f1)${NC}"
+    
+    echo -e "\nPress Enter to continue..."
+    read
+}
+
+restore_backup() {
+    clear
+    print_header "🔄 RESTORE BACKUP"
+    
+    local backups=($(ls $BACKUP_DIR/*.tar.gz 2>/dev/null))
+    
+    if [ ${#backups[@]} -eq 0 ]; then
+        echo -e "${YELLOW}No backups found${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
+        return
+    fi
+    
+    echo -e "${YELLOW}Available backups:${NC}"
+    for i in "${!backups[@]}"; do
+        echo -e "  ${CYAN}$((i+1)).${NC} $(basename "${backups[$i]}")"
+    done
+    
+    echo
+    echo -ne "${WHITE}Select backup to restore (0 to cancel): ${NC}"
+    read selection
+    
+    if [ "$selection" = "0" ]; then
+        return
+    fi
+    
+    if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt ${#backups[@]} ]; then
+        echo -e "${RED}Invalid selection!${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
+        return
+    fi
+    
+    local selected_backup="${backups[$((selection-1))]}"
+    
+    echo -e "\n${RED}WARNING: Restore will overwrite current data!${NC}"
+    echo -ne "${WHITE}Type 'RESTORE' to confirm: ${NC}"
+    read confirm
+    
+    if [ "$confirm" != "RESTORE" ]; then
+        echo -e "${GREEN}Restore cancelled${NC}"
+        echo -e "\nPress Enter to continue..."
+        read
+        return
+    fi
+    
+    cd $BACKUP_DIR
+    tar -xzf "$selected_backup"
+    local extract_dir="${selected_backup%.tar.gz}"
+    
+    cp "$extract_dir/users.db" $DB_FILE 2>/dev/null
+    cp "$extract_dir/bandwidth.db" $BANDWIDTH_DB 2>/dev/null
+    
+    rm -rf "$extract_dir"
+    
+    echo -e "${GREEN}✓ Backup restored successfully${NC}"
+    
+    echo -e "\nPress Enter to continue..."
+    read
+}
+
+show_stats() {
+    clear
+    print_header "📊 SYSTEM STATISTICS"
+    
+    local total_users=$(tail -n +2 $DB_FILE | wc -l)
+    local active_users=$(grep "|ACTIVE|" $DB_FILE | wc -l)
+    local expired_users=$(grep "|EXPIRED|" $DB_FILE | wc -l)
+    local limited_users=$(awk -F'|' '$5 != "0" && $5 != "unlimited" {count++} END{print count}' $DB_FILE)
+    
+    local total_bandwidth=$(awk -F'|' '{sum+=$6} END{printf "%.2f", sum/1024}' $DB_FILE 2>/dev/null || echo "0")
+    local avg_bandwidth=$(echo "scale=2; $total_bandwidth / $total_users" | bc 2>/dev/null || echo "0")
+    
+    local load=$(uptime | awk -F'load average:' '{print $2}')
+    local uptime=$(uptime -p | sed 's/up //')
+    local mem_total=$(free -m | awk '/^Mem:/{print $2}')
+    local mem_used=$(free -m | awk '/^Mem:/{print $3}')
+    local mem_percent=$((mem_used * 100 / mem_total))
+    
+    echo -e "${CYAN}┌──────────────────────────────────────────────────────────┐${NC}"
+    echo -e "${CYAN}│${NC} ${WHITE}${BOLD}SERVER STATISTICS${NC}                                   ${CYAN}│${NC}"
+    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
+    printf "${CYAN}│${NC} Uptime:        ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$uptime"
+    printf "${CYAN}│${NC} Load Average:  ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$load"
+    printf "${CYAN}│${NC} Memory Usage:  ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$mem_used MB / $mem_total MB ($mem_percent%)"
+    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
+    echo -e "${CYAN}│${NC} ${WHITE}${BOLD}USER STATISTICS${NC}                                     ${CYAN}│${NC}"
+    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
+    printf "${CYAN}│${NC} Total Users:   ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$total_users"
+    printf "${CYAN}│${NC} Active Users:  ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$active_users"
+    printf "${CYAN}│${NC} Expired Users: ${YELLOW}%-35s${NC} ${CYAN}│${NC}\n" "$expired_users"
+    printf "${CYAN}│${NC} Limited Users: ${CYAN}%-35s${NC} ${CYAN}│${NC}\n" "$limited_users"
+    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
+    echo -e "${CYAN}│${NC} ${WHITE}${BOLD}BANDWIDTH STATISTICS${NC}                               ${CYAN}│${NC}"
+    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
+    printf "${CYAN}│${NC} Total Used:    ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$total_bandwidth GB"
+    printf "${CYAN}│${NC} Average/User:  ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$avg_bandwidth GB"
+    echo -e "${CYAN}└──────────────────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\nPress Enter to continue..."
+    read
+}
+
+# ============================================================================
 # MAIN MENU - PRESERVING ALL V1.0 OPTIONS + ADDING NEW V1.5 FEATURES
 # ============================================================================
 show_main_menu() {
@@ -1223,6 +1494,15 @@ show_main_menu() {
     
     echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
     echo -e "${WHITE}⚡ ACTIVATION KEY:${NC} ${YELLOW}AMOKHAN-V$SCRIPT_VERSION-ACTIVE${NC}"
+    if [ -f "$ACTIVATION_FILE" ]; then
+        expiry=$(cat "$ACTIVATION_FILE")
+        if [ $expiry -eq 0 ]; then
+            echo -e "${WHITE}📌 LICENSE:${NC} ${GREEN}Lifetime${NC}"
+        else
+            days_left=$(( ($expiry - $(date +%s)) / 86400 ))
+            echo -e "${WHITE}📌 LICENSE:${NC} ${YELLOW}Trial ($days_left days left)${NC}"
+        fi
+    fi
     echo -e "${WHITE}📌 SERVER:${NC} $SERVER_IP | ${WHITE}USERS:${NC} $ACTIVE_USERS/$TOTAL_USERS"
     echo -e "${GREEN}══════════════════════════════════════════════════════════${NC}"
     echo ""
@@ -1290,134 +1570,6 @@ show_main_menu() {
             sleep 2
             ;;
     esac
-}
-
-# ============================================================================
-# NEW V1.5 FUNCTIONS (Backup, Restore, Stats)
-# ============================================================================
-backup_system() {
-    clear
-    print_header "💾 BACKUP SYSTEM"
-    
-    local backup_name="amokhan-backup-$(date +%Y%m%d-%H%M%S)"
-    local backup_path="$BACKUP_DIR/$backup_name"
-    
-    mkdir -p $backup_path
-    
-    echo -e "${CYAN}Creating backup...${NC}"
-    
-    cp $DB_FILE $backup_path/ 2>/dev/null
-    cp $BANDWIDTH_DB $backup_path/ 2>/dev/null
-    cp -r $CONFIG_DIR/*.conf $backup_path/ 2>/dev/null
-    
-    cd $BACKUP_DIR
-    tar -czf "$backup_name.tar.gz" "$backup_name" 2>/dev/null
-    rm -rf $backup_path
-    
-    echo -e "${GREEN}✓ Backup created: $BACKUP_DIR/$backup_name.tar.gz${NC}"
-    echo -e "${YELLOW}Size: $(du -h $BACKUP_DIR/$backup_name.tar.gz | cut -f1)${NC}"
-    
-    echo -e "\nPress Enter to continue..."
-    read
-}
-
-restore_backup() {
-    clear
-    print_header "🔄 RESTORE BACKUP"
-    
-    local backups=($(ls $BACKUP_DIR/*.tar.gz 2>/dev/null))
-    
-    if [ ${#backups[@]} -eq 0 ]; then
-        echo -e "${YELLOW}No backups found${NC}"
-        echo -e "\nPress Enter to continue..."
-        read
-        return
-    fi
-    
-    echo -e "${YELLOW}Available backups:${NC}"
-    for i in "${!backups[@]}"; do
-        echo -e "  ${CYAN}$((i+1)).${NC} $(basename "${backups[$i]}")"
-    done
-    
-    echo
-    echo -ne "${WHITE}Select backup to restore (0 to cancel): ${NC}"
-    read selection
-    
-    if [ "$selection" = "0" ]; then
-        return
-    fi
-    
-    if ! [[ "$selection" =~ ^[0-9]+$ ]] || [ "$selection" -lt 1 ] || [ "$selection" -gt ${#backups[@]} ]; then
-        echo -e "${RED}Invalid selection!${NC}"
-        return
-    fi
-    
-    local selected_backup="${backups[$((selection-1))]}"
-    
-    echo -e "\n${RED}WARNING: Restore will overwrite current data!${NC}"
-    echo -ne "${WHITE}Type 'RESTORE' to confirm: ${NC}"
-    read confirm
-    
-    if [ "$confirm" != "RESTORE" ]; then
-        echo -e "${GREEN}Restore cancelled${NC}"
-        return
-    fi
-    
-    cd $BACKUP_DIR
-    tar -xzf "$selected_backup"
-    local extract_dir="${selected_backup%.tar.gz}"
-    
-    cp "$extract_dir/users.db" $DB_FILE 2>/dev/null
-    cp "$extract_dir/bandwidth.db" $BANDWIDTH_DB 2>/dev/null
-    
-    rm -rf "$extract_dir"
-    
-    echo -e "${GREEN}✓ Backup restored successfully${NC}"
-    
-    echo -e "\nPress Enter to continue..."
-    read
-}
-
-show_stats() {
-    clear
-    print_header "📊 SYSTEM STATISTICS"
-    
-    local total_users=$(tail -n +2 $DB_FILE | wc -l)
-    local active_users=$(grep "|ACTIVE|" $DB_FILE | wc -l)
-    local expired_users=$(grep "|EXPIRED|" $DB_FILE | wc -l)
-    local limited_users=$(awk -F'|' '$5 != "0" && $5 != "unlimited" {count++} END{print count}' $DB_FILE)
-    
-    local total_bandwidth=$(awk -F'|' '{sum+=$6} END{printf "%.2f", sum/1024}' $DB_FILE 2>/dev/null || echo "0")
-    local avg_bandwidth=$(echo "scale=2; $total_bandwidth / $total_users" | bc 2>/dev/null || echo "0")
-    
-    local load=$(uptime | awk -F'load average:' '{print $2}')
-    local uptime=$(uptime -p | sed 's/up //')
-    local mem_total=$(free -m | awk '/^Mem:/{print $2}')
-    local mem_used=$(free -m | awk '/^Mem:/{print $3}')
-    local mem_percent=$((mem_used * 100 / mem_total))
-    
-    echo -e "${CYAN}┌──────────────────────────────────────────────────────────┐${NC}"
-    echo -e "${CYAN}│${NC} ${WHITE}${BOLD}SERVER STATISTICS${NC}                                   ${CYAN}│${NC}"
-    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} Uptime:        ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$uptime"
-    printf "${CYAN}│${NC} Load Average:  ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$load"
-    printf "${CYAN}│${NC} Memory Usage:  ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$mem_used MB / $mem_total MB ($mem_percent%)"
-    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${CYAN}│${NC} ${WHITE}${BOLD}USER STATISTICS${NC}                                     ${CYAN}│${NC}"
-    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} Total Users:   ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$total_users"
-    printf "${CYAN}│${NC} Active Users:  ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$active_users"
-    printf "${CYAN}│${NC} Expired Users: ${YELLOW}%-35s${NC} ${CYAN}│${NC}\n" "$expired_users"
-    printf "${CYAN}│${NC} Limited Users: ${CYAN}%-35s${NC} ${CYAN}│${NC}\n" "$limited_users"
-    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
-    echo -e "${CYAN}│${NC} ${WHITE}${BOLD}BANDWIDTH STATISTICS${NC}                               ${CYAN}│${NC}"
-    echo -e "${CYAN}├──────────────────────────────────────────────────────────┤${NC}"
-    printf "${CYAN}│${NC} Total Used:    ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$total_bandwidth GB"
-    printf "${CYAN}│${NC} Average/User:  ${GREEN}%-35s${NC} ${CYAN}│${NC}\n" "$avg_bandwidth GB"
-    echo -e "${CYAN}└──────────────────────────────────────────────────────────┘${NC}"
-    
-    echo -e "\nPress Enter to continue..."
-    read
 }
 
 # ============================================================================
