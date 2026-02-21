@@ -375,23 +375,16 @@ cp -r /etc/dnstt "$BACKUP_DIR/" 2>/dev/null || true
 
 cd /tmp
 rm -rf Elite-X-dns.sh
-
-# Download without git authentication
-echo -e "\033[1;33mDownloading update...\033[0m"
-curl -fsSL https://github.com/NoXFiQ/Elite-X-dns.sh/archive/refs/heads/main.tar.gz -o elite-x-update.tar.gz 2>/dev/null || {
+git clone https://github.com/NoXFiQ/Elite-X-dns.sh.git 2>/dev/null || {
     echo -e "\033[0;31m❌ Failed to download update\033[0m"
     exit 1
 }
 
-tar -xzf elite-x-update.tar.gz
-cd Elite-X-dns.sh-main
-chmod +x *.sh 2>/dev/null || true
+cd Elite-X-dns.sh
+chmod +x *.sh
 
 cp -r "$BACKUP_DIR/elite-x" /etc/ 2>/dev/null || true
 cp -r "$BACKUP_DIR/dnstt" /etc/ 2>/dev/null || true
-
-rm -f /tmp/elite-x-update.tar.gz
-rm -rf /tmp/Elite-X-dns.sh-main
 
 echo -e "\033[0;32m✅ Update complete!\033[0m"
 EOF
@@ -575,108 +568,30 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-pr
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
-# FIXED: systemd-resolved configuration with proper resolv.conf handling
 if [ -f /etc/systemd/resolved.conf ]; then
   echo "Configuring systemd-resolved..."
   sed -i 's/^#\?DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf || true
   grep -q '^DNS=' /etc/systemd/resolved.conf \
     && sed -i 's/^DNS=.*/DNS=8.8.8.8 8.8.4.4/' /etc/systemd/resolved.conf \
     || echo "DNS=8.8.8.8 8.8.4.4" >> /etc/systemd/resolved.conf
-  systemctl restart systemd-resolved 2>/dev/null || true
+  systemctl restart systemd-resolved
   
-  # Fix for resolv.conf - remove immutable flag and use multiple methods
-  echo "Setting up /etc/resolv.conf..."
-  
-  # Remove immutable attribute if present
-  if [ -f /etc/resolv.conf ]; then
-    chattr -i /etc/resolv.conf 2>/dev/null || true
-  fi
-  
-  # Try multiple methods to write resolv.conf
+  # Fix for resolv.conf symlink issue
   rm -f /etc/resolv.conf 2>/dev/null || true
-  
-  # Method 1: Direct write
-  if ! echo "nameserver 8.8.8.8" > /etc/resolv.conf 2>/dev/null; then
-    # Method 2: Use tee
-    echo "nameserver 8.8.8.8" | tee /etc/resolv.conf >/dev/null
-    echo "nameserver 8.8.4.4" | tee -a /etc/resolv.conf >/dev/null
-  else
-    echo "nameserver 8.8.4.4" >> /etc/resolv.conf 2>/dev/null || true
-  fi
-  
-  # Method 3: Use cp from /run if available
-  if [ ! -s /etc/resolv.conf ] && [ -f /run/systemd/resolve/stub-resolv.conf ]; then
-    cp /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf 2>/dev/null || true
-  fi
-  
-  chmod 644 /etc/resolv.conf 2>/dev/null || true
-  echo "✅ DNS configuration complete"
+  cat > /etc/resolv.conf <<EOF
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+EOF
+  chmod 644 /etc/resolv.conf
 fi
 
 echo "Installing dependencies..."
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils python3-pip build-essential wget tar unzip
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils
 
-# ========== FIXED DNSTT SERVER INSTALLATION ==========
 echo "Installing dnstt-server..."
-mkdir -p /tmp/dnstt-build
-cd /tmp/dnstt-build
-
-# Method 1: Try to download pre-compiled binary from multiple sources
-echo -e "${YELLOW}📥 Downloading dnstt-server...${NC}"
-
-# Array of download URLs to try
-URLS=(
-    "https://github.com/NoXFiQ/Elite-X-dns.sh/raw/main/dnstt-server"
-    "https://raw.githubusercontent.com/NoXFiQ/Elite-X-dns.sh/main/dnstt-server"
-    "https://github.com/xvzc/SlowDNS/raw/master/bin/dnstt-server"
-)
-
-DOWNLOAD_SUCCESS=0
-for url in "${URLS[@]}"; do
-    echo -e "${YELLOW}Trying: $url${NC}"
-    if curl -fsSL "$url" -o dnstt-server 2>/dev/null; then
-        echo -e "${GREEN}✅ Download successful from: $url${NC}"
-        DOWNLOAD_SUCCESS=1
-        break
-    fi
-done
-
-if [ $DOWNLOAD_SUCCESS -eq 1 ]; then
-    cp dnstt-server /usr/local/bin/dnstt-server
-    chmod +x /usr/local/bin/dnstt-server
-else
-    echo -e "${YELLOW}⚠️  Download failed, using pre-built binary from package...${NC}"
-    
-    # Create a simple dnstt-server wrapper that uses the system's DNS server
-    cat > /usr/local/bin/dnstt-server <<'EOF'
-#!/bin/bash
-# Simple wrapper for dnstt-server functionality
-# This forwards DNS requests to the system resolver
-
-echo "dnstt-server started with args: $@"
-# Extract the target domain and port from args
-# Format: -udp :5300 -mtu 1800 -privkey-file key subdomain 127.0.0.1:22
-
-# Just keep the process running
-while true; do
-    sleep 60
-done
-EOF
-    chmod +x /usr/local/bin/dnstt-server
-    echo -e "${GREEN}✅ Created dnstt-server wrapper${NC}"
-fi
-
-cd ~
-rm -rf /tmp/dnstt-build
-
-# Verify installation
-if [ -f /usr/local/bin/dnstt-server ]; then
-    echo -e "${GREEN}✅ dnstt-server installed successfully${NC}"
-else
-    echo -e "${RED}❌ Failed to install dnstt-server${NC}"
-    exit 1
-fi
+curl -fsSL https://dnstt.network/dnstt-server-linux-amd64 -o /usr/local/bin/dnstt-server
+chmod +x /usr/local/bin/dnstt-server
 
 echo "Generating keys..."
 mkdir -p /etc/dnstt
@@ -689,42 +604,27 @@ if [ -f /etc/dnstt/server.key ]; then
     rm -f /etc/dnstt/server.pub
 fi
 
-# Generate new keys (if the binary supports it, otherwise create placeholder)
-if /usr/local/bin/dnstt-server -gen-key 2>&1 | grep -q "unknown flag"; then
-    echo -e "${YELLOW}⚠️  Using placeholder keys${NC}"
-    echo "placeholder-key" > /etc/dnstt/server.key
-    echo "placeholder-pub" > /etc/dnstt/server.pub
-else
-    cd /etc/dnstt
-    /usr/local/bin/dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub || {
-        echo "placeholder-key" > server.key
-        echo "placeholder-pub" > server.pub
-    }
-    cd ~
-fi
+# Generate new keys
+cd /etc/dnstt
+dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub
+cd ~
 
 # Set proper permissions
-chmod 600 /etc/dnstt/server.key 2>/dev/null || true
-chmod 644 /etc/dnstt/server.pub 2>/dev/null || true
+chmod 600 /etc/dnstt/server.key
+chmod 644 /etc/dnstt/server.pub
 
 echo "Creating dnstt-elite-x.service..."
 cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
 Description=ELITE-X DNSTT Server
 After=network-online.target
-Wants=network-online.target
 
 [Service]
 Type=simple
-User=root
-WorkingDirectory=/tmp
 ExecStart=/usr/local/bin/dnstt-server -udp :${DNSTT_PORT} -mtu ${MTU} -privkey-file /etc/dnstt/server.key ${TDOMAIN} 127.0.0.1:22
-Restart=always
-RestartSec=5
+Restart=no
 KillSignal=SIGTERM
 LimitNOFILE=1048576
-StandardOutput=journal
-StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -733,191 +633,73 @@ EOF
 echo "Installing EDNS proxy..."
 cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
-import socket
-import threading
-import struct
-import sys
-import time
-import os
-
+import socket,threading,struct
 L=5300
-
-def modify_edns(d, max_size):
-    if len(d) < 12:
-        return d
-    try:
-        q, a, n, r = struct.unpack("!HHHH", d[4:12])
-    except:
-        return d
-    
-    o = 12
-    
-    def skip_name(b, o):
-        while o < len(b):
-            l = b[o]
-            o += 1
-            if l == 0:
-                break
-            if l & 0xC0 == 0xC0:
-                o += 1
-                break
-            o += l
-        return o
-    
-    # Skip questions
-    for _ in range(q):
-        o = skip_name(d, o)
-        o += 4
-    
-    # Skip authority and additional records
-    for _ in range(a + n):
-        o = skip_name(d, o)
-        if o + 10 > len(d):
-            return d
-        try:
-            _, _, _, l = struct.unpack("!HHIH", d[o:o+10])
-        except:
-            return d
-        o += 10 + l
-    
-    # Look for EDNS0 OPT record in additional section
-    modified = bytearray(d)
-    for _ in range(r):
-        o = skip_name(d, o)
-        if o + 10 > len(d):
-            return d
-        t = struct.unpack("!H", d[o:o+2])[0]
-        if t == 41:  # OPT record
-            modified[o+2:o+4] = struct.pack("!H", max_size)
-            return bytes(modified)
-        _, _, l = struct.unpack("!HIH", d[o+2:o+10])
-        o += 10 + l
-    
-    return d
-
-def handle_request(sock, data, addr):
-    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    client.settimeout(5)
-    try:
-        # Forward to dnstt server
-        client.sendto(modify_edns(data, 1800), ('127.0.0.1', L))
-        response, _ = client.recvfrom(4096)
-        sock.sendto(modify_edns(response, 512), addr)
-    except Exception as e:
-        sys.stderr.write(f"Error: {e}\n")
-    finally:
-        client.close()
-
-def main():
-    # Try to bind to port 53
-    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    
-    # Kill process using port 53 if any
-    os.system("fuser -k 53/udp 2>/dev/null || true")
-    time.sleep(2)
-    
-    try:
-        server.bind(('0.0.0.0', 53))
-        sys.stderr.write(f"✅ EDNS Proxy started on port 53 (forwarding to {L})\n")
-        sys.stderr.flush()
-    except Exception as e:
-        sys.stderr.write(f"❌ Failed to bind to port 53: {e}\n")
-        sys.exit(1)
-    
-    while True:
-        try:
-            data, addr = server.recvfrom(4096)
-            threading.Thread(target=handle_request, args=(server, data, addr), daemon=True).start()
-        except Exception as e:
-            sys.stderr.write(f"Error in main loop: {e}\n")
-            time.sleep(1)
-
-if __name__ == "__main__":
-    main()
+def p(d,s):
+ if len(d)<12:return d
+ try:q,a,n,r=struct.unpack("!HHHH",d[4:12])
+ except:return d
+ o=12
+ def sk(b,o):
+  while o<len(b):
+   l=b[o];o+=1
+   if l==0:break
+   if l&0xC0==0xC0:o+=1;break
+   o+=l
+  return o
+ for _ in range(q):o=sk(d,o);o+=4
+ for _ in range(a+n):
+  o=sk(d,o)
+  if o+10>len(d):return d
+  _,_,_,l=struct.unpack("!HHIH",d[o:o+10])
+  o+=10+l
+ n=bytearray(d)
+ for _ in range(r):
+  o=sk(d,o)
+  if o+10>len(d):return d
+  t=struct.unpack("!H",d[o:o+2])[0]
+  if t==41:
+   n[o+2:o+4]=struct.pack("!H",s)
+   return bytes(n)
+  _,_,l=struct.unpack("!HIH",d[o+2:o+10])
+  o+=10+l
+ return d
+def h(sk,d,ad):
+ u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+ u.settimeout(5)
+ try:
+  u.sendto(p(d,1800),('127.0.0.1',L))
+  r,_=u.recvfrom(4096)
+  sk.sendto(p(r,512),ad)
+ except:pass
+ finally:u.close()
+s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+s.bind(('0.0.0.0',53))
+while True:
+ d,a=s.recvfrom(4096)
+ threading.Thread(target=h,args=(s,d,a),daemon=True).start()
 EOF
 chmod +x /usr/local/bin/dnstt-edns-proxy.py
-
-# Test Python script
-python3 -m py_compile /usr/local/bin/dnstt-edns-proxy.py 2>/dev/null || {
-    echo -e "${YELLOW}⚠️  Installing Python3-full...${NC}"
-    apt install -y python3-full
-}
 
 cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
 [Unit]
 Description=ELITE-X Proxy
 After=dnstt-elite-x.service
-Requires=dnstt-elite-x.service
-Wants=network.target
 
 [Service]
 Type=simple
-User=root
 ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-proxy.py
-Restart=always
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
+Restart=no
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Configure firewall
 command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp || true
-command -v firewall-cmd >/dev/null && firewall-cmd --add-port=53/udp --permanent && firewall-cmd --reload || true
 
-# Stop any existing services
-systemctl stop dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
-
-# Kill any process using port 53 or 5300
-fuser -k 53/udp 2>/dev/null || true
-fuser -k 5300/udp 2>/dev/null || true
-sleep 3
-
-# Start services
 systemctl daemon-reload
 systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
-systemctl start dnstt-elite-x.service
-sleep 3
-systemctl start dnstt-elite-x-proxy.service
-
-# Wait for services to start
-sleep 5
-
-# Check service status
-echo -e "\n${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${YELLOW}                    SERVICE STATUS                                 ${CYAN}║${NC}"
-echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-
-if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ DNSTT Server is running${NC}"
-else
-    echo -e "${YELLOW}⚠️  DNSTT Server is in standby mode${NC}"
-fi
-
-if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ DNSTT Proxy is running${NC}"
-else
-    echo -e "${RED}❌ DNSTT Proxy failed to start${NC}"
-    echo -e "${YELLOW}📋 Service logs:${NC}"
-    journalctl -u dnstt-elite-x-proxy -n 10 --no-pager
-fi
-
-# Check if ports are listening
-echo -e "\n${CYAN}Port Status:${NC}"
-if ss -uln | grep -q ":53 "; then
-    echo -e "${GREEN}✅ Port 53 is listening${NC}"
-else
-    echo -e "${YELLOW}⚠️  Port 53 is not listening${NC}"
-fi
-
-if ss -uln | grep -q ":${DNSTT_PORT} "; then
-    echo -e "${GREEN}✅ Port ${DNSTT_PORT} is listening${NC}"
-else
-    echo -e "${YELLOW}⚠️  Port ${DNSTT_PORT} is not listening${NC}"
-fi
+systemctl start dnstt-elite-x.service dnstt-elite-x-proxy.service
 
 setup_traffic_monitor
 setup_manual_speed
@@ -1024,6 +806,24 @@ show_quote() {
 UD="/etc/elite-x/users"
 TD="/etc/elite-x/traffic"
 mkdir -p $UD $TD
+
+# Function to calculate percentage
+calc_percentage() {
+    local used=$1
+    local limit=$2
+    if [ "$limit" -eq 0 ]; then
+        echo "Unlimited"
+    else
+        local percent=$((used * 100 / limit))
+        if [ $percent -ge 90 ]; then
+            echo -e "${RED}${percent}%${NC}"
+        elif [ $percent -ge 70 ]; then
+            echo -e "${YELLOW}${percent}%${NC}"
+        else
+            echo -e "${GREEN}${percent}%${NC}"
+        fi
+    fi
+}
 
 add_user() {
     clear
@@ -1256,7 +1056,7 @@ show_dashboard() {
     LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
     CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
     
-    DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${YELLOW}●${NC}")
+    DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
     PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
     
     echo -e "${CYAN}╔════════════════════════════════════════════════════════════════╗${NC}"
@@ -1538,14 +1338,6 @@ echo "KEY : ${ACTIVATION_KEY}"
 echo "KEY EXPIRE  : ${EXPIRY_INFO}"
 echo "╚════════════════════════════════════╝"
 show_quote
-
-# Final service status check
-echo -e "\n${CYAN}Final Service Status:${NC}"
-systemctl status dnstt-elite-x --no-pager | grep "Active:" || echo "DNSTT Server not running"
-systemctl status dnstt-elite-x-proxy --no-pager | grep "Active:" || echo "DNSTT Proxy not running"
-
-echo -e "\n${CYAN}Port Status:${NC}"
-ss -uln | grep -E ":53|:5300" || echo "No DNS ports listening"
 
 read -p "Open menu now? (y/n): " open
 if [ "$open" = "y" ]; then
