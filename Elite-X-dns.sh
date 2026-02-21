@@ -83,15 +83,51 @@ check_expiry() {
                 echo -e "${RED}║${WHITE}  Script will now uninstall itself...                         ${RED}║${NC}"
                 echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 sleep 3
-                      
+                
+                # Enhanced uninstall - remove everything
+                echo -e "${YELLOW}🔄 Removing all users and data...${NC}"
+                
+                # Remove all SSH users created by the script
+                if [ -d "/etc/elite-x/users" ]; then
+                    for user_file in /etc/elite-x/users/*; do
+                        if [ -f "$user_file" ]; then
+                            username=$(basename "$user_file")
+                            echo -e "  Removing user: $username"
+                            userdel -r "$username" 2>/dev/null || true
+                            pkill -u "$username" 2>/dev/null || true
+                        fi
+                    done
+                fi
+                
+                # Kill any remaining processes
+                pkill -f dnstt-server 2>/dev/null || true
+                pkill -f dnstt-edns-proxy 2>/dev/null || true
+                pkill -f elite-x-traffic 2>/dev/null || true
+                pkill -f elite-x-cleaner 2>/dev/null || true
+                
+                # Stop and disable services
                 systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+                
+                # Remove service files
                 rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+                
+                # Remove directories and files
                 rm -rf /etc/dnstt /etc/elite-x
                 rm -f /usr/local/bin/{dnstt-*,elite-x*}
+                
+                # Remove banner from sshd_config
                 sed -i '/^Banner/d' /etc/ssh/sshd_config
                 systemctl restart sshd
-
+                
+                # Remove profile and bashrc entries
+                rm -f /etc/profile.d/elite-x-dashboard.sh
+                sed -i '/elite-x/d' ~/.bashrc
+                sed -i '/ELITE_X_SHOWN/d' ~/.bashrc
+                
+                # Remove cron jobs
+                rm -f /etc/cron.hourly/elite-x-expiry
+                
                 rm -f "$0"
                 echo -e "${GREEN}✅ AMOKHAN-CYBER has been uninstalled.${NC}"
                 exit 0
@@ -339,16 +375,23 @@ cp -r /etc/dnstt "$BACKUP_DIR/" 2>/dev/null || true
 
 cd /tmp
 rm -rf Elite-X-dns.sh
-git clone https://github.com/NoXFiQ/Elite-X-dns.sh.git 2>/dev/null || {
+
+# Download without git authentication
+echo -e "\033[1;33mDownloading update...\033[0m"
+curl -fsSL https://github.com/NoXFiQ/Elite-X-dns.sh/archive/refs/heads/main.tar.gz -o elite-x-update.tar.gz 2>/dev/null || {
     echo -e "\033[0;31m❌ Failed to download update\033[0m"
     exit 1
 }
 
-cd Elite-X-dns.sh
-chmod +x *.sh
+tar -xzf elite-x-update.tar.gz
+cd Elite-X-dns.sh-main
+chmod +x *.sh 2>/dev/null || true
 
 cp -r "$BACKUP_DIR/elite-x" /etc/ 2>/dev/null || true
 cp -r "$BACKUP_DIR/dnstt" /etc/ 2>/dev/null || true
+
+rm -f /tmp/elite-x-update.tar.gz
+rm -rf /tmp/Elite-X-dns.sh-main
 
 echo -e "\033[0;32m✅ Update complete!\033[0m"
 EOF
@@ -455,6 +498,53 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+# Enhanced uninstall - remove everything before fresh installation
+echo -e "${YELLOW}🔄 Cleaning previous installation...${NC}"
+
+# Remove all SSH users created by the script
+if [ -d "/etc/elite-x/users" ]; then
+    for user_file in /etc/elite-x/users/*; do
+        if [ -f "$user_file" ]; then
+            username=$(basename "$user_file")
+            echo -e "  Removing old user: $username"
+            userdel -r "$username" 2>/dev/null || true
+            pkill -u "$username" 2>/dev/null || true
+        fi
+    done
+fi
+
+# Kill any remaining processes
+pkill -f dnstt-server 2>/dev/null || true
+pkill -f dnstt-edns-proxy 2>/dev/null || true
+pkill -f elite-x-traffic 2>/dev/null || true
+pkill -f elite-x-cleaner 2>/dev/null || true
+
+# Stop and disable services
+systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+
+# Remove service files
+rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+
+# Remove directories and files
+rm -rf /etc/dnstt /etc/elite-x
+rm -f /usr/local/bin/{dnstt-*,elite-x*}
+
+# Remove banner from sshd_config
+sed -i '/^Banner/d' /etc/ssh/sshd_config
+systemctl restart sshd
+
+# Remove profile and bashrc entries
+rm -f /etc/profile.d/elite-x-dashboard.sh
+sed -i '/elite-x/d' ~/.bashrc 2>/dev/null || true
+sed -i '/ELITE_X_SHOWN/d' ~/.bashrc 2>/dev/null || true
+
+# Remove cron jobs
+rm -f /etc/cron.hourly/elite-x-expiry
+
+echo -e "${GREEN}✅ Previous installation cleaned${NC}"
+sleep 2
+
 mkdir -p /etc/elite-x/{banner,users,traffic}
 echo "$TDOMAIN" > /etc/elite-x/subdomain
 
@@ -525,7 +615,7 @@ fi
 
 echo "Installing dependencies..."
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils python3-pip build-essential
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils python3-pip build-essential wget tar
 
 # ========== FIXED DNSTT SERVER INSTALLATION ==========
 echo "Installing dnstt-server..."
@@ -539,23 +629,34 @@ if curl -fsSL https://github.com/NoXFiQ/Elite-X-dns.sh/raw/main/dnstt-server -o 
     cp dnstt-server /usr/local/bin/dnstt-server
     chmod +x /usr/local/bin/dnstt-server
 else
-    echo -e "${YELLOW}⚠️  Download failed, building from source...${NC}"
-    
-    # Install Go if not present
-    if ! command -v go &> /dev/null; then
-        echo "Installing Go language..."
-        wget -q https://golang.org/dl/go1.20.5.linux-amd64.tar.gz
-        tar -C /usr/local -xzf go1.20.5.linux-amd64.tar.gz
-        export PATH=$PATH:/usr/local/go/bin
-        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+    echo -e "${YELLOW}⚠️  Download failed, trying alternative source...${NC}"
+    if curl -fsSL https://raw.githubusercontent.com/NoXFiQ/Elite-X-dns.sh/main/dnstt-server -o dnstt-server 2>/dev/null; then
+        echo -e "${GREEN}✅ Alternative download successful${NC}"
+        cp dnstt-server /usr/local/bin/dnstt-server
+        chmod +x /usr/local/bin/dnstt-server
+    else
+        echo -e "${YELLOW}⚠️  Download failed, building from source...${NC}"
+        
+        # Install Go if not present
+        if ! command -v go &> /dev/null; then
+            echo "Installing Go language..."
+            wget -q https://golang.org/dl/go1.20.5.linux-amd64.tar.gz
+            tar -C /usr/local -xzf go1.20.5.linux-amd64.tar.gz
+            export PATH=$PATH:/usr/local/go/bin
+            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+        fi
+        
+        # Download dnstt source without git authentication
+        echo -e "${YELLOW}📥 Downloading dnstt source...${NC}"
+        curl -fsSL https://github.com/NoXFiQ/dnstt/archive/refs/heads/main.tar.gz -o dnstt.tar.gz
+        tar -xzf dnstt.tar.gz
+        cd dnstt-main/server
+        
+        # Build dnstt
+        go build -o dnstt-server
+        cp dnstt-server /usr/local/bin/
+        chmod +x /usr/local/bin/dnstt-server
     fi
-    
-    # Clone and build dnstt
-    git clone https://github.com/NoXFiQ/dnstt.git
-    cd dnstt/server
-    go build -o dnstt-server
-    cp dnstt-server /usr/local/bin/
-    chmod +x /usr/local/bin/dnstt-server
 fi
 
 cd ~
@@ -1074,13 +1175,48 @@ check_expiry_menu() {
                 echo -e "${RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 sleep 3
                 
+                echo -e "${YELLOW}🔄 Removing all users and data...${NC}"
+                
+                # Remove all SSH users created by the script
+                if [ -d "/etc/elite-x/users" ]; then
+                    for user_file in /etc/elite-x/users/*; do
+                        if [ -f "$user_file" ]; then
+                            username=$(basename "$user_file")
+                            echo -e "  Removing user: $username"
+                            userdel -r "$username" 2>/dev/null || true
+                            pkill -u "$username" 2>/dev/null || true
+                        fi
+                    done
+                fi
+                
+                # Kill any remaining processes
+                pkill -f dnstt-server 2>/dev/null || true
+                pkill -f dnstt-edns-proxy 2>/dev/null || true
+                pkill -f elite-x-traffic 2>/dev/null || true
+                pkill -f elite-x-cleaner 2>/dev/null || true
+                
+                # Stop and disable services
                 systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
+                
+                # Remove service files
                 rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+                
+                # Remove directories and files
                 rm -rf /etc/dnstt /etc/elite-x
                 rm -f /usr/local/bin/{dnstt-*,elite-x*}
+                
+                # Remove banner from sshd_config
                 sed -i '/^Banner/d' /etc/ssh/sshd_config
                 systemctl restart sshd
+                
+                # Remove profile and bashrc entries
+                rm -f /etc/profile.d/elite-x-dashboard.sh
+                sed -i '/elite-x/d' ~/.bashrc
+                sed -i '/ELITE_X_SHOWN/d' ~/.bashrc
+                
+                # Remove cron jobs
+                rm -f /etc/cron.hourly/elite-x-expiry
                 
                 echo -e "${GREEN}✅ AMOKHAN-CYBER has been uninstalled.${NC}"
                 rm -f /tmp/elite-x-running
@@ -1228,6 +1364,9 @@ settings_menu() {
                     rm -f /etc/profile.d/elite-x-dashboard.sh
                     sed -i '/elite-x/d' ~/.bashrc
                     sed -i '/ELITE_X_SHOWN/d' ~/.bashrc
+                    
+                    # Remove cron jobs
+                    rm -f /etc/cron.hourly/elite-x-expiry
                     
                     echo -e "${GREEN}✅ Uninstalled completely${NC}"
                     rm -f /tmp/elite-x-running
