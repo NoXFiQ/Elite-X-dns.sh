@@ -568,21 +568,21 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-pr
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
+# Fix systemd-resolved configuration
 if [ -f /etc/systemd/resolved.conf ]; then
   echo "Configuring systemd-resolved..."
   sed -i 's/^#\?DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf || true
   grep -q '^DNS=' /etc/systemd/resolved.conf \
     && sed -i 's/^DNS=.*/DNS=8.8.8.8 8.8.4.4/' /etc/systemd/resolved.conf \
     || echo "DNS=8.8.8.8 8.8.4.4" >> /etc/systemd/resolved.conf
-  systemctl restart systemd-resolved
+  systemctl restart systemd-resolved 2>/dev/null || true
   
-  # Fix for resolv.conf symlink issue
+  # Fix resolv.conf
+  echo "Setting up /etc/resolv.conf..."
   rm -f /etc/resolv.conf 2>/dev/null || true
-  cat > /etc/resolv.conf <<EOF
-nameserver 8.8.8.8
-nameserver 8.8.4.4
-EOF
-  chmod 644 /etc/resolv.conf
+  echo "nameserver 8.8.8.8" > /etc/resolv.conf 2>/dev/null || echo "nameserver 8.8.8.8" | tee /etc/resolv.conf >/dev/null
+  echo "nameserver 8.8.4.4" >> /etc/resolv.conf 2>/dev/null || echo "nameserver 8.8.4.4" | tee -a /etc/resolv.conf >/dev/null
+  chmod 644 /etc/resolv.conf 2>/dev/null || true
 fi
 
 echo "Installing dependencies..."
@@ -590,13 +590,20 @@ apt update -y
 apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils
 
 echo "Installing dnstt-server..."
-curl -fsSL https://dnstt.network/dnstt-server-linux-amd64 -o /usr/local/bin/dnstt-server
+# Try multiple sources like v1.0
+if ! curl -fsSL https://dnstt.network/dnstt-server-linux-amd64 -o /usr/local/bin/dnstt-server 2>/dev/null; then
+    echo -e "${YELLOW}⚠️  Primary download failed, trying alternative...${NC}"
+    curl -fsSL https://github.com/NoXFiQ/Elite-X-dns.sh/raw/main/dnstt-server -o /usr/local/bin/dnstt-server 2>/dev/null || {
+        echo -e "${RED}❌ Failed to download dnstt-server${NC}"
+        exit 1
+    }
+fi
 chmod +x /usr/local/bin/dnstt-server
 
 echo "Generating keys..."
 mkdir -p /etc/dnstt
 
-# Fix: Remove existing keys if they exist and have permission issues
+# Remove existing keys if they exist
 if [ -f /etc/dnstt/server.key ]; then
     echo -e "${YELLOW}⚠️  Existing keys found, removing...${NC}"
     chattr -i /etc/dnstt/server.key 2>/dev/null || true
@@ -606,7 +613,7 @@ fi
 
 # Generate new keys
 cd /etc/dnstt
-dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub
+/usr/local/bin/dnstt-server -gen-key -privkey-file server.key -pubkey-file server.pub
 cd ~
 
 # Set proper permissions
@@ -674,7 +681,15 @@ def h(sk,d,ad):
  except:pass
  finally:u.close()
 s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-s.bind(('0.0.0.0',53))
+s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+try:
+ s.bind(('0.0.0.0',53))
+except:
+ print("Port 53 in use, trying to free it...")
+ import os
+ os.system("fuser -k 53/udp 2>/dev/null || true")
+ time.sleep(2)
+ s.bind(('0.0.0.0',53))
 while True:
  d,a=s.recvfrom(4096)
  threading.Thread(target=h,args=(s,d,a),daemon=True).start()
@@ -695,11 +710,35 @@ Restart=no
 WantedBy=multi-user.target
 EOF
 
+# Configure firewall
 command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp || true
 
+# Kill any process using port 53
+fuser -k 53/udp 2>/dev/null || true
+sleep 2
+
+# Start services exactly like v1.0
 systemctl daemon-reload
 systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
-systemctl start dnstt-elite-x.service dnstt-elite-x-proxy.service
+systemctl start dnstt-elite-x.service
+sleep 2
+systemctl start dnstt-elite-x-proxy.service
+
+# Check services
+sleep 3
+if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+    echo -e "${GREEN}✅ DNSTT Server is running${NC}"
+else
+    echo -e "${YELLOW}⚠️  Starting DNSTT Server...${NC}"
+    systemctl restart dnstt-elite-x
+fi
+
+if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
+    echo -e "${GREEN}✅ DNSTT Proxy is running${NC}"
+else
+    echo -e "${YELLOW}⚠️  Starting DNSTT Proxy...${NC}"
+    systemctl restart dnstt-elite-x-proxy
+fi
 
 setup_traffic_monitor
 setup_manual_speed
@@ -1338,6 +1377,15 @@ echo "KEY : ${ACTIVATION_KEY}"
 echo "KEY EXPIRE  : ${EXPIRY_INFO}"
 echo "╚════════════════════════════════════╝"
 show_quote
+
+# Final service status check
+echo -e "\n${CYAN}Final Service Status:${NC}"
+systemctl is-active dnstt-elite-x >/dev/null 2>&1 && echo -e "${GREEN}✅ DNSTT Server: Running${NC}" || echo -e "${RED}❌ DNSTT Server: Failed${NC}"
+systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1 && echo -e "${GREEN}✅ DNSTT Proxy: Running${NC}" || echo -e "${RED}❌ DNSTT Proxy: Failed${NC}"
+
+echo -e "\n${CYAN}Port Status:${NC}"
+ss -uln | grep -q ":53 " && echo -e "${GREEN}✅ Port 53: Listening${NC}" || echo -e "${RED}❌ Port 53: Not listening${NC}"
+ss -uln | grep -q ":${DNSTT_PORT} " && echo -e "${GREEN}✅ Port ${DNSTT_PORT}: Listening${NC}" || echo -e "${RED}❌ Port ${DNSTT_PORT}: Not listening${NC}"
 
 read -p "Open menu now? (y/n): " open
 if [ "$open" = "y" ]; then
