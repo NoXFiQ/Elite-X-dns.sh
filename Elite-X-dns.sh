@@ -781,8 +781,11 @@ while true; do
     DNS_COUNT=$(ss -unp | grep -c ":5300" 2>/dev/null || echo "0")
     
     echo -e "\n${CYAN}Total Connections: $SSH_COUNT SSH, $DNS_COUNT DNS${NC}"
-    echo -e "${WHITE}Press Ctrl+C to exit${NC}"
-    sleep 2
+    echo -e "${WHITE}Press 'q' to exit, any other key to refresh${NC}"
+    read -t 5 -n 1 key
+    if [[ $key = q ]]; then 
+        break
+    fi
 done
 EOF
     chmod +x /usr/local/bin/elite-x-monitor
@@ -839,8 +842,8 @@ show_menu() {
         5) clean_junk ;;
         6) turbo_mode ;;
         7) show_stats ;;
-        0) return ;;
-        *) echo -e "${RED}Invalid option${NC}"; sleep 2 ;;
+        0) return 0 ;;
+        *) echo -e "${RED}Invalid option${NC}"; sleep 2; show_menu ;;
     esac
 }
 
@@ -851,7 +854,9 @@ quick_optimize() {
     optimize_ram
     clean_junk
     echo -e "${GREEN}✅ Quick optimization complete!${NC}"
-    sleep 2
+    echo ""
+    read -p "Press Enter to continue..."
+    show_menu
 }
 
 optimize_network() {
@@ -904,7 +909,9 @@ turbo_mode() {
     sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
     sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
     echo -e "${GREEN}✅ TURBO MODE activated!${NC}"
-    sleep 2
+    echo ""
+    read -p "Press Enter to continue..."
+    show_menu
 }
 
 show_stats() {
@@ -915,6 +922,7 @@ show_stats() {
     echo -e "Disk: $(df -h / | awk 'NR==2{print $3"/"$2}')"
     echo ""
     read -p "Press Enter to continue..."
+    show_menu
 }
 
 while true; do
@@ -951,11 +959,13 @@ cp -r "$BACKUP_DIR/elite-x" /etc/ 2>/dev/null || true
 cp -r "$BACKUP_DIR/dnstt" /etc/ 2>/dev/null || true
 
 echo -e "\033[0;32m✅ Update complete!\033[0m"
+echo ""
+read -p "Press Enter to continue..."
 EOF
     chmod +x /usr/local/bin/elite-x-update
 }
 
-# ========== USER MANAGEMENT ==========
+# ========== USER MANAGEMENT WITH USER LIMIT ==========
 setup_user_manager() {
     cat > /usr/local/bin/elite-x-user <<'EOF'
 #!/bin/bash
@@ -1011,6 +1021,21 @@ get_traffic_history() {
     fi
 }
 
+# Function to set user login limit
+set_user_limit() {
+    local username="$1"
+    local limit="$2"
+    
+    if [ "$limit" -gt 0 ]; then
+        # Set max sessions in sshd_config for this user
+        echo "Match User $username" >> /etc/ssh/sshd_config
+        echo "    MaxSessions $limit" >> /etc/ssh/sshd_config
+        echo "    MaxAuthTries 3" >> /etc/ssh/sshd_config
+        systemctl restart sshd
+        echo -e "${GREEN}User $username limited to $limit concurrent login(s)${NC}"
+    fi
+}
+
 show_menu() {
     clear
     echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -1025,10 +1050,11 @@ show_menu() {
     echo -e "${CYAN}║${WHITE}  [7] Delete User                                             ${CYAN}║${NC}"
     echo -e "${CYAN}║${WHITE}  [8] Delete Multiple Users                                   ${CYAN}║${NC}"
     echo -e "${CYAN}║${WHITE}  [9] Export Users List                                       ${CYAN}║${NC}"
+    echo -e "${CYAN}║${WHITE}  [10] Set User Login Limit                                   ${CYAN}║${NC}"
     echo -e "${CYAN}║${WHITE}  [0] Back to Main Menu                                       ${CYAN}║${NC}"
     echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    read -p "$(echo -e $GREEN"Choose option [0-9]: "$NC)" opt
+    read -p "$(echo -e $GREEN"Choose option [0-10]: "$NC)" opt
     
     case $opt in
         1) add_user ;;
@@ -1040,7 +1066,8 @@ show_menu() {
         7) delete_user ;;
         8) delete_multiple ;;
         9) export_users ;;
-        0) return ;;
+        10) set_user_login_limit ;;
+        0) return 0 ;;
         *) echo -e "${RED}Invalid option${NC}"; sleep 2; show_menu ;;
     esac
 }
@@ -1055,9 +1082,11 @@ add_user() {
     read -p "$(echo -e $GREEN"Password: "$NC)" password
     read -p "$(echo -e $GREEN"Expire days: "$NC)" days
     read -p "$(echo -e $GREEN"Traffic limit (MB, 0 for unlimited): "$NC)" traffic_limit
+    read -p "$(echo -e $GREEN"Max concurrent logins (0 for unlimited): "$NC)" max_logins
     
     if id "$username" &>/dev/null; then
         echo -e "${RED}User already exists!${NC}"
+        echo ""
         read -p "Press Enter to continue..."
         show_menu
         return
@@ -1069,11 +1098,17 @@ add_user() {
     expire_date=$(date -d "+$days days" +"%Y-%m-%d")
     chage -E "$expire_date" "$username"
     
+    # Set login limit if specified
+    if [ "$max_logins" -gt 0 ]; then
+        set_user_limit "$username" "$max_logins"
+    fi
+    
     cat > $UD/$username <<INFO
 Username: $username
 Password: $password
 Expire: $expire_date
 Traffic_Limit: $traffic_limit
+Max_Logins: $max_logins
 Created: $(date +"%Y-%m-%d %H:%M:%S")
 INFO
     
@@ -1085,14 +1120,16 @@ INFO
     clear
     echo -e "${GREEN}════════════════════════════════════════════${NC}"
     echo "User created successfully!"
-    echo "Username  : $username"
-    echo "Password  : $password"
-    echo "Server    : $SERVER"
-    echo "Public Key: $PUBKEY"
-    echo "Expire    : $expire_date"
-    echo "Traffic   : $traffic_limit MB"
+    echo "Username      : $username"
+    echo "Password      : $password"
+    echo "Server        : $SERVER"
+    echo "Public Key    : $PUBKEY"
+    echo "Expire        : $expire_date"
+    echo "Traffic Limit : $traffic_limit MB"
+    echo "Max Logins    : $max_logins"
     echo -e "${GREEN}════════════════════════════════════════════${NC}"
-    echo "$(date): Created user $username" >> /var/log/elite-x-users.log
+    echo "$(date): Created user $username (max logins: $max_logins)" >> /var/log/elite-x-users.log
+    echo ""
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -1105,13 +1142,14 @@ list_users() {
     
     if [ -z "$(ls -A $UD 2>/dev/null)" ]; then
         echo -e "${RED}No users found${NC}"
+        echo ""
         read -p "Press Enter to continue..."
         show_menu
         return
     fi
     
-    printf "%-12s %-10s %-8s %-8s %-10s %-8s\n" "USERNAME" "EXPIRE" "LIMIT" "USED" "USAGE%" "STATUS"
-    echo "──────────────────────────────────────────────────────────────"
+    printf "%-12s %-10s %-8s %-8s %-10s %-8s %-8s\n" "USERNAME" "EXPIRE" "LIMIT" "USED" "USAGE%" "LOGINS" "STATUS"
+    echo "────────────────────────────────────────────────────────────────────"
     
     TOTAL_TRAFFIC=0
     TOTAL_USERS=0
@@ -1121,20 +1159,70 @@ list_users() {
         u=$(basename "$user")
         ex=$(grep "Expire:" "$user" | cut -d' ' -f2)
         lm=$(grep "Traffic_Limit:" "$user" | cut -d' ' -f2)
+        ml=$(grep "Max_Logins:" "$user" 2>/dev/null | cut -d' ' -f2 || echo "0")
         us=$(cat $TD/$u 2>/dev/null || echo "0")
+        
+        # Count current logins
+        current_logins=$(ps -u "$u" 2>/dev/null | grep -c "sshd" || echo "0")
         
         # Calculate usage percentage
         usage_percent=$(calc_usage_percent "$us" "$lm")
         
         st=$(passwd -S "$u" 2>/dev/null | grep -q "L" && echo "${RED}LOCK${NC}" || echo "${GREEN}OK${NC}")
-        printf "%-12s %-10s %-8s %-8s %-10b %-8b\n" "$u" "$ex" "$lm" "$us" "$usage_percent" "$st"
+        printf "%-12s %-10s %-8s %-8s %-10b %-8s %-8b\n" "$u" "$ex" "$lm" "$us" "$usage_percent" "$current_logins/$ml" "$st"
         
         TOTAL_TRAFFIC=$((TOTAL_TRAFFIC + us))
         TOTAL_USERS=$((TOTAL_USERS + 1))
     done
     
-    echo "──────────────────────────────────────────────────────────────"
+    echo "────────────────────────────────────────────────────────────────────"
     echo -e "Total Users: ${GREEN}$TOTAL_USERS${NC} | Total Traffic: ${YELLOW}$TOTAL_TRAFFIC MB${NC}"
+    echo ""
+    read -p "Press Enter to continue..."
+    show_menu
+}
+
+set_user_login_limit() {
+    clear
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}                 SET USER LOGIN LIMIT                            ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    
+    read -p "$(echo -e $GREEN"Username: "$NC)" u
+    
+    if [ ! -f "$UD/$u" ]; then
+        echo -e "${RED}User not found!${NC}"
+        echo ""
+        read -p "Press Enter to continue..."
+        show_menu
+        return
+    fi
+    
+    current_limit=$(grep "Max_Logins:" "$UD/$u" 2>/dev/null | cut -d' ' -f2 || echo "0")
+    echo "Current max logins: $current_limit"
+    read -p "$(echo -e $GREEN"New max concurrent logins (0 for unlimited): "$NC)" new_limit
+    
+    if [ "$new_limit" -ge 0 ]; then
+        # Update in user file
+        if grep -q "Max_Logins:" "$UD/$u"; then
+            sed -i "s/Max_Logins:.*/Max_Logins: $new_limit/" "$UD/$u"
+        else
+            echo "Max_Logins: $new_limit" >> "$UD/$u"
+        fi
+        
+        # Update sshd_config
+        if [ "$new_limit" -gt 0 ]; then
+            set_user_limit "$u" "$new_limit"
+        else
+            # Remove limit by commenting out the Match block
+            sed -i "/Match User $u/,+2 s/^/#/" /etc/ssh/sshd_config
+            systemctl restart sshd
+        fi
+        
+        echo -e "${GREEN}Login limit updated to $new_limit${NC}"
+        echo "$(date): Updated login limit for $u to $new_limit" >> /var/log/elite-x-users.log
+    fi
+    
     echo ""
     read -p "Press Enter to continue..."
     show_menu
@@ -1150,6 +1238,7 @@ renew_user() {
     
     if [ ! -f "$UD/$u" ]; then
         echo -e "${RED}User not found!${NC}"
+        echo ""
         read -p "Press Enter to continue..."
         show_menu
         return
@@ -1179,6 +1268,7 @@ renew_user() {
     fi
     
     echo "$(date): Renewed user $u (+$add_days days, limit: $new_limit MB)" >> /var/log/elite-x-users.log
+    echo ""
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -1193,6 +1283,7 @@ user_details() {
     
     if [ ! -f "$UD/$u" ]; then
         echo -e "${RED}User not found!${NC}"
+        echo ""
         read -p "Press Enter to continue..."
         show_menu
         return
@@ -1214,6 +1305,7 @@ user_details() {
         echo "  $line"
     done || echo "  No active connections"
     
+    echo ""
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -1228,6 +1320,7 @@ lock_user() {
     else
         echo -e "${RED}User not found${NC}"
     fi
+    echo ""
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -1241,6 +1334,7 @@ unlock_user() {
     else
         echo -e "${RED}User not found${NC}"
     fi
+    echo ""
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -1248,6 +1342,10 @@ unlock_user() {
 delete_user() { 
     read -p "$(echo -e $GREEN"Username: "$NC)" u
     if [ -f "$UD/$u" ]; then
+        # Remove from sshd_config if has limit
+        sed -i "/Match User $u/,+3 d" /etc/ssh/sshd_config 2>/dev/null
+        systemctl restart sshd
+        
         userdel -r "$u" 2>/dev/null
         rm -f $UD/$u $TD/$u $TD/${u}.history
         echo -e "${GREEN}✅ User $u deleted${NC}"
@@ -1255,6 +1353,7 @@ delete_user() {
     else
         echo -e "${RED}User not found${NC}"
     fi
+    echo ""
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -1264,6 +1363,10 @@ delete_multiple() {
     read -a users
     for u in "${users[@]}"; do
         if [ -f "$UD/$u" ]; then
+            # Remove from sshd_config if has limit
+            sed -i "/Match User $u/,+3 d" /etc/ssh/sshd_config 2>/dev/null
+            systemctl restart sshd
+            
             userdel -r "$u" 2>/dev/null
             rm -f $UD/$u $TD/$u $TD/${u}.history
             echo -e "${GREEN}✅ Deleted: $u${NC}"
@@ -1271,6 +1374,7 @@ delete_multiple() {
             echo -e "${RED}❌ Not found: $u${NC}"
         fi
     done
+    echo ""
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -1286,6 +1390,7 @@ export_users() {
     done
     
     echo -e "${GREEN}✅ Users exported to: $export_file${NC}"
+    echo ""
     read -p "Press Enter to continue..."
     show_menu
 }
@@ -1558,7 +1663,7 @@ settings_menu() {
                 ;;
             17) /usr/local/bin/elite-x-speedtest; read -p "Press Enter to continue..." ;;
             18) 
-                echo -e "${YELLOW}Starting connection monitor (Ctrl+C to exit)...${NC}"
+                echo -e "${YELLOW}Starting connection monitor (Press 'q' to exit)...${NC}"
                 sleep 2
                 /usr/local/bin/elite-x-monitor
                 ;;
@@ -1656,7 +1761,7 @@ settings_menu() {
                 esac
                 read -p "Press Enter to continue..."
                 ;;
-            0) return ;;
+            0) return 0 ;;
             *) echo -e "${RED}Invalid option${NC}"; read -p "Press Enter to continue..." ;;
         esac
     done
@@ -1713,6 +1818,7 @@ main_menu() {
                         echo -e "$u: ${CYAN}$us MB${NC}"
                     fi
                 done
+                echo ""
                 read -p "Press Enter to continue..."
                 ;;
             [Ss]) settings_menu ;;
@@ -2134,6 +2240,7 @@ ss -uln | grep -q ":53 " && echo -e "${GREEN}✅ Port 53: Listening${NC}" || ech
 ss -uln | grep -q ":${DNSTT_PORT} " && echo -e "${GREEN}✅ Port ${DNSTT_PORT}: Listening${NC}" || echo -e "${RED}❌ Port ${DNSTT_PORT}: Not listening${NC}"
 
 echo -e "\n${GREEN}ELITE-X v3.5 Features:${NC}"
+echo -e "  ${YELLOW}→${NC} User Login Limit (Max concurrent connections)"
 echo -e "  ${YELLOW}→${NC} Renew User Option"
 echo -e "  ${YELLOW}→${NC} Advanced Traffic Monitoring with History"
 echo -e "  ${YELLOW}→${NC} Bandwidth Speed Test Tool"
