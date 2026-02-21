@@ -575,7 +575,7 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-pr
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
-# Fix systemd-resolved configuration
+# Fix systemd-resolved configuration - FIXED VERSION
 if [ -f /etc/systemd/resolved.conf ]; then
   echo "Configuring systemd-resolved..."
   sed -i 's/^#\?DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf || true
@@ -584,12 +584,40 @@ if [ -f /etc/systemd/resolved.conf ]; then
     || echo "DNS=8.8.8.8 8.8.4.4" >> /etc/systemd/resolved.conf
   systemctl restart systemd-resolved 2>/dev/null || true
   
-  # Fix resolv.conf
+  # Fix resolv.conf - handle read-only filesystem
   echo "Setting up /etc/resolv.conf..."
-  rm -f /etc/resolv.conf 2>/dev/null || true
-  echo "nameserver 8.8.8.8" > /etc/resolv.conf 2>/dev/null || echo "nameserver 8.8.8.8" | tee /etc/resolv.conf >/dev/null
-  echo "nameserver 8.8.4.4" >> /etc/resolv.conf 2>/dev/null || echo "nameserver 8.8.4.4" | tee -a /etc/resolv.conf >/dev/null
+  
+  # Check if resolv.conf is a symlink and remove it properly
+  if [ -L /etc/resolv.conf ]; then
+    rm -f /etc/resolv.conf 2>/dev/null || unlink /etc/resolv.conf 2>/dev/null || true
+  fi
+  
+  # Try to remove immutable attribute if present
+  if [ -f /etc/resolv.conf ]; then
+    chattr -i /etc/resolv.conf 2>/dev/null || true
+  fi
+  
+  # Try multiple methods to write resolv.conf
+  if ! echo "nameserver 8.8.8.8" > /etc/resolv.conf 2>/dev/null; then
+    if ! echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf >/dev/null 2>&1; then
+      # If both methods fail, use cat with a here-document
+      cat > /etc/resolv.conf <<EOF 2>/dev/null || {
+        # Final fallback - create a temporary file and copy
+        echo "nameserver 8.8.8.8" > /tmp/resolv.conf
+        echo "nameserver 8.8.4.4" >> /tmp/resolv.conf
+        cp -f /tmp/resolv.conf /etc/resolv.conf 2>/dev/null || true
+        rm -f /tmp/resolv.conf
+      }
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+EOF
+    fi
+  else
+    echo "nameserver 8.8.4.4" >> /etc/resolv.conf 2>/dev/null || true
+  fi
+  
   chmod 644 /etc/resolv.conf 2>/dev/null || true
+  echo "✅ DNS configuration complete"
 fi
 
 echo "Installing dependencies..."
