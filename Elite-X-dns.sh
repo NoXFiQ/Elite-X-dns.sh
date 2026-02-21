@@ -965,7 +965,7 @@ EOF
     chmod +x /usr/local/bin/elite-x-update
 }
 
-# ========== USER MANAGEMENT WITH USER LIMIT ==========
+# ========== USER MANAGEMENT WITH FIXED NAVIGATION ==========
 setup_user_manager() {
     cat > /usr/local/bin/elite-x-user <<'EOF'
 #!/bin/bash
@@ -1027,49 +1027,52 @@ set_user_limit() {
     local limit="$2"
     
     if [ "$limit" -gt 0 ]; then
+        # Remove any existing limit for this user first
+        sed -i "/Match User $username/,+3 d" /etc/ssh/sshd_config 2>/dev/null
         # Set max sessions in sshd_config for this user
         echo "Match User $username" >> /etc/ssh/sshd_config
         echo "    MaxSessions $limit" >> /etc/ssh/sshd_config
-        echo "    MaxAuthTries 3" >> /etc/ssh/sshd_config
         systemctl restart sshd
         echo -e "${GREEN}User $username limited to $limit concurrent login(s)${NC}"
     fi
 }
 
 show_menu() {
-    clear
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${YELLOW}              ELITE-X USER MANAGEMENT                          ${CYAN}║${NC}"
-    echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${CYAN}║${WHITE}  [1] Add User                                                ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [2] List Users                                              ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [3] Renew User                                              ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [4] User Details                                            ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [5] Lock User                                               ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [6] Unlock User                                             ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [7] Delete User                                             ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [8] Delete Multiple Users                                   ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [9] Export Users List                                       ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [10] Set User Login Limit                                   ${CYAN}║${NC}"
-    echo -e "${CYAN}║${WHITE}  [0] Back to Main Menu                                       ${CYAN}║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    read -p "$(echo -e $GREEN"Choose option [0-10]: "$NC)" opt
-    
-    case $opt in
-        1) add_user ;;
-        2) list_users ;;
-        3) renew_user ;;
-        4) user_details ;;
-        5) lock_user ;;
-        6) unlock_user ;;
-        7) delete_user ;;
-        8) delete_multiple ;;
-        9) export_users ;;
-        10) set_user_login_limit ;;
-        0) return 0 ;;
-        *) echo -e "${RED}Invalid option${NC}"; sleep 2; show_menu ;;
-    esac
+    while true; do
+        clear
+        echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${CYAN}║${YELLOW}              ELITE-X USER MANAGEMENT                          ${CYAN}║${NC}"
+        echo -e "${CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${CYAN}║${WHITE}  [1] Add User                                                ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [2] List Users                                              ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [3] Renew User                                              ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [4] User Details                                            ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [5] Lock User                                               ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [6] Unlock User                                             ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [7] Delete User                                             ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [8] Delete Multiple Users                                   ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [9] Export Users List                                       ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [10] Set User Login Limit                                   ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [0] Back to Main Menu                                       ${CYAN}║${NC}"
+        echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        read -p "$(echo -e $GREEN"Choose option [0-10]: "$NC)" opt
+        
+        case $opt in
+            1) add_user ;;
+            2) list_users ;;
+            3) renew_user ;;
+            4) user_details ;;
+            5) lock_user ;;
+            6) unlock_user ;;
+            7) delete_user ;;
+            8) delete_multiple ;;
+            9) export_users ;;
+            10) set_user_login_limit ;;
+            0) echo -e "${GREEN}Returning to main menu...${NC}"; sleep 1; return 0 ;;
+            *) echo -e "${RED}Invalid option${NC}"; sleep 2 ;;
+        esac
+    done
 }
 
 add_user() {
@@ -1088,7 +1091,6 @@ add_user() {
         echo -e "${RED}User already exists!${NC}"
         echo ""
         read -p "Press Enter to continue..."
-        show_menu
         return
     fi
     
@@ -1131,7 +1133,6 @@ INFO
     echo "$(date): Created user $username (max logins: $max_logins)" >> /var/log/elite-x-users.log
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 list_users() {
@@ -1144,7 +1145,6 @@ list_users() {
         echo -e "${RED}No users found${NC}"
         echo ""
         read -p "Press Enter to continue..."
-        show_menu
         return
     fi
     
@@ -1179,7 +1179,6 @@ list_users() {
     echo -e "Total Users: ${GREEN}$TOTAL_USERS${NC} | Total Traffic: ${YELLOW}$TOTAL_TRAFFIC MB${NC}"
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 set_user_login_limit() {
@@ -1194,7 +1193,6 @@ set_user_login_limit() {
         echo -e "${RED}User not found!${NC}"
         echo ""
         read -p "Press Enter to continue..."
-        show_menu
         return
     fi
     
@@ -1215,7 +1213,7 @@ set_user_login_limit() {
             set_user_limit "$u" "$new_limit"
         else
             # Remove limit by commenting out the Match block
-            sed -i "/Match User $u/,+2 s/^/#/" /etc/ssh/sshd_config
+            sed -i "/Match User $u/,+3 d" /etc/ssh/sshd_config
             systemctl restart sshd
         fi
         
@@ -1225,7 +1223,6 @@ set_user_login_limit() {
     
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 renew_user() {
@@ -1240,7 +1237,6 @@ renew_user() {
         echo -e "${RED}User not found!${NC}"
         echo ""
         read -p "Press Enter to continue..."
-        show_menu
         return
     fi
     
@@ -1270,7 +1266,6 @@ renew_user() {
     echo "$(date): Renewed user $u (+$add_days days, limit: $new_limit MB)" >> /var/log/elite-x-users.log
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 user_details() {
@@ -1285,7 +1280,6 @@ user_details() {
         echo -e "${RED}User not found!${NC}"
         echo ""
         read -p "Press Enter to continue..."
-        show_menu
         return
     fi
     
@@ -1307,7 +1301,6 @@ user_details() {
     
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 lock_user() { 
@@ -1322,7 +1315,6 @@ lock_user() {
     fi
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 unlock_user() { 
@@ -1336,7 +1328,6 @@ unlock_user() {
     fi
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 delete_user() { 
@@ -1355,7 +1346,6 @@ delete_user() {
     fi
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 delete_multiple() {
@@ -1376,7 +1366,6 @@ delete_multiple() {
     done
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 export_users() {
@@ -1392,13 +1381,10 @@ export_users() {
     echo -e "${GREEN}✅ Users exported to: $export_file${NC}"
     echo ""
     read -p "Press Enter to continue..."
-    show_menu
 }
 
 # Start the menu
-while true; do
-    show_menu
-done
+show_menu
 EOF
     chmod +x /usr/local/bin/elite-x-user
 }
@@ -1761,7 +1747,7 @@ settings_menu() {
                 esac
                 read -p "Press Enter to continue..."
                 ;;
-            0) return 0 ;;
+            0) echo -e "${GREEN}Returning to main menu...${NC}"; sleep 1; return 0 ;;
             *) echo -e "${RED}Invalid option${NC}"; read -p "Press Enter to continue..." ;;
         esac
     done
