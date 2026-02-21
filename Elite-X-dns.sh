@@ -525,18 +525,49 @@ fi
 
 echo "Installing dependencies..."
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils python3-pip
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils python3-pip build-essential
 
+# ========== FIXED DNSTT SERVER INSTALLATION ==========
 echo "Installing dnstt-server..."
-# Try multiple download sources for dnstt-server
-if ! curl -fsSL https://dnstt.network/dnstt-server-linux-amd64 -o /usr/local/bin/dnstt-server 2>/dev/null; then
-    echo -e "${YELLOW}⚠️  Primary download failed, trying alternative source...${NC}"
-    curl -fsSL https://github.com/NoXFiQ/Elite-X-dns.sh/raw/main/dnstt-server -o /usr/local/bin/dnstt-server 2>/dev/null || {
-        echo -e "${RED}❌ Failed to download dnstt-server${NC}"
-        exit 1
-    }
+mkdir -p /tmp/dnstt-build
+cd /tmp/dnstt-build
+
+# Method 1: Try to download pre-compiled binary
+echo -e "${YELLOW}📥 Downloading dnstt-server...${NC}"
+if curl -fsSL https://github.com/NoXFiQ/Elite-X-dns.sh/raw/main/dnstt-server -o dnstt-server 2>/dev/null; then
+    echo -e "${GREEN}✅ Download successful${NC}"
+    cp dnstt-server /usr/local/bin/dnstt-server
+    chmod +x /usr/local/bin/dnstt-server
+else
+    echo -e "${YELLOW}⚠️  Download failed, building from source...${NC}"
+    
+    # Install Go if not present
+    if ! command -v go &> /dev/null; then
+        echo "Installing Go language..."
+        wget -q https://golang.org/dl/go1.20.5.linux-amd64.tar.gz
+        tar -C /usr/local -xzf go1.20.5.linux-amd64.tar.gz
+        export PATH=$PATH:/usr/local/go/bin
+        echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+    fi
+    
+    # Clone and build dnstt
+    git clone https://github.com/NoXFiQ/dnstt.git
+    cd dnstt/server
+    go build -o dnstt-server
+    cp dnstt-server /usr/local/bin/
+    chmod +x /usr/local/bin/dnstt-server
 fi
-chmod +x /usr/local/bin/dnstt-server
+
+cd ~
+rm -rf /tmp/dnstt-build
+
+# Verify installation
+if [ -f /usr/local/bin/dnstt-server ]; then
+    echo -e "${GREEN}✅ dnstt-server installed successfully${NC}"
+else
+    echo -e "${RED}❌ Failed to install dnstt-server${NC}"
+    exit 1
+fi
 
 echo "Generating keys..."
 mkdir -p /etc/dnstt
@@ -593,89 +624,93 @@ import os
 
 L=5300
 
-def p(d,s):
-    if len(d)<12:
+def modify_edns(d, max_size):
+    if len(d) < 12:
         return d
     try:
-        q,a,n,r=struct.unpack("!HHHH",d[4:12])
+        q, a, n, r = struct.unpack("!HHHH", d[4:12])
     except:
         return d
-    o=12
-    def sk(b,o):
-        while o<len(b):
-            l=b[o]
-            o+=1
-            if l==0:
+    
+    o = 12
+    
+    def skip_name(b, o):
+        while o < len(b):
+            l = b[o]
+            o += 1
+            if l == 0:
                 break
-            if l&0xC0==0xC0:
-                o+=1
+            if l & 0xC0 == 0xC0:
+                o += 1
                 break
-            o+=l
+            o += l
         return o
+    
+    # Skip questions
     for _ in range(q):
-        o=sk(d,o)
-        o+=4
-    for _ in range(a+n):
-        o=sk(d,o)
-        if o+10>len(d):
+        o = skip_name(d, o)
+        o += 4
+    
+    # Skip authority and additional records
+    for _ in range(a + n):
+        o = skip_name(d, o)
+        if o + 10 > len(d):
             return d
         try:
-            _,_,_,l=struct.unpack("!HHIH",d[o:o+10])
+            _, _, _, l = struct.unpack("!HHIH", d[o:o+10])
         except:
             return d
-        o+=10+l
-    n=bytearray(d)
+        o += 10 + l
+    
+    # Look for EDNS0 OPT record in additional section
+    modified = bytearray(d)
     for _ in range(r):
-        o=sk(d,o)
-        if o+10>len(d):
+        o = skip_name(d, o)
+        if o + 10 > len(d):
             return d
-        t=struct.unpack("!H",d[o:o+2])[0]
-        if t==41:
-            n[o+2:o+4]=struct.pack("!H",s)
-            return bytes(n)
-        _,_,l=struct.unpack("!HIH",d[o+2:o+10])
-        o+=10+l
+        t = struct.unpack("!H", d[o:o+2])[0]
+        if t == 41:  # OPT record
+            modified[o+2:o+4] = struct.pack("!H", max_size)
+            return bytes(modified)
+        _, _, l = struct.unpack("!HIH", d[o+2:o+10])
+        o += 10 + l
+    
     return d
 
-def h(sk,d,ad):
-    u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-    u.settimeout(5)
+def handle_request(sock, data, addr):
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client.settimeout(5)
     try:
-        u.sendto(p(d,1800),('127.0.0.1',L))
-        r,_=u.recvfrom(4096)
-        sk.sendto(p(r,512),ad)
+        # Forward to dnstt server
+        client.sendto(modify_edns(data, 1800), ('127.0.0.1', L))
+        response, _ = client.recvfrom(4096)
+        sock.sendto(modify_edns(response, 512), addr)
     except Exception as e:
-        sys.stderr.write(f"Error in handler: {e}\n")
+        sys.stderr.write(f"Error: {e}\n")
     finally:
-        u.close()
+        client.close()
 
 def main():
     # Try to bind to port 53
-    s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     
-    # Check if port 53 is already in use
+    # Kill process using port 53 if any
+    os.system("fuser -k 53/udp 2>/dev/null || true")
+    time.sleep(2)
+    
     try:
-        s.bind(('0.0.0.0',53))
+        server.bind(('0.0.0.0', 53))
+        sys.stderr.write(f"✅ EDNS Proxy started on port 53 (forwarding to {L})\n")
+        sys.stderr.flush()
     except Exception as e:
-        sys.stderr.write(f"Failed to bind to port 53: {e}\n")
-        sys.stderr.write("Attempting to free port 53...\n")
-        # Try to kill process using port 53
-        os.system("fuser -k 53/udp 2>/dev/null || true")
-        time.sleep(2)
-        try:
-            s.bind(('0.0.0.0',53))
-        except Exception as e:
-            sys.stderr.write(f"Still failed to bind: {e}\n")
-            sys.exit(1)
-    
-    sys.stderr.write("✅ EDNS Proxy started on port 53\n")
-    sys.stderr.flush()
+        sys.stderr.write(f"❌ Failed to bind to port 53: {e}\n")
+        sys.exit(1)
     
     while True:
         try:
-            d,a=s.recvfrom(4096)
-            threading.Thread(target=h,args=(s,d,a),daemon=True).start()
+            data, addr = server.recvfrom(4096)
+            threading.Thread(target=handle_request, args=(server, data, addr), daemon=True).start()
         except Exception as e:
             sys.stderr.write(f"Error in main loop: {e}\n")
             time.sleep(1)
@@ -685,9 +720,9 @@ if __name__ == "__main__":
 EOF
 chmod +x /usr/local/bin/dnstt-edns-proxy.py
 
-# Test Python script syntax
+# Test Python script
 python3 -m py_compile /usr/local/bin/dnstt-edns-proxy.py 2>/dev/null || {
-    echo -e "${YELLOW}⚠️  Python syntax check failed, installing full Python...${NC}"
+    echo -e "${YELLOW}⚠️  Installing Python3-full...${NC}"
     apt install -y python3-full
 }
 
@@ -711,18 +746,24 @@ StandardError=journal
 WantedBy=multi-user.target
 EOF
 
+# Configure firewall
 command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp || true
+command -v firewall-cmd >/dev/null && firewall-cmd --add-port=53/udp --permanent && firewall-cmd --reload || true
 
-# Stop any existing services first
+# Stop any existing services
 systemctl stop dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
 
-# Kill any process using port 53
+# Kill any process using port 53 or 5300
 fuser -k 53/udp 2>/dev/null || true
-sleep 2
+fuser -k 5300/udp 2>/dev/null || true
+sleep 3
 
+# Start services
 systemctl daemon-reload
 systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
-systemctl start dnstt-elite-x.service dnstt-elite-x-proxy.service
+systemctl start dnstt-elite-x.service
+sleep 3
+systemctl start dnstt-elite-x-proxy.service
 
 # Wait for services to start
 sleep 5
@@ -737,7 +778,7 @@ if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
 else
     echo -e "${RED}❌ DNSTT Server failed to start${NC}"
     echo -e "${YELLOW}📋 Service logs:${NC}"
-    journalctl -u dnstt-elite-x -n 10 --no-pager
+    journalctl -u dnstt-elite-x -n 20 --no-pager
 fi
 
 if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
@@ -745,14 +786,21 @@ if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
 else
     echo -e "${RED}❌ DNSTT Proxy failed to start${NC}"
     echo -e "${YELLOW}📋 Service logs:${NC}"
-    journalctl -u dnstt-elite-x-proxy -n 10 --no-pager
+    journalctl -u dnstt-elite-x-proxy -n 20 --no-pager
 fi
 
-# Check if port 53 is listening
+# Check if ports are listening
+echo -e "\n${CYAN}Port Status:${NC}"
 if ss -uln | grep -q ":53 "; then
     echo -e "${GREEN}✅ Port 53 is listening${NC}"
 else
     echo -e "${RED}❌ Port 53 is not listening${NC}"
+fi
+
+if ss -uln | grep -q ":${DNSTT_PORT} "; then
+    echo -e "${GREEN}✅ Port ${DNSTT_PORT} is listening${NC}"
+else
+    echo -e "${RED}❌ Port ${DNSTT_PORT} is not listening${NC}"
 fi
 
 setup_traffic_monitor
@@ -860,24 +908,6 @@ show_quote() {
 UD="/etc/elite-x/users"
 TD="/etc/elite-x/traffic"
 mkdir -p $UD $TD
-
-# Function to calculate percentage
-calc_percentage() {
-    local used=$1
-    local limit=$2
-    if [ "$limit" -eq 0 ]; then
-        echo "Unlimited"
-    else
-        local percent=$((used * 100 / limit))
-        if [ $percent -ge 90 ]; then
-            echo -e "${RED}${percent}%${NC}"
-        elif [ $percent -ge 70 ]; then
-            echo -e "${YELLOW}${percent}%${NC}"
-        else
-            echo -e "${GREEN}${percent}%${NC}"
-        fi
-    fi
-}
 
 add_user() {
     clear
@@ -1357,8 +1387,11 @@ show_quote
 
 # Final service status check
 echo -e "\n${CYAN}Final Service Status:${NC}"
-systemctl status dnstt-elite-x --no-pager | grep "Active:"
-systemctl status dnstt-elite-x-proxy --no-pager | grep "Active:"
+systemctl status dnstt-elite-x --no-pager | grep "Active:" || echo "DNSTT Server not running"
+systemctl status dnstt-elite-x-proxy --no-pager | grep "Active:" || echo "DNSTT Proxy not running"
+
+echo -e "\n${CYAN}Port Status:${NC}"
+ss -uln | grep -E ":53|:5300" || echo "No DNS ports listening"
 
 read -p "Open menu now? (y/n): " open
 if [ "$open" = "y" ]; then
