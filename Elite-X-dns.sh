@@ -485,21 +485,42 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-pr
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
+# FIXED: systemd-resolved configuration with proper resolv.conf handling
 if [ -f /etc/systemd/resolved.conf ]; then
   echo "Configuring systemd-resolved..."
   sed -i 's/^#\?DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf || true
   grep -q '^DNS=' /etc/systemd/resolved.conf \
     && sed -i 's/^DNS=.*/DNS=8.8.8.8 8.8.4.4/' /etc/systemd/resolved.conf \
     || echo "DNS=8.8.8.8 8.8.4.4" >> /etc/systemd/resolved.conf
-  systemctl restart systemd-resolved
+  systemctl restart systemd-resolved 2>/dev/null || true
   
-  # Fix for resolv.conf symlink issue
+  # Fix for resolv.conf - remove immutable flag and use multiple methods
+  echo "Setting up /etc/resolv.conf..."
+  
+  # Remove immutable attribute if present
+  if [ -f /etc/resolv.conf ]; then
+    chattr -i /etc/resolv.conf 2>/dev/null || true
+  fi
+  
+  # Try multiple methods to write resolv.conf
   rm -f /etc/resolv.conf 2>/dev/null || true
-  cat > /etc/resolv.conf <<EOF
-nameserver 8.8.8.8
-nameserver 8.8.4.4
-EOF
-  chmod 644 /etc/resolv.conf
+  
+  # Method 1: Direct write
+  if ! echo "nameserver 8.8.8.8" > /etc/resolv.conf 2>/dev/null; then
+    # Method 2: Use tee
+    echo "nameserver 8.8.8.8" | tee /etc/resolv.conf >/dev/null
+    echo "nameserver 8.8.4.4" | tee -a /etc/resolv.conf >/dev/null
+  else
+    echo "nameserver 8.8.4.4" >> /etc/resolv.conf 2>/dev/null || true
+  fi
+  
+  # Method 3: Use cp from /run if available
+  if [ ! -s /etc/resolv.conf ] && [ -f /run/systemd/resolve/stub-resolv.conf ]; then
+    cp /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf 2>/dev/null || true
+  fi
+  
+  chmod 644 /etc/resolv.conf 2>/dev/null || true
+  echo "✅ DNS configuration complete"
 fi
 
 echo "Installing dependencies..."
