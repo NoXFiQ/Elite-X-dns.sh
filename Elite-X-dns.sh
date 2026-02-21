@@ -60,6 +60,7 @@ ACTIVATION_TYPE_FILE="/etc/elite-x/activation_type"
 ACTIVATION_DATE_FILE="/etc/elite-x/activation_date"
 EXPIRY_DAYS_FILE="/etc/elite-x/expiry_days"
 KEY_FILE="/etc/elite-x/key"
+EXPIRY_FILE="/etc/elite-x/expiry"
 TIMEZONE="Africa/Dar_es_Salaam"
 
 set_timezone() {
@@ -148,7 +149,8 @@ activate_script() {
         echo "$ACTIVATION_KEY" > "$ACTIVATION_FILE"
         echo "$ACTIVATION_KEY" > "$KEY_FILE"
         echo "lifetime" > "$ACTIVATION_TYPE_FILE"
-        echo "Lifetime" > /etc/elite-x/expiry
+        echo "Lifetime" > "$EXPIRY_FILE"
+        echo -e "${GREEN}✅ Lifetime activation recorded${NC}"
         return 0
     elif [ "$input_key" = "$TEMP_KEY" ]; then
         echo "$TEMP_KEY" > "$ACTIVATION_FILE"
@@ -156,7 +158,8 @@ activate_script() {
         echo "temporary" > "$ACTIVATION_TYPE_FILE"
         echo "$(date +%Y-%m-%d)" > "$ACTIVATION_DATE_FILE"
         echo "2" > "$EXPIRY_DAYS_FILE"
-        echo "2 Days Trial" > /etc/elite-x/expiry
+        echo "2 Days Trial" > "$EXPIRY_FILE"
+        echo -e "${YELLOW}⚠️  Trial activation recorded (expires in 2 days)${NC}"
         return 0
     fi
     return 1
@@ -1157,7 +1160,15 @@ show_dashboard() {
     RAM=$(free -m | awk '/^Mem:/{print $3"/"$2"MB"}')
     SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
     ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
-    EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Unknown")
+    
+    # Fix expiry display
+    if [ -f "/etc/elite-x/expiry" ]; then
+        EXP=$(cat /etc/elite-x/expiry)
+    else
+        EXP="Lifetime"
+        echo "Lifetime" > /etc/elite-x/expiry
+    fi
+    
     LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
     CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
     
@@ -1429,6 +1440,11 @@ if [ ! -f /etc/elite-x/key ]; then
     else
         echo "$ACTIVATION_KEY" > /etc/elite-x/key
     fi
+fi
+
+# Ensure expiry file exists
+if [ ! -f /etc/elite-x/expiry ]; then
+    echo "Lifetime" > /etc/elite-x/expiry
 fi
 
 echo "╔════════════════════════════════════╗"
