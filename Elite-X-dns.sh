@@ -597,24 +597,15 @@ if [ -f /etc/systemd/resolved.conf ]; then
     chattr -i /etc/resolv.conf 2>/dev/null || true
   fi
   
-  # Try multiple methods to write resolv.conf
-  if ! echo "nameserver 8.8.8.8" > /etc/resolv.conf 2>/dev/null; then
-    if ! echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf >/dev/null 2>&1; then
-      # If both methods fail, use cat with a here-document
-      cat > /etc/resolv.conf <<EOF 2>/dev/null || {
-        # Final fallback - create a temporary file and copy
-        echo "nameserver 8.8.8.8" > /tmp/resolv.conf
-        echo "nameserver 8.8.4.4" >> /tmp/resolv.conf
-        cp -f /tmp/resolv.conf /etc/resolv.conf 2>/dev/null || true
-        rm -f /tmp/resolv.conf
-      }
-nameserver 8.8.8.8
-nameserver 8.8.4.4
-EOF
-    fi
-  else
-    echo "nameserver 8.8.4.4" >> /etc/resolv.conf 2>/dev/null || true
-  fi
+  # Simple approach - just create the file with echo
+  echo "nameserver 8.8.8.8" > /tmp/resolv.conf
+  echo "nameserver 8.8.4.4" >> /tmp/resolv.conf
+  cp -f /tmp/resolv.conf /etc/resolv.conf 2>/dev/null || {
+    # If cp fails, try direct write with sudo
+    echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf >/dev/null 2>&1
+    echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf >/dev/null 2>&1
+  }
+  rm -f /tmp/resolv.conf
   
   chmod 644 /etc/resolv.conf 2>/dev/null || true
   echo "✅ DNS configuration complete"
