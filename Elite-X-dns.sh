@@ -625,13 +625,19 @@ cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
 Description=ELITE-X DNSTT Server
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=simple
+User=root
+WorkingDirectory=/tmp
 ExecStart=/usr/local/bin/dnstt-server -udp :${DNSTT_PORT} -mtu ${MTU} -privkey-file /etc/dnstt/server.key ${TDOMAIN} 127.0.0.1:22
-Restart=no
+Restart=always
+RestartSec=5
 KillSignal=SIGTERM
 LimitNOFILE=1048576
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -640,59 +646,108 @@ EOF
 echo "Installing EDNS proxy..."
 cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
-import socket,threading,struct
+import socket
+import threading
+import struct
+import sys
+import time
+import os
+
 L=5300
-def p(d,s):
- if len(d)<12:return d
- try:q,a,n,r=struct.unpack("!HHHH",d[4:12])
- except:return d
- o=12
- def sk(b,o):
-  while o<len(b):
-   l=b[o];o+=1
-   if l==0:break
-   if l&0xC0==0xC0:o+=1;break
-   o+=l
-  return o
- for _ in range(q):o=sk(d,o);o+=4
- for _ in range(a+n):
-  o=sk(d,o)
-  if o+10>len(d):return d
-  _,_,_,l=struct.unpack("!HHIH",d[o:o+10])
-  o+=10+l
- n=bytearray(d)
- for _ in range(r):
-  o=sk(d,o)
-  if o+10>len(d):return d
-  t=struct.unpack("!H",d[o:o+2])[0]
-  if t==41:
-   n[o+2:o+4]=struct.pack("!H",s)
-   return bytes(n)
-  _,_,l=struct.unpack("!HIH",d[o+2:o+10])
-  o+=10+l
- return d
-def h(sk,d,ad):
- u=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
- u.settimeout(5)
- try:
-  u.sendto(p(d,1800),('127.0.0.1',L))
-  r,_=u.recvfrom(4096)
-  sk.sendto(p(r,512),ad)
- except:pass
- finally:u.close()
-s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-try:
- s.bind(('0.0.0.0',53))
-except:
- print("Port 53 in use, trying to free it...")
- import os
- os.system("fuser -k 53/udp 2>/dev/null || true")
- time.sleep(2)
- s.bind(('0.0.0.0',53))
-while True:
- d,a=s.recvfrom(4096)
- threading.Thread(target=h,args=(s,d,a),daemon=True).start()
+
+def modify_edns(d, max_size):
+    if len(d) < 12:
+        return d
+    try:
+        q, a, n, r = struct.unpack("!HHHH", d[4:12])
+    except:
+        return d
+    
+    o = 12
+    
+    def skip_name(b, o):
+        while o < len(b):
+            l = b[o]
+            o += 1
+            if l == 0:
+                break
+            if l & 0xC0 == 0xC0:
+                o += 1
+                break
+            o += l
+        return o
+    
+    # Skip questions
+    for _ in range(q):
+        o = skip_name(d, o)
+        o += 4
+    
+    # Skip authority and additional records
+    for _ in range(a + n):
+        o = skip_name(d, o)
+        if o + 10 > len(d):
+            return d
+        try:
+            _, _, _, l = struct.unpack("!HHIH", d[o:o+10])
+        except:
+            return d
+        o += 10 + l
+    
+    # Look for EDNS0 OPT record in additional section
+    modified = bytearray(d)
+    for _ in range(r):
+        o = skip_name(d, o)
+        if o + 10 > len(d):
+            return d
+        t = struct.unpack("!H", d[o:o+2])[0]
+        if t == 41:  # OPT record
+            modified[o+2:o+4] = struct.pack("!H", max_size)
+            return bytes(modified)
+        _, _, l = struct.unpack("!HIH", d[o+2:o+10])
+        o += 10 + l
+    
+    return d
+
+def handle_request(sock, data, addr):
+    client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    client.settimeout(5)
+    try:
+        # Forward to dnstt server
+        client.sendto(modify_edns(data, 1800), ('127.0.0.1', L))
+        response, _ = client.recvfrom(4096)
+        sock.sendto(modify_edns(response, 512), addr)
+    except Exception as e:
+        sys.stderr.write(f"Error: {e}\n")
+    finally:
+        client.close()
+
+def main():
+    # Try to bind to port 53
+    server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    # Kill process using port 53 if any
+    os.system("fuser -k 53/udp 2>/dev/null || true")
+    time.sleep(2)
+    
+    try:
+        server.bind(('0.0.0.0', 53))
+        sys.stderr.write(f"✅ EDNS Proxy started on port 53 (forwarding to {L})\n")
+        sys.stderr.flush()
+    except Exception as e:
+        sys.stderr.write(f"❌ Failed to bind to port 53: {e}\n")
+        sys.exit(1)
+    
+    while True:
+        try:
+            data, addr = server.recvfrom(4096)
+            threading.Thread(target=handle_request, args=(server, data, addr), daemon=True).start()
+        except Exception as e:
+            sys.stderr.write(f"Error in main loop: {e}\n")
+            time.sleep(1)
+
+if __name__ == "__main__":
+    main()
 EOF
 chmod +x /usr/local/bin/dnstt-edns-proxy.py
 
@@ -700,11 +755,17 @@ cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
 [Unit]
 Description=ELITE-X Proxy
 After=dnstt-elite-x.service
+Requires=dnstt-elite-x.service
+Wants=network.target
 
 [Service]
 Type=simple
+User=root
 ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-proxy.py
-Restart=no
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -713,31 +774,36 @@ EOF
 # Configure firewall
 command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp || true
 
-# Kill any process using port 53
+# Kill any process using port 53 and 5300
 fuser -k 53/udp 2>/dev/null || true
-sleep 2
+fuser -k 5300/udp 2>/dev/null || true
+sleep 3
 
-# Start services exactly like v1.0
+# Start services
 systemctl daemon-reload
 systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
 systemctl start dnstt-elite-x.service
-sleep 2
+sleep 3
 systemctl start dnstt-elite-x-proxy.service
 
-# Check services
-sleep 3
-if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ DNSTT Server is running${NC}"
-else
-    echo -e "${YELLOW}⚠️  Starting DNSTT Server...${NC}"
+# Wait for services to fully start
+sleep 5
+
+# Check service status and restart if needed
+if ! systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  DNSTT Server failed to start, checking logs...${NC}"
+    journalctl -u dnstt-elite-x -n 10 --no-pager
+    echo -e "${YELLOW}⚠️  Attempting restart...${NC}"
     systemctl restart dnstt-elite-x
+    sleep 3
 fi
 
-if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ DNSTT Proxy is running${NC}"
-else
-    echo -e "${YELLOW}⚠️  Starting DNSTT Proxy...${NC}"
+if ! systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
+    echo -e "${YELLOW}⚠️  DNSTT Proxy failed to start, checking logs...${NC}"
+    journalctl -u dnstt-elite-x-proxy -n 10 --no-pager
+    echo -e "${YELLOW}⚠️  Attempting restart...${NC}"
     systemctl restart dnstt-elite-x-proxy
+    sleep 3
 fi
 
 setup_traffic_monitor
@@ -1380,12 +1446,19 @@ show_quote
 
 # Final service status check
 echo -e "\n${CYAN}Final Service Status:${NC}"
+sleep 2
 systemctl is-active dnstt-elite-x >/dev/null 2>&1 && echo -e "${GREEN}✅ DNSTT Server: Running${NC}" || echo -e "${RED}❌ DNSTT Server: Failed${NC}"
 systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1 && echo -e "${GREEN}✅ DNSTT Proxy: Running${NC}" || echo -e "${RED}❌ DNSTT Proxy: Failed${NC}"
 
 echo -e "\n${CYAN}Port Status:${NC}"
 ss -uln | grep -q ":53 " && echo -e "${GREEN}✅ Port 53: Listening${NC}" || echo -e "${RED}❌ Port 53: Not listening${NC}"
 ss -uln | grep -q ":${DNSTT_PORT} " && echo -e "${GREEN}✅ Port ${DNSTT_PORT}: Listening${NC}" || echo -e "${RED}❌ Port ${DNSTT_PORT}: Not listening${NC}"
+
+# Show service logs if failed
+if ! systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+    echo -e "\n${YELLOW}DNSTT Server Logs:${NC}"
+    journalctl -u dnstt-elite-x -n 5 --no-pager
+fi
 
 read -p "Open menu now? (y/n): " open
 if [ "$open" = "y" ]; then
