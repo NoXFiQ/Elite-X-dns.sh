@@ -9,8 +9,7 @@
 # ╚═══════════════════════════════════════════════════════════════╝
 #              ELITE-X SLOWDNS v5.1 - REVOLUTION EDITION
 # ═════════════════════════════════════════════════════════════════
-# UNIQUE FEATURES: AI Predictive Mode, Quantum Stability, 
-#                  Self-Healing Tunnel, Zero-Loss Technology
+# FIXED: resolv.conf error, uninstall menu, service stability
 
 set -euo pipefail
 
@@ -53,33 +52,50 @@ ZERO_LOSS_FILE="/etc/elite-x/zero_loss_stats"
 complete_uninstall() {
     echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
     
-    systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-core 2>/dev/null || true
-    systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-core 2>/dev/null || true
+    # Stop all services
+    systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss elite-x-core 2>/dev/null || true
+    systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss elite-x-core 2>/dev/null || true
     
+    # Remove service files
     rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
     
+    # Remove all users
+    echo -e "${NEON_YELLOW}🔍 Removing all ELITE-X users...${NC}"
     if [ -d "/etc/elite-x/users" ]; then
         for user_file in /etc/elite-x/users/*; do
             if [ -f "$user_file" ]; then
                 username=$(basename "$user_file")
+                echo -e "${NEON_RED}Removing user: $username${NC}"
                 pkill -u "$username" 2>/dev/null || true
                 userdel -r -f "$username" 2>/dev/null || true
+                rm -rf /home/"$username" 2>/dev/null || true
             fi
         done
     fi
     
+    # Kill processes
     pkill -f dnstt-server 2>/dev/null || true
     pkill -f dnstt-edns-proxy 2>/dev/null || true
     
-    rm -rf /etc/dnstt /etc/elite-x
+    # Remove directories and files
+    rm -rf /etc/dnstt
+    rm -rf /etc/elite-x
     rm -f /usr/local/bin/{dnstt-*,elite-x*}
     rm -f /usr/local/bin/dnstt-edns-proxy.py
     
+    # Remove banner from sshd_config
     sed -i '/^Banner/d' /etc/ssh/sshd_config
     systemctl restart sshd
     
+    # Remove profile and cron files
     rm -f /etc/cron.hourly/elite-x-*
     rm -f /etc/profile.d/elite-x-*
+    sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
+    
+    # Restore resolv.conf if needed
+    if [ -f /etc/resolv.conf.backup ]; then
+        cp /etc/resolv.conf.backup /etc/resolv.conf 2>/dev/null || true
+    fi
     
     systemctl daemon-reload
     echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED!${NC}"
@@ -122,7 +138,7 @@ show_banner() {
     echo -e "${NEON_RED}║${NEON_PURPLE}${BOLD}${BG_BLACK}              ███████╗███████╗██║   ██║   ███████╗                    ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}║${NEON_PINK}${BOLD}${BG_BLACK}              ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝                    ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${NEON_RED}║${NEON_WHITE}${BOLD}            ELITE-X v5.1 - REVOLUTION EDITION                         ${NEON_RED}║${NC}"
+    echo -e "${NEON_RED}║${NEON_WHITE}${BOLD}            ELITE-X v5.1 - REVOLUTION EDITION (FIXED)                 ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}║${NEON_GREEN}${BOLD}    AI Predictive • Quantum Stability • Self-Healing • Zero-Loss     ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -202,6 +218,36 @@ ensure_key_files() {
             echo "Lifetime" > /etc/elite-x/expiry
         fi
     fi
+}
+
+# ==================== FIXED RESOLV.CONF HANDLING ====================
+fix_resolv_conf() {
+    echo -e "${NEON_CYAN}🔧 Configuring DNS resolv.conf...${NC}"
+    
+    # Backup existing resolv.conf
+    if [ -f /etc/resolv.conf ]; then
+        cp /etc/resolv.conf /etc/resolv.conf.backup 2>/dev/null || true
+    fi
+    
+    # Try to remove immutable flag if present
+    if [ -f /etc/resolv.conf ]; then
+        chattr -i /etc/resolv.conf 2>/dev/null || true
+    fi
+    
+    # Remove existing file/symlink
+    rm -f /etc/resolv.conf 2>/dev/null || unlink /etc/resolv.conf 2>/dev/null || true
+    
+    # Create new resolv.conf
+    cat > /etc/resolv.conf <<EOF
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+nameserver 1.1.1.1
+EOF
+    
+    # Try to make it immutable to prevent changes
+    chattr +i /etc/resolv.conf 2>/dev/null || true
+    
+    echo -e "${NEON_GREEN}✅ DNS configured successfully${NC}"
 }
 
 # ==================== GET IP INFO ====================
@@ -298,7 +344,7 @@ predict_network_quality() {
     local samples=()
     local losses=0
     
-    for i in {1..12}; do  # 12 samples over 60 seconds
+    for i in {1..12}; do
         ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1
         if [ $? -ne 0 ]; then
             losses=$((losses + 1))
@@ -359,7 +405,7 @@ apply_ai_prediction() {
     
     # Only change if different by more than 100
     local diff=$((recommended_mtu - current_mtu))
-    diff=${diff#-}  # absolute value
+    diff=${diff#-}
     
     if [ $diff -ge 100 ]; then
         echo "$recommended_mtu" > /etc/elite-x/mtu
@@ -374,7 +420,7 @@ apply_ai_prediction() {
 show_ai_status() {
     if [ -f "$AI_PREDICT_FILE" ]; then
         local data=$(cat "$AI_PREDICT_FILE")
-        local timestamp=$(echo "$data" | grep -o '"timestamp":[0-9]*' | cut -d: -f2)
+        local timestamp=$(echo "$data" | grep -o '"timestamp":"[^"]*"' | cut -d'"' -f4)
         local loss=$(echo "$data" | grep -o '"loss":[0-9]*' | cut -d: -f2)
         local trend=$(echo "$data" | grep -o '"trend":"[^"]*"' | cut -d'"' -f4)
         local prediction=$(echo "$data" | grep -o '"prediction":"[^"]*"' | cut -d'"' -f4)
@@ -442,6 +488,9 @@ create_quantum_tunnel() {
     # Create multiple redundant DNS paths
     log "Creating quantum stability tunnel with 3 redundant paths"
     
+    # Clear existing rules
+    iptables -t nat -F OUTPUT 2>/dev/null || true
+    
     # Path 1: Standard DNS
     iptables -t nat -A OUTPUT -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:53 2>/dev/null || true
     
@@ -459,24 +508,24 @@ monitor_quantum_stability() {
     
     while true; do
         # Test all paths
+        local path_ok=0
         for port in 53 5353; do
             dig +time=1 +tries=1 @127.0.0.1 -p $port google.com >/dev/null 2>&1
             if [ $? -eq 0 ]; then
-                # Path working, reset loss count
+                path_ok=1
                 loss_count=0
                 break
             fi
         done
         
         # If all paths failed, increment loss count
-        if [ $loss_count -eq 0 ] && [ $? -ne 0 ]; then
+        if [ $path_ok -eq 0 ]; then
             loss_count=$((loss_count + 1))
         fi
         
         # If multiple consecutive failures, recreate tunnel
         if [ $loss_count -ge 3 ]; then
             log "Multiple path failures detected, recreating quantum tunnel"
-            iptables -t nat -F OUTPUT 2>/dev/null || true
             create_quantum_tunnel
             loss_count=0
         fi
@@ -522,7 +571,7 @@ log() {
 
 check_tunnel_health() {
     # Check if DNS server is responding
-    if ! dig +time=2 +tries=1 @127.0.0.1 google.com >/dev/null 2>&1; then
+    if ! dig +time=2 +tries=1 @127.0.0.1 -p 5300 google.com >/dev/null 2>&1; then
         log "DNS server not responding, attempting repair"
         systemctl restart dnstt-elite-x 2>/dev/null
         sleep 2
@@ -558,9 +607,6 @@ heal_broken_connections() {
             kill -9 $pid 2>/dev/null || true
         fi
     done
-    
-    # Clear DNS cache if corrupted
-    systemctl restart systemd-resolved 2>/dev/null || true
 }
 
 while true; do
@@ -744,7 +790,7 @@ check_all_services() {
     fi
     
     # Check Healer
-    if ! systemctl is-active elite-x-healer >/dev/null 2>/dev/null; then
+    if ! systemctl is-active elite-x-healer >/dev/null 2>&1; then
         systemctl start elite-x-healer 2>/dev/null
     fi
     
@@ -1010,7 +1056,6 @@ list_users() {
         
         # Session display
         if [ "$max_sess" -gt 0 ] 2>/dev/null; then
-            sess_disp="${sessions}/${max_sess}"
             if [ "$sessions" -ge "$max_sess" ]; then
                 sess_disp="${NEON_RED}${sessions}/${max_sess}${NC}"
             else
@@ -1061,7 +1106,7 @@ set_limits() {
     
     if [ ! -z "$new_limit" ] && [ "$new_limit" -ge 0 ]; then
         sed -i "s/Traffic_Limit:.*/Traffic_Limit: $new_limit/" "$UD/$username"
-        echo "0" > "$TD/$username"  # Reset counter
+        echo "0" > "$TD/$username"
     fi
     
     if [ ! -z "$new_sess" ] && [ "$new_sess" -ge 0 ]; then
@@ -1183,7 +1228,6 @@ install_edns_proxy() {
 #!/usr/bin/env python3
 import socket
 import threading
-import struct
 import time
 import sys
 import signal
@@ -1219,6 +1263,11 @@ def handle_query(server_socket, data, client_addr):
 def main():
     print(f"ELITE-X Proxy starting on port {LISTEN_PORT}")
     
+    # Try to free up port 53
+    import os
+    os.system("fuser -k 53/udp 2>/dev/null || true")
+    time.sleep(2)
+    
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -1243,7 +1292,89 @@ EOF
     chmod +x /usr/local/bin/dnstt-edns-proxy.py
 }
 
-# ==================== MAIN MENU (SIMPLIFIED) ====================
+# ==================== CREATE UNINSTALL SCRIPT ====================
+create_uninstall_script() {
+    cat > /usr/local/bin/elite-x-uninstall <<'EOF'
+#!/bin/bash
+
+NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'; NC='\033[0m'
+
+echo -e "${NEON_RED}🗑️  ELITE-X UNINSTALLER${NC}"
+echo -e "${NEON_YELLOW}This will remove ALL users and data.${NC}"
+read -p "Type YES to confirm: " confirm
+
+if [ "$confirm" != "YES" ]; then
+    echo -e "${NEON_GREEN}Uninstall cancelled.${NC}"
+    exit 0
+fi
+
+echo -e "${NEON_RED}Stopping all services...${NC}"
+systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss 2>/dev/null || true
+systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss 2>/dev/null || true
+
+rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+
+echo -e "${NEON_YELLOW}Removing all users...${NC}"
+if [ -d "/etc/elite-x/users" ]; then
+    for user_file in /etc/elite-x/users/*; do
+        if [ -f "$user_file" ]; then
+            username=$(basename "$user_file")
+            echo "  Removing user: $username"
+            pkill -u "$username" 2>/dev/null || true
+            userdel -r -f "$username" 2>/dev/null || true
+        fi
+    done
+fi
+
+pkill -f dnstt-server 2>/dev/null || true
+pkill -f dnstt-edns-proxy 2>/dev/null || true
+
+rm -rf /etc/dnstt
+rm -rf /etc/elite-x
+rm -f /usr/local/bin/{dnstt-*,elite-x*}
+rm -f /usr/local/bin/dnstt-edns-proxy.py
+
+sed -i '/^Banner/d' /etc/ssh/sshd_config
+systemctl restart sshd
+
+rm -f /etc/cron.hourly/elite-x-*
+rm -f /etc/profile.d/elite-x-*
+sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
+
+# Restore resolv.conf
+if [ -f /etc/resolv.conf.backup ]; then
+    cp /etc/resolv.conf.backup /etc/resolv.conf 2>/dev/null || true
+fi
+
+systemctl daemon-reload
+
+echo -e "${NEON_GREEN}✅ ELITE-X has been completely uninstalled.${NC}"
+EOF
+    chmod +x /usr/local/bin/elite-x-uninstall
+}
+
+# ==================== REFRESH INFO ====================
+create_refresh_script() {
+    cat > /usr/local/bin/elite-x-refresh-info <<'EOF'
+#!/bin/bash
+IP=$(curl -s --connect-timeout 3 https://api.ipify.org 2>/dev/null || echo "Unknown")
+echo "$IP" > /etc/elite-x/cached_ip
+
+if [ "$IP" != "Unknown" ]; then
+    API_RESPONSE=$(curl -s --connect-timeout 3 "http://ip-api.com/json/$IP?fields=status,country,city,isp" 2>/dev/null)
+    if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
+        COUNTRY=$(echo "$API_RESPONSE" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
+        CITY=$(echo "$API_RESPONSE" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
+        ISP=$(echo "$API_RESPONSE" | grep -o '"isp":"[^"]*"' | cut -d'"' -f4)
+        echo "$CITY, $COUNTRY" > /etc/elite-x/cached_location
+        echo "$ISP" > /etc/elite-x/cached_isp
+    fi
+fi
+EOF
+    chmod +x /usr/local/bin/elite-x-refresh-info
+}
+
+# ==================== MAIN MENU ====================
 setup_main_menu() {
     cat >/usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
@@ -1388,12 +1519,9 @@ settings_menu() {
                 [ "$c" = "y" ] && reboot
                 ;;
             12)
-                read -p "$(echo -e $NEON_RED"Type YES to uninstall: "$NC)" c
-                [ "$c" = "YES" ] && {
-                    /usr/local/bin/elite-x-uninstall
-                    rm -f /tmp/elite-x-running
-                    exit 0
-                }
+                /usr/local/bin/elite-x-uninstall
+                rm -f /tmp/elite-x-running
+                exit 0
                 ;;
             13)
                 echo -e "${NEON_WHITE}Select location:${NC}"
@@ -1475,68 +1603,6 @@ main_menu() {
 main_menu
 EOF
     chmod +x /usr/local/bin/elite-x
-}
-
-# ==================== REFRESH INFO ====================
-create_refresh_script() {
-    cat > /usr/local/bin/elite-x-refresh-info <<'EOF'
-#!/bin/bash
-IP=$(curl -s --connect-timeout 3 https://api.ipify.org 2>/dev/null || echo "Unknown")
-echo "$IP" > /etc/elite-x/cached_ip
-
-if [ "$IP" != "Unknown" ]; then
-    API_RESPONSE=$(curl -s --connect-timeout 3 "http://ip-api.com/json/$IP?fields=status,country,city,isp" 2>/dev/null)
-    if echo "$API_RESPONSE" | grep -q '"status":"success"'; then
-        COUNTRY=$(echo "$API_RESPONSE" | grep -o '"country":"[^"]*"' | cut -d'"' -f4)
-        CITY=$(echo "$API_RESPONSE" | grep -o '"city":"[^"]*"' | cut -d'"' -f4)
-        ISP=$(echo "$API_RESPONSE" | grep -o '"isp":"[^"]*"' | cut -d'"' -f4)
-        echo "$CITY, $COUNTRY" > /etc/elite-x/cached_location
-        echo "$ISP" > /etc/elite-x/cached_isp
-    fi
-fi
-EOF
-    chmod +x /usr/local/bin/elite-x-refresh-info
-}
-
-# ==================== UNINSTALL SCRIPT ====================
-create_uninstall_script() {
-    cat > /usr/local/bin/elite-x-uninstall <<'EOF'
-#!/bin/bash
-
-NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NC='\033[0m'
-
-echo -e "${NEON_RED}🗑️  Uninstalling ELITE-X...${NC}"
-
-systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss 2>/dev/null || true
-systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss 2>/dev/null || true
-
-rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
-
-if [ -d "/etc/elite-x/users" ]; then
-    for user_file in /etc/elite-x/users/*; do
-        if [ -f "$user_file" ]; then
-            username=$(basename "$user_file")
-            pkill -u "$username" 2>/dev/null || true
-            userdel -r -f "$username" 2>/dev/null || true
-        fi
-    done
-fi
-
-rm -rf /etc/dnstt /etc/elite-x
-rm -f /usr/local/bin/{dnstt-*,elite-x*}
-rm -f /usr/local/bin/dnstt-edns-proxy.py
-
-sed -i '/^Banner/d' /etc/ssh/sshd_config
-systemctl restart sshd
-
-rm -f /etc/cron.hourly/elite-x-*
-rm -f /etc/profile.d/elite-x-*
-
-systemctl daemon-reload
-
-echo -e "${NEON_GREEN}✅ Uninstall complete${NC}"
-EOF
-    chmod +x /usr/local/bin/elite-x-uninstall
 }
 
 # ==================== MAIN INSTALLATION ====================
@@ -1652,15 +1718,12 @@ else
 fi
 systemctl restart sshd
 
-# Fix DNS
-rm -f /etc/resolv.conf
-cat > /etc/resolv.conf <<EOF
-nameserver 8.8.8.8
-nameserver 8.8.4.4
-EOF
-chattr +i /etc/resolv.conf 2>/dev/null || true
+# Fix DNS with proper handling
+fix_resolv_conf
 
+# Kill any process using port 53
 fuser -k 53/udp 2>/dev/null || true
+sleep 2
 
 echo -e "${NEON_CYAN}Installing dependencies...${NC}"
 apt update -y
@@ -1736,6 +1799,7 @@ setup_main_menu
 command -v ufw >/dev/null && {
     ufw allow 22/tcp
     ufw allow 53/udp
+    ufw reload 2>/dev/null || true
 }
 
 # Start services
@@ -1743,9 +1807,11 @@ systemctl daemon-reload
 systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
 systemctl enable elite-x-ai.service elite-x-quantum.service elite-x-healer.service elite-x-zeroloss.service elite-x-core.service
 
+# Start in correct order
 systemctl start dnstt-elite-x.service
-sleep 2
+sleep 3
 systemctl start dnstt-elite-x-proxy.service
+sleep 2
 systemctl start elite-x-ai.service elite-x-quantum.service elite-x-healer.service elite-x-zeroloss.service elite-x-core.service
 
 # Cache network info
