@@ -110,12 +110,14 @@ check_expiry() {
                 systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 
-                # Remove service files
-                rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+                # Remove service files and directories
+                rm -rf /etc/systemd/system/dnstt-elite-x*
+                rm -rf /etc/systemd/system/elite-x-*
                 
                 # Remove directories and files
                 rm -rf /etc/dnstt /etc/elite-x
-                rm -f /usr/local/bin/{dnstt-*,elite-x*}
+                rm -f /usr/local/bin/dnstt-*
+                rm -f /usr/local/bin/elite-x*
                 
                 # Remove banner from sshd_config
                 sed -i '/^Banner/d' /etc/ssh/sshd_config
@@ -519,12 +521,14 @@ pkill -f elite-x-cleaner 2>/dev/null || true
 systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
 systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
 
-# Remove service files
-rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+# Remove service files and directories (using rm -rf for directories)
+rm -rf /etc/systemd/system/dnstt-elite-x*
+rm -rf /etc/systemd/system/elite-x-*
 
 # Remove directories and files
 rm -rf /etc/dnstt /etc/elite-x
-rm -f /usr/local/bin/{dnstt-*,elite-x*}
+rm -f /usr/local/bin/dnstt-*
+rm -f /usr/local/bin/elite-x*
 
 # Remove banner from sshd_config
 sed -i '/^Banner/d' /etc/ssh/sshd_config
@@ -1171,12 +1175,14 @@ check_expiry_menu() {
                 systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                 
-                # Remove service files
-                rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+                # Remove service files and directories
+                rm -rf /etc/systemd/system/dnstt-elite-x*
+                rm -rf /etc/systemd/system/elite-x-*
                 
                 # Remove directories and files
                 rm -rf /etc/dnstt /etc/elite-x
-                rm -f /usr/local/bin/{dnstt-*,elite-x*}
+                rm -f /usr/local/bin/dnstt-*
+                rm -f /usr/local/bin/elite-x*
                 
                 # Remove banner from sshd_config
                 sed -i '/^Banner/d' /etc/ssh/sshd_config
@@ -1329,12 +1335,14 @@ settings_menu() {
                     systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                     systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner 2>/dev/null || true
                     
-                    # Remove service files
-                    rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+                    # Remove service files and directories
+                    rm -rf /etc/systemd/system/dnstt-elite-x*
+                    rm -rf /etc/systemd/system/elite-x-*
                     
                     # Remove directories and files
                     rm -rf /etc/dnstt /etc/elite-x
-                    rm -f /usr/local/bin/{dnstt-*,elite-x*}
+                    rm -f /usr/local/bin/dnstt-*
+                    rm -f /usr/local/bin/elite-x*
                     
                     # Remove banner from sshd_config
                     sed -i '/^Banner/d' /etc/ssh/sshd_config
