@@ -492,7 +492,14 @@ if [ -f /etc/systemd/resolved.conf ]; then
     && sed -i 's/^DNS=.*/DNS=8.8.8.8 8.8.4.4/' /etc/systemd/resolved.conf \
     || echo "DNS=8.8.8.8 8.8.4.4" >> /etc/systemd/resolved.conf
   systemctl restart systemd-resolved
-  ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
+  
+  # Fix for resolv.conf symlink issue
+  rm -f /etc/resolv.conf 2>/dev/null || true
+  cat > /etc/resolv.conf <<EOF
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+EOF
+  chmod 644 /etc/resolv.conf
 fi
 
 echo "Installing dependencies..."
@@ -729,7 +736,7 @@ calc_percentage() {
             echo -e "${RED}${percent}%${NC}"
         elif [ $percent -ge 70 ]; then
             echo -e "${YELLOW}${percent}%${NC}"
-else
+        else
             echo -e "${GREEN}${percent}%${NC}"
         fi
     fi
