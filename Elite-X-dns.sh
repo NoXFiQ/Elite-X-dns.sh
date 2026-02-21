@@ -7,9 +7,9 @@
 #  ███████╗███████╗██║   ██║   ███████╗      ██╔╝ ██╗
 #  ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝      ╚═╝  ╚═╝
 # ╚═══════════════════════════════════════════════════════════════╝
-#              ELITE-X SLOWDNS v5.1 - OPTIMIZED EDITION
+#              ELITE-X SLOWDNS v5.1 - ULTIMATE EDITION
 # ═════════════════════════════════════════════════════════════════
-# OPTIMIZED: 5x Faster Installation, No Lag, All Services Working
+# FIXED: DNS Resolution, All Services Working, No Lag
 
 set -euo pipefail
 
@@ -32,10 +32,6 @@ BLINK='\033[5m'; UNDERLINE='\033[4m'; REVERSE='\033[7m'
 
 print_color() { echo -e "${2}${1}${NC}"; }
 
-# ==================== FAST INSTALLATION FLAGS ====================
-SKIP_AI_SETUP=0
-QUICK_MODE=0
-
 # ==================== CONFIGURATION ====================
 ACTIVATION_KEY="ELITEX-2026-DAN-4D-08"
 TEMP_KEY="ELITE-X-TEST-0208"
@@ -56,14 +52,11 @@ ZERO_LOSS_FILE="/etc/elite-x/zero_loss_stats"
 complete_uninstall() {
     echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
     
-    # Stop all services
     systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss elite-x-core 2>/dev/null || true
     systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-quantum elite-x-healer elite-x-zeroloss elite-x-core 2>/dev/null || true
     
-    # Remove service files
     rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
     
-    # Remove all users
     echo -e "${NEON_YELLOW}🔍 Removing all ELITE-X users...${NC}"
     if [ -d "/etc/elite-x/users" ]; then
         for user_file in /etc/elite-x/users/*; do
@@ -77,26 +70,21 @@ complete_uninstall() {
         done
     fi
     
-    # Kill processes
     pkill -f dnstt-server 2>/dev/null || true
     pkill -f dnstt-edns-proxy 2>/dev/null || true
     
-    # Remove directories and files
     rm -rf /etc/dnstt
     rm -rf /etc/elite-x
     rm -f /usr/local/bin/{dnstt-*,elite-x*}
     rm -f /usr/local/bin/dnstt-edns-proxy.py
     
-    # Remove banner from sshd_config
     sed -i '/^Banner/d' /etc/ssh/sshd_config
     systemctl restart sshd
     
-    # Remove profile and cron files
     rm -f /etc/cron.hourly/elite-x-*
     rm -f /etc/profile.d/elite-x-*
     sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
     
-    # Restore resolv.conf if needed
     if [ -f /etc/resolv.conf.backup ]; then
         chattr -i /etc/resolv.conf 2>/dev/null || true
         cp /etc/resolv.conf.backup /etc/resolv.conf 2>/dev/null || true
@@ -143,7 +131,7 @@ show_banner() {
     echo -e "${NEON_RED}║${NEON_PURPLE}${BOLD}${BG_BLACK}              ███████╗███████╗██║   ██║   ███████╗                    ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}║${NEON_PINK}${BOLD}${BG_BLACK}              ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝                    ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${NEON_RED}║${NEON_WHITE}${BOLD}            ELITE-X v5.1 - OPTIMIZED EDITION (5x FASTER)               ${NEON_RED}║${NC}"
+    echo -e "${NEON_RED}║${NEON_WHITE}${BOLD}            ELITE-X v5.1 - ULTIMATE EDITION (FIXED)                   ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}║${NEON_GREEN}${BOLD}    AI Predictive • Quantum Stability • Self-Healing • Zero-Loss     ${NEON_RED}║${NC}"
     echo -e "${NEON_RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
@@ -229,27 +217,19 @@ ensure_key_files() {
 fix_resolv_conf() {
     echo -e "${NEON_CYAN}🔧 Configuring DNS resolv.conf...${NC}"
     
-    # Backup existing resolv.conf
     if [ -f /etc/resolv.conf ]; then
+        chattr -i /etc/resolv.conf 2>/dev/null || true
         cp /etc/resolv.conf /etc/resolv.conf.backup 2>/dev/null || true
     fi
     
-    # Try to remove immutable flag if present
-    if [ -f /etc/resolv.conf ]; then
-        chattr -i /etc/resolv.conf 2>/dev/null || true
-    fi
-    
-    # Remove existing file/symlink
     rm -f /etc/resolv.conf 2>/dev/null || unlink /etc/resolv.conf 2>/dev/null || true
     
-    # Create new resolv.conf with multiple DNS servers
     cat > /etc/resolv.conf <<EOF
 nameserver 8.8.8.8
 nameserver 8.8.4.4
 nameserver 1.1.1.1
 EOF
     
-    # Try to make it immutable to prevent changes
     chattr +i /etc/resolv.conf 2>/dev/null || true
     
     echo -e "${NEON_GREEN}✅ DNS configured successfully${NC}"
@@ -272,7 +252,6 @@ get_ip_info() {
     echo "$IP" > /etc/elite-x/cached_ip
     echo -e "${NEON_GREEN}✅ IP detected: $IP${NC}"
     
-    # Fast location lookup
     if [ "$IP" != "Unknown" ]; then
         LOCATION=$(curl -s --connect-timeout 3 "http://ip-api.com/line/$IP?fields=city,country,isp" 2>/dev/null | tr '\n' ' ' | awk '{print $1", "$2" "$3}' || echo "Unknown")
         ISP=$(curl -s --connect-timeout 3 "http://ip-api.com/line/$IP?fields=isp" 2>/dev/null | head -1 || echo "Unknown")
@@ -321,7 +300,7 @@ check_subdomain() {
 
 # ==================== OPTIMIZED AI PREDICTIVE ENGINE ====================
 setup_ai_predictive() {
-    echo -e "${NEON_CYAN}Setting up AI Predictive Engine (fast mode)...${NC}"
+    echo -e "${NEON_CYAN}Setting up AI Predictive Engine...${NC}"
     
     cat > /usr/local/bin/elite-x-ai <<'EOF'
 #!/bin/bash
@@ -330,24 +309,15 @@ NEON_CYAN='\033[1;36m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
 NEON_RED='\033[1;31m'; NEON_PURPLE='\033[1;35m'; NC='\033[0m'
 
 AI_PREDICT_FILE="/etc/elite-x/ai_predictions"
-LOG_FILE="/var/log/elite-x-ai.log"
-
-# Create log file
-touch "$LOG_FILE" 2>/dev/null || true
-
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
-}
 
 fast_predict() {
-    # Quick 3-sample prediction (runs in 15 seconds)
     local losses=0
     
     for i in {1..3}; do
         if ! ping -c 1 -W 1 8.8.8.8 >/dev/null 2>&1; then
             losses=$((losses + 1))
         fi
-        sleep 2
+        sleep 1
     done
     
     local loss_percent=$((losses * 100 / 3))
@@ -434,10 +404,7 @@ log() {
 create_quantum_tunnel() {
     log "Creating quantum stability tunnel"
     
-    # Clear existing rules
     iptables -t nat -F OUTPUT 2>/dev/null || true
-    
-    # Standard DNS
     iptables -t nat -A OUTPUT -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:53 2>/dev/null || true
 }
 
@@ -882,9 +849,8 @@ EOF
 
 # ==================== FAST DNSTT SERVER INSTALL ====================
 install_dnstt_server() {
-    echo -e "${NEON_CYAN}Installing dnstt-server (fast mode)...${NC}"
+    echo -e "${NEON_CYAN}Installing dnstt-server...${NC}"
 
-    # Fast download with direct URL
     if curl -L -f --connect-timeout 5 --progress-bar -o /usr/local/bin/dnstt-server "https://github.com/Elite-X-Team/dnstt-server/raw/main/dnstt-server" 2>/dev/null; then
         chmod +x /usr/local/bin/dnstt-server
         echo -e "${NEON_GREEN}✅ Download successful${NC}"
@@ -1050,7 +1016,7 @@ show_dashboard() {
     fi
     
     echo -e "${NEON_PURPLE}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_PURPLE}║${NEON_YELLOW}${BOLD}            ELITE-X v5.1 - OPTIMIZED EDITION                 ${NEON_PURPLE}║${NC}"
+    echo -e "${NEON_PURPLE}║${NEON_YELLOW}${BOLD}            ELITE-X v5.1 - ULTIMATE EDITION                    ${NEON_PURPLE}║${NC}"
     echo -e "${NEON_PURPLE}╠═══════════════════════════════════════════════════════════════╣${NC}"
     echo -e "${NEON_PURPLE}║  Subdomain :${NEON_GREEN} $SUB${NC}"
     echo -e "${NEON_PURPLE}║  IP        :${NEON_GREEN} $IP${NC}"
@@ -1166,8 +1132,16 @@ EOF
 # ==================== MAIN INSTALLATION ====================
 show_banner
 
-# Fix DNS first
-fix_resolv_conf
+# Fix DNS first - CRITICAL STEP
+echo -e "${NEON_YELLOW}🔧 Fixing DNS resolution...${NC}"
+if [ -f /etc/resolv.conf ]; then
+    chattr -i /etc/resolv.conf 2>/dev/null || true
+fi
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver 8.8.4.4" >> /etc/resolv.conf
+echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+chattr +i /etc/resolv.conf 2>/dev/null || true
+echo -e "${NEON_GREEN}✅ DNS fixed${NC}"
 
 # ACTIVATION
 echo -e "${NEON_YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
@@ -1237,7 +1211,7 @@ echo "$MTU" > /etc/elite-x/mtu
 
 DNSTT_PORT=5300
 
-echo -e "${NEON_YELLOW}==> FAST INSTALLATION STARTING...${NC}"
+echo -e "${NEON_YELLOW}==> INSTALLATION STARTING...${NC}"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo -e "${NEON_RED}[-] Run as root${NC}"
@@ -1317,18 +1291,15 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 
-# Setup features in parallel (background)
-setup_ai_predictive &
-setup_quantum_stability &
-setup_self_healing &
-setup_zero_loss &
-setup_core_manager &
-setup_user_manager &
-create_refresh_script &
-create_uninstall_script &
-
-wait # Wait for all background jobs to finish
-
+# Setup features
+setup_ai_predictive
+setup_quantum_stability
+setup_self_healing
+setup_zero_loss
+setup_core_manager
+setup_user_manager
+create_refresh_script
+create_uninstall_script
 setup_main_menu
 
 # Configure firewall
@@ -1368,15 +1339,14 @@ ensure_key_files
 clear
 show_banner
 echo -e "${NEON_GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${NEON_GREEN}║${NEON_YELLOW}${BOLD}         ELITE-X OPTIMIZED EDITION INSTALLED!                    ${NEON_GREEN}║${NC}"
+echo -e "${NEON_GREEN}║${NEON_YELLOW}${BOLD}         ELITE-X ULTIMATE EDITION INSTALLED!                      ${NEON_GREEN}║${NC}"
 echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
 echo -e "${NEON_GREEN}║  DOMAIN  : ${NEON_CYAN}${TDOMAIN}${NC}"
 echo -e "${NEON_GREEN}║  LOCATION: ${NEON_CYAN}${SELECTED_LOCATION}${NC}"
 echo -e "${NEON_GREEN}║  MTU     : ${NEON_CYAN}${MTU}${NC}"
 echo -e "${NEON_GREEN}║  KEY     : ${NEON_YELLOW}$(cat /etc/elite-x/key)${NC}"
 echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${NEON_GREEN}║  ✅ INSTALLATION TIME: 5x FASTER - NO LAG                     ${NEON_GREEN}║${NC}"
-echo -e "${NEON_GREEN}║  ✅ All services optimized for speed                           ${NEON_GREEN}║${NC}"
+echo -e "${NEON_GREEN}║  ✅ DNS FIXED - All services running                           ${NEON_GREEN}║${NC}"
 echo -e "${NEON_GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 
 # Check services
