@@ -180,6 +180,25 @@ activate_script() {
     return 1
 }
 
+# Function to ensure key and expiry files exist
+ensure_key_files() {
+    if [ ! -f /etc/elite-x/key ]; then
+        if [ -f "$ACTIVATION_FILE" ]; then
+            cp "$ACTIVATION_FILE" /etc/elite-x/key
+        else
+            echo "$ACTIVATION_KEY" > /etc/elite-x/key
+        fi
+    fi
+    
+    if [ ! -f /etc/elite-x/expiry ]; then
+        if [ -f "$EXPIRY_FILE" ]; then
+            cp "$EXPIRY_FILE" /etc/elite-x/expiry
+        else
+            echo "Lifetime" > /etc/elite-x/expiry
+        fi
+    fi
+}
+
 check_subdomain() {
     local subdomain="$1"
     local vps_ip=$(curl -4 -s ifconfig.me 2>/dev/null || echo "")
@@ -216,7 +235,7 @@ check_subdomain() {
     fi
 }
 
-# ========== FIXED DNSTT SERVER (from v1.5) ==========
+# ========== FIXED DNSTT SERVER ==========
 setup_dnstt_server() {
     echo "Installing dnstt-server..."
     
@@ -270,7 +289,7 @@ WantedBy=multi-user.target
 EOF
 }
 
-# ========== FIXED EDNS PROXY (from v1.5) ==========
+# ========== FIXED EDNS PROXY ==========
 setup_edns_proxy() {
     echo "Installing EDNS proxy..."
     
@@ -1391,8 +1410,23 @@ show_dashboard() {
     CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1)
     UPTIME=$(uptime | awk -F'up' '{print $2}' | awk -F',' '{print $1}')
     SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
-    ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
-    EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Unknown")
+    
+    # Fix activation key display
+    if [ -f "/etc/elite-x/key" ]; then
+        ACTIVATION_KEY=$(cat /etc/elite-x/key)
+    else
+        ACTIVATION_KEY="ELITEX-2026-DAN-4D-08"
+        echo "$ACTIVATION_KEY" > /etc/elite-x/key
+    fi
+    
+    # Fix expiry display
+    if [ -f "/etc/elite-x/expiry" ]; then
+        EXP=$(cat /etc/elite-x/expiry)
+    else
+        EXP="Lifetime"
+        echo "Lifetime" > /etc/elite-x/expiry
+    fi
+    
     LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "South Africa")
     CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
     
@@ -1400,7 +1434,15 @@ show_dashboard() {
     SSH_CONN=$(ss -tnp | grep -c ":22.*ESTAB" 2>/dev/null || echo "0")
     DNS_CONN=$(ss -unp | grep -c ":5300" 2>/dev/null || echo "0")
     
-    DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
+    # Fix DNS service detection
+    if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+        DNS="${GREEN}●${NC}"
+    else
+        DNS="${RED}●${NC}"
+        # Try to restart if not running
+        systemctl restart dnstt-elite-x 2>/dev/null &
+    fi
+    
     PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
     TRAF=$(systemctl is-active elite-x-traffic 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
     CLN=$(systemctl is-active elite-x-cleaner 2>/dev/null | grep -q active && echo "${GREEN}●${NC}" || echo "${RED}●${NC}")
@@ -1697,6 +1739,11 @@ start_all_services() {
     # Reload systemd
     systemctl daemon-reload
     
+    # Kill any process using ports
+    fuser -k 53/udp 2>/dev/null || true
+    fuser -k 5300/udp 2>/dev/null || true
+    sleep 2
+    
     # Start DNSTT Server
     echo -n "Starting DNSTT Server... "
     systemctl enable dnstt-elite-x.service 2>/dev/null
@@ -1706,7 +1753,12 @@ start_all_services() {
         echo -e "${GREEN}✅${NC}"
     else
         echo -e "${RED}❌${NC}"
-        journalctl -u dnstt-elite-x -n 5 --no-pager
+        # Try one more time
+        systemctl restart dnstt-elite-x.service 2>/dev/null
+        sleep 2
+        if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ (restarted)${NC}"
+        fi
     fi
     
     # Start DNSTT Proxy
@@ -1782,6 +1834,9 @@ if ! activate_script "$ACTIVATION_INPUT"; then
     echo -e "${RED}❌ Invalid activation key! Installation cancelled.${NC}"
     exit 1
 fi
+
+# Ensure key files exist after activation
+ensure_key_files
 
 echo -e "${GREEN}✅ Activation successful!${NC}"
 sleep 1
@@ -1981,10 +2036,8 @@ setup_main_menu
 # Configure firewall
 command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp || true
 
-# Kill any process using ports
-fuser -k 53/udp 2>/dev/null || true
-fuser -k 5300/udp 2>/dev/null || true
-sleep 3
+# Ensure key files exist
+ensure_key_files
 
 # Start all services
 start_all_services
@@ -2046,10 +2099,8 @@ chmod +x /etc/cron.hourly/elite-x-expiry
 # Create initial backup
 /usr/local/bin/elite-x-backup 2>/dev/null || true
 
-# Ensure expiry file exists
-if [ ! -f /etc/elite-x/expiry ]; then
-    echo "Lifetime" > /etc/elite-x/expiry
-fi
+# Ensure key and expiry files exist one more time
+ensure_key_files
 
 # Installation complete
 echo "╔════════════════════════════════════╗"
