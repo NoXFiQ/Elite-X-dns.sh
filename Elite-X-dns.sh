@@ -13,14 +13,31 @@
 
 set -euo pipefail
 
-# ==================== COLOR PALETTE (V3.5 Style) ====================
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'
-PURPLE='\033[0;35m'; CYAN='\033[0;36m'; WHITE='\033[1;37m'; BOLD='\033[1m'
+# ==================== COLOR PALETTE (ALL VARIABLES DEFINED) ====================
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+BOLD='\033[1m'
 NC='\033[0m'
+BLINK='\033[5m'
+UNDERLINE='\033[4m'
+REVERSE='\033[7m'
 
-NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
-NEON_BLUE='\033[1;34m'; NEON_PURPLE='\033[1;35m'; NEON_CYAN='\033[1;36m'
+# Neon colors
+NEON_RED='\033[1;31m'
+NEON_GREEN='\033[1;32m'
+NEON_YELLOW='\033[1;33m'
+NEON_BLUE='\033[1;34m'
+NEON_PURPLE='\033[1;35m'
+NEON_CYAN='\033[1;36m'
 NEON_WHITE='\033[1;37m'
+NEON_PINK='\033[1;38;5;201m'
+NEON_ORANGE='\033[1;38;5;208m'
+NEON_LIME='\033[1;38;5;154m'
 
 # ==================== CONFIGURATION ====================
 FASTDNS_PORT="53"
@@ -41,7 +58,7 @@ fix_dns_resolution() {
         echo -e "${NEON_RED}❌ DNS resolution failed! Fixing...${NC}"
         
         # Backup original resolv.conf
-        [ -f /etc/resolv.conf ] && cp /etc/resolv.conf /etc/resolv.conf.backup
+        [ -f /etc/resolv.conf ] && cp /etc/resolv.conf /etc/resolv.conf.backup 2>/dev/null || true
         
         # Remove systemd-resolved if it's causing issues
         systemctl stop systemd-resolved 2>/dev/null || true
@@ -870,8 +887,8 @@ main() {
     echo -e "${NEON_YELLOW}with a complete management panel (V3.5 style)${NC}"
     echo ""
     echo -e "${NEON_WHITE}Features:${NC}"
-    echo -e "  ${NEON_GREEN}✓${NC} Zero-allocation DNS parsing (0 allocs/op) [citation:3]"
-    echo -e "  ${NEON_GREEN}✓${NC} 1.4M queries per second capability [citation:7]"
+    echo -e "  ${NEON_GREEN}✓${NC} Zero-allocation DNS parsing (0 allocs/op)"
+    echo -e "  ${NEON_GREEN}✓${NC} 1.4M queries per second capability"
     echo -e "  ${NEON_GREEN}✓${NC} EDNS support (Client Subnet, Padding)"
     echo -e "  ${NEON_GREEN}✓${NC} Built-in caching (100,000 entries)"
     echo -e "  ${NEON_GREEN}✓${NC} Prometheus metrics on port 9153"
