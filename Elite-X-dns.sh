@@ -18,11 +18,13 @@ set -euo pipefail
 # ==================== MODERN COLOR PALETTE ====================
 C_RESET='\033[0m'
 C_BOLD='\033[1m'
-C_DIM='\033[2m'
-C_ITALIC='\033[3m'
-C_UNDERLINE='\033[4m'
-C_BLINK='\033[5m'
-C_REVERSE='\033[7m'
+C_RED='\033[0;31m'
+C_GREEN='\033[0;32m'
+C_YELLOW='\033[1;33m'
+C_BLUE='\033[0;34m'
+C_PURPLE='\033[0;35m'
+C_CYAN='\033[0;36m'
+C_WHITE='\033[1;37m'
 
 # Modern gradient colors
 C_PRIMARY='\033[38;5;39m'      # Bright Blue
@@ -50,8 +52,37 @@ CACHE_DIR="$BASE_DIR/cache"
 DNSTT_PORT=5300
 TIMEZONE="Africa/Dar_es_Salaam"
 
-# Create directory structure
-mkdir -p "$USERS_DIR" "$TRAFFIC_DIR" "$BANNER_DIR" "$LOG_DIR" "$CACHE_DIR"
+# ==================== INITIAL SETUP ====================
+setup_directories() {
+    mkdir -p "$USERS_DIR" "$TRAFFIC_DIR" "$BANNER_DIR" "$LOG_DIR" "$CACHE_DIR" /etc/dnstt
+}
+
+# ==================== BANNER FUNCTIONS ====================
+show_banner() {
+    clear
+    echo -e "${C_RED}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
+    echo -e "${C_RED}║${C_YELLOW}${C_BOLD}              ███████╗██╗     ██╗████████╗███████╗      ██╗  ██╗   ${C_RED}║${C_RESET}"
+    echo -e "${C_RED}║${C_GREEN}${C_BOLD}              ██╔════╝██║     ██║╚══██╔══╝██╔════╝      ╚██╗██╔╝   ${C_RED}║${C_RESET}"
+    echo -e "${C_RED}║${C_CYAN}${C_BOLD}              █████╗  ██║     ██║   ██║   █████╗  █████╗ ╚███╔╝    ${C_RED}║${C_RESET}"
+    echo -e "${C_RED}║${C_BLUE}${C_BOLD}              ██╔══╝  ██║     ██║   ██║   ██╔══╝  ╚════╝ ██╔██╗    ${C_RED}║${C_RESET}"
+    echo -e "${C_RED}║${C_PURPLE}${C_BOLD}              ███████╗███████╗██║   ██║   ███████╗      ██╔╝ ██╗   ${C_RED}║${C_RESET}"
+    echo -e "${C_RED}║${C_PINK}${C_BOLD}              ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝      ╚═╝  ╚═╝   ${C_RED}║${C_RESET}"
+    echo -e "${C_RED}╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
+    echo -e "${C_RED}║${C_WHITE}${C_BOLD}            ELITE-X v6.0 - QUANTUM STABLE EDITION                   ${C_RED}║${C_RESET}"
+    echo -e "${C_RED}║${C_GREEN}${C_BOLD}    AI Predictor • Zero-Loss • Auto-Heal • Quantum Layer           ${C_RED}║${C_RESET}"
+    echo -e "${C_RED}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
+    echo ""
+}
+
+show_quote() {
+    echo ""
+    echo -e "${C_PURPLE}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
+    echo -e "${C_PURPLE}║${C_YELLOW}${C_BOLD}                                                               ${C_PURPLE}║${C_RESET}"
+    echo -e "${C_PURPLE}║${C_WHITE}${C_BOLD}            Always Remember ELITE-X when you see X            ${C_PURPLE}║${C_RESET}"
+    echo -e "${C_PURPLE}║${C_YELLOW}${C_BOLD}                                                               ${C_PURPLE}║${C_RESET}"
+    echo -e "${C_PURPLE}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
+    echo ""
+}
 
 # ==================== LOGGING FUNCTION ====================
 log() {
@@ -65,7 +96,6 @@ log() {
         SUCCESS) echo -e "${C_SUCCESS}✅ $message${C_RESET}" ;;
         WARNING) echo -e "${C_WARNING}⚠️  $message${C_RESET}" ;;
         INFO)    echo -e "${C_INFO}ℹ️  $message${C_RESET}" ;;
-        DEBUG)   echo -e "${C_DEBUG}🔍 $message${C_RESET}" ;;
         *)       echo -e "$message" ;;
     esac
 }
@@ -120,7 +150,7 @@ HISTORY_FILE="$CACHE_DIR/network_history.json"
 mkdir -p "$CACHE_DIR"
 
 analyze_traffic() {
-    local samples=10
+    local samples=5
     local successes=0
     local total_time=0
     
@@ -160,7 +190,9 @@ analyze_traffic() {
 case "$1" in
     status)
         if [ -f "$HISTORY_FILE" ]; then
-            tail -n 5 "$HISTORY_FILE"
+            tail -n 5 "$HISTORY_FILE" | while read line; do
+                echo "$line"
+            done
         else
             echo "No data yet"
         fi
@@ -710,7 +742,10 @@ delete_user() {
     show_menu
 }
 
-show_menu
+# Start the menu
+while true; do
+    show_menu
+done
 EOF
     chmod +x /usr/local/bin/elite-x-user
     log "SUCCESS" "User Manager installed"
@@ -748,8 +783,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Start socat tunnel
-exec socat UDP4-LISTEN:${UDP_PORT:-5300},reuseaddr,fork TCP4:127.0.0.1:22
+# Check if socat is available
+if command -v socat &>/dev/null; then
+    exec socat UDP4-LISTEN:${UDP_PORT:-5300},reuseaddr,fork TCP4:127.0.0.1:22
+else
+    # Fallback to simple nc if socat not available
+    while true; do
+        nc -l -u -p ${UDP_PORT:-5300} -c "nc 127.0.0.1 22" 2>/dev/null
+        sleep 1
+    done
+fi
 EOF
     chmod +x /usr/local/bin/dnstt-server
     log "SUCCESS" "DNSTT wrapper installed"
@@ -955,6 +998,7 @@ complete_uninstall() {
     # Remove files
     rm -rf "$BASE_DIR" /etc/dnstt
     rm -f /usr/local/bin/{dnstt-*,elite-x*}
+    rm -f /usr/local/bin/dnstt-edns-proxy.py
     
     # Remove banner
     sed -i '/^Banner/d' /etc/ssh/sshd_config
@@ -964,220 +1008,7 @@ complete_uninstall() {
     log "SUCCESS" "ELITE-X completely uninstalled"
 }
 
-# ==================== MAIN INSTALLATION ====================
-main() {
-    show_banner
-    
-    # Fix DNS first
-    fix_dns_resolution
-    
-    # Activation
-    echo -e "${C_PRIMARY}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
-    echo -e "${C_PRIMARY}║${C_INFO}                    ACTIVATION REQUIRED                         ${C_PRIMARY}║${C_RESET}"
-    echo -e "${C_PRIMARY}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
-    echo ""
-    echo -e "${C_INFO}Available Keys:${C_RESET}"
-    echo -e "  ${C_SUCCESS}💎 Lifetime : Whtsapp +255713-628-668${C_RESET}"
-    echo -e "  ${C_WARNING}⏳ Trial    : ELITE-X-TEST-0208 (2 days)${C_RESET}"
-    echo ""
-    read -p "$(echo -e "${C_SUCCESS}🔑 Activation Key: ${C_RESET}")" key
-    
-    if ! activate_script "$key"; then
-        log "ERROR" "Invalid activation key"
-        exit 1
-    fi
-    
-    log "SUCCESS" "Activation successful"
-    sleep 1
-    
-    # Subdomain
-    echo -e "${C_PRIMARY}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
-    echo -e "${C_PRIMARY}║${C_INFO}                  ENTER YOUR SUBDOMAIN                         ${C_PRIMARY}║${C_RESET}"
-    echo -e "${C_PRIMARY}╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
-    echo -e "${C_PRIMARY}║  Example: ns-dan.elitex.sbs                                    ${C_PRIMARY}║${C_RESET}"
-    echo -e "${C_PRIMARY}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
-    echo ""
-    read -p "$(echo -e "${C_SUCCESS}🌐 Subdomain: ${C_RESET}")" TDOMAIN
-    echo "$TDOMAIN" > "$BASE_DIR/subdomain"
-    
-    # Get IP info
-    get_ip_info
-    check_subdomain "$TDOMAIN"
-    
-    # Location
-    echo -e "${C_PRIMARY}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
-    echo -e "${C_PRIMARY}║${C_INFO}           NETWORK LOCATION OPTIMIZATION                       ${C_PRIMARY}║${C_RESET}"
-    echo -e "${C_PRIMARY}╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
-    echo -e "${C_PRIMARY}║  [1] South Africa (Default)                                   ${C_PRIMARY}║${C_RESET}"
-    echo -e "${C_PRIMARY}║  [2] USA                                                      ${C_PRIMARY}║${C_RESET}"
-    echo -e "${C_PRIMARY}║  [3] Europe                                                   ${C_PRIMARY}║${C_RESET}"
-    echo -e "${C_PRIMARY}║  [4] Asia                                                     ${C_PRIMARY}║${C_RESET}"
-    echo -e "${C_PRIMARY}║  [5] Auto-detect                                              ${C_PRIMARY}║${C_RESET}"
-    echo -e "${C_PRIMARY}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
-    echo ""
-    read -p "$(echo -e "${C_SUCCESS}Select location [1-5] [default: 1]: ${C_RESET}")" loc
-    loc=${loc:-1}
-    
-    MTU=1500
-    case $loc in
-        2) MTU=1400; SELECTED="USA" ;;
-        3) MTU=1400; SELECTED="Europe" ;;
-        4) MTU=1400; SELECTED="Asia" ;;
-        5) MTU=1500; SELECTED="Auto-detect" ;;
-        *) MTU=1500; SELECTED="South Africa" ;;
-    esac
-    
-    echo "$MTU" > "$BASE_DIR/mtu"
-    echo "$SELECTED" > "$BASE_DIR/location"
-    
-    log "SUCCESS" "Location set to $SELECTED (MTU: $MTU)"
-    
-    # Kill ports
-    fuser -k 53/udp 2>/dev/null || true
-    fuser -k 5300/udp 2>/dev/null || true
-    sleep 1
-    
-    # Install dependencies
-    log "INFO" "Installing dependencies..."
-    apt update -y 2>/dev/null || true
-    apt install -y curl python3 jq nano iptables dnsutils net-tools openssl socat --no-install-recommends 2>/dev/null || true
-    
-    # Setup components
-    setup_dnstt_wrapper
-    setup_edns_proxy
-    setup_ai_predictor
-    setup_zero_loss
-    setup_auto_healer
-    setup_quantum_layer
-    setup_bandwidth_optimizer
-    setup_smart_cache
-    setup_user_manager
-    setup_core_service
-    
-    # Create service files
-    cat > /etc/systemd/system/dnstt-elite-x.service <<EOF
-[Unit]
-Description=ELITE-X DNSTT Server
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/dnstt-server -udp :$DNSTT_PORT -mtu $MTU -privkey-file /etc/dnstt/server.key $TDOMAIN 127.0.0.1:22
-Restart=always
-RestartSec=5
-LimitNOFILE=1048576
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    cat > /etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
-[Unit]
-Description=ELITE-X Proxy
-After=dnstt-elite-x.service
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-proxy.py
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    # Generate keys
-    mkdir -p /etc/dnstt
-    /usr/local/bin/dnstt-server -gen-key -privkey-file /etc/dnstt/server.key -pubkey-file /etc/dnstt/server.pub
-    chmod 600 /etc/dnstt/server.key
-    chmod 644 /etc/dnstt/server.pub
-    
-    # Create banner
-    cat > "$BANNER_DIR/default" <<'EOF'
-╔═════════════════════════════════╗
-        ELITE-X VPN v6.0
-    Quantum Stable • Zero-Loss
-╚═════════════════════════════════╝
-EOF
-    cp "$BANNER_DIR/default" "$BANNER_DIR/ssh-banner"
-    
-    if ! grep -q "^Banner" /etc/ssh/sshd_config; then
-        echo "Banner $BANNER_DIR/ssh-banner" >> /etc/ssh/sshd_config
-    fi
-    systemctl restart sshd
-    
-    # Configure firewall
-    command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp
-    
-    # Start services
-    systemctl daemon-reload
-    
-    for service in dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-zeroloss elite-x-healer elite-x-quantum elite-x-optimizer elite-x-core; do
-        systemctl enable "$service" 2>/dev/null || true
-        systemctl start "$service" 2>/dev/null || true
-    done
-    
-    # Create uninstall script
-    cat > /usr/local/bin/elite-x-uninstall <<'EOF'
-#!/bin/bash
-read -p "Type YES to uninstall: " confirm
-[ "$confirm" = "YES" ] && /usr/local/bin/elite-x-core --uninstall
-EOF
-    chmod +x /usr/local/bin/elite-x-uninstall
-    
-    # Auto-show on login
-    cat > /etc/profile.d/elite-x.sh <<'EOF'
-#!/bin/bash
-if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
-    export ELITE_X_SHOWN=1
-    rm -f /tmp/elite-x-running 2>/dev/null
-    /usr/local/bin/elite-x
-fi
-EOF
-    chmod +x /etc/profile.d/elite-x.sh
-    
-    cat >> ~/.bashrc <<'EOF'
-alias menu='elite-x'
-alias elite='elite-x'
-alias ai='elite-x-ai status'
-alias stats='elite-x-core status'
-alias cache='elite-x-cache stats'
-EOF
-    
-    # Final setup
-    get_ip_info
-    
-    clear
-    show_banner
-    echo -e "${C_SUCCESS}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
-    echo -e "${C_SUCCESS}║${C_INFO}         ELITE-X v6.0 QUANTUM STABLE INSTALLED!                ${C_SUCCESS}║${C_RESET}"
-    echo -e "${C_SUCCESS}╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
-    echo -e "${C_SUCCESS}║  DOMAIN  : ${C_INFO}$TDOMAIN${C_RESET}"
-    echo -e "${C_SUCCESS}║  LOCATION: ${C_INFO}$SELECTED${C_RESET}"
-    echo -e "${C_SUCCESS}║  MTU     : ${C_INFO}$MTU${C_RESET}"
-    echo -e "${C_SUCCESS}║  KEY     : ${C_WARNING}$(cat "$BASE_DIR/key")${C_RESET}"
-    echo -e "${C_SUCCESS}╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
-    echo -e "${C_SUCCESS}║  ✅ AI Traffic Predictor                                      ${C_SUCCESS}║${C_RESET}"
-    echo -e "${C_SUCCESS}║  ✅ Zero-Loss Technology                                      ${C_SUCCESS}║${C_RESET}"
-    echo -e "${C_SUCCESS}║  ✅ Auto-Healing Tunnel                                       ${C_SUCCESS}║${C_RESET}"
-    echo -e "${C_SUCCESS}║  ✅ Quantum Encryption Layer                                  ${C_SUCCESS}║${C_RESET}"
-    echo -e "${C_SUCCESS}║  ✅ Bandwidth Optimizer                                       ${C_SUCCESS}║${C_RESET}"
-    echo -e "${C_SUCCESS}║  ✅ Smart DNS Cache                                           ${C_SUCCESS}║${C_RESET}"
-    echo -e "${C_SUCCESS}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
-    
-    # Check services
-    sleep 2
-    echo -e "\n${C_INFO}Service Status:${C_RESET}"
-    systemctl is-active dnstt-elite-x >/dev/null 2>&1 && echo -e "  ${C_SUCCESS}●${C_RESET} DNSTT Server: RUNNING" || echo -e "  ${C_DANGER}●${C_RESET} DNSTT Server: FAILED"
-    systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1 && echo -e "  ${C_SUCCESS}●${C_RESET} DNSTT Proxy: RUNNING" || echo -e "  ${C_DANGER}●${C_RESET} DNSTT Proxy: FAILED"
-    
-    echo ""
-    echo -e "${C_SUCCESS}Opening dashboard in 3 seconds...${C_RESET}"
-    sleep 3
-    /usr/local/bin/elite-x
-}
-
-# ==================== MAIN MENU ====================
+# ==================== SETUP MAIN MENU ====================
 setup_main_menu() {
     cat > /usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
@@ -1347,7 +1178,8 @@ EOF
 }
 
 # Create refresh info script
-cat > /usr/local/bin/elite-x-refresh-info <<'EOF'
+create_refresh_script() {
+    cat > /usr/local/bin/elite-x-refresh-info <<'EOF'
 #!/bin/bash
 IP=$(curl -s --connect-timeout 3 https://api.ipify.org 2>/dev/null || 
      curl -s --connect-timeout 3 ifconfig.me 2>/dev/null || 
@@ -1363,7 +1195,268 @@ if [ "$IP" != "Unknown" ]; then
     echo "$ISP" > /etc/elite-x/cache/isp
 fi
 EOF
-chmod +x /usr/local/bin/elite-x-refresh-info
+    chmod +x /usr/local/bin/elite-x-refresh-info
+}
 
-# Start main installation
+# Create uninstall script
+create_uninstall_script() {
+    cat > /usr/local/bin/elite-x-uninstall <<'EOF'
+#!/bin/bash
+echo -e "\033[1;31m🗑️  ELITE-X UNINSTALLER\033[0m"
+read -p "Type YES to confirm: " confirm
+
+if [ "$confirm" != "YES" ]; then
+    exit 0
+fi
+
+# Stop services
+for service in dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-zeroloss elite-x-healer elite-x-quantum elite-x-optimizer elite-x-core; do
+    systemctl stop "$service" 2>/dev/null || true
+    systemctl disable "$service" 2>/dev/null || true
+done
+
+# Remove service files
+rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
+
+# Remove users
+if [ -d "/etc/elite-x/users" ]; then
+    for user_file in /etc/elite-x/users/*; do
+        if [ -f "$user_file" ]; then
+            username=$(basename "$user_file")
+            userdel -r "$username" 2>/dev/null || true
+        fi
+    done
+fi
+
+# Remove files
+rm -rf /etc/elite-x /etc/dnstt
+rm -f /usr/local/bin/{dnstt-*,elite-x*}
+rm -f /usr/local/bin/dnstt-edns-proxy.py
+
+# Remove banner
+sed -i '/^Banner/d' /etc/ssh/sshd_config
+systemctl restart sshd
+
+systemctl daemon-reload
+echo -e "\033[1;32m✅ ELITE-X uninstalled\033[0m"
+EOF
+    chmod +x /usr/local/bin/elite-x-uninstall
+}
+
+# ==================== MAIN INSTALLATION ====================
+main() {
+    # Setup directories first
+    setup_directories
+    
+    # Show banner
+    show_banner
+    
+    # Fix DNS first
+    fix_dns_resolution
+    
+    # Activation
+    echo -e "${C_PRIMARY}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
+    echo -e "${C_PRIMARY}║${C_INFO}                    ACTIVATION REQUIRED                         ${C_PRIMARY}║${C_RESET}"
+    echo -e "${C_PRIMARY}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
+    echo ""
+    echo -e "${C_INFO}Available Keys:${C_RESET}"
+    echo -e "  ${C_SUCCESS}💎 Lifetime : Whtsapp +255713-628-668${C_RESET}"
+    echo -e "  ${C_WARNING}⏳ Trial    : ELITE-X-TEST-0208 (2 days)${C_RESET}"
+    echo ""
+    read -p "$(echo -e "${C_SUCCESS}🔑 Activation Key: ${C_RESET}")" key
+    
+    if ! activate_script "$key"; then
+        log "ERROR" "Invalid activation key"
+        exit 1
+    fi
+    
+    log "SUCCESS" "Activation successful"
+    sleep 1
+    
+    # Subdomain
+    echo -e "${C_PRIMARY}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
+    echo -e "${C_PRIMARY}║${C_INFO}                  ENTER YOUR SUBDOMAIN                         ${C_PRIMARY}║${C_RESET}"
+    echo -e "${C_PRIMARY}╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
+    echo -e "${C_PRIMARY}║  Example: ns-dan.elitex.sbs                                    ${C_PRIMARY}║${C_RESET}"
+    echo -e "${C_PRIMARY}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
+    echo ""
+    read -p "$(echo -e "${C_SUCCESS}🌐 Subdomain: ${C_RESET}")" TDOMAIN
+    echo "$TDOMAIN" > "$BASE_DIR/subdomain"
+    
+    # Get IP info
+    get_ip_info
+    check_subdomain "$TDOMAIN"
+    
+    # Location
+    echo -e "${C_PRIMARY}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
+    echo -e "${C_PRIMARY}║${C_INFO}           NETWORK LOCATION OPTIMIZATION                       ${C_PRIMARY}║${C_RESET}"
+    echo -e "${C_PRIMARY}╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
+    echo -e "${C_PRIMARY}║  [1] South Africa (Default)                                   ${C_PRIMARY}║${C_RESET}"
+    echo -e "${C_PRIMARY}║  [2] USA                                                      ${C_PRIMARY}║${C_RESET}"
+    echo -e "${C_PRIMARY}║  [3] Europe                                                   ${C_PRIMARY}║${C_RESET}"
+    echo -e "${C_PRIMARY}║  [4] Asia                                                     ${C_PRIMARY}║${C_RESET}"
+    echo -e "${C_PRIMARY}║  [5] Auto-detect                                              ${C_PRIMARY}║${C_RESET}"
+    echo -e "${C_PRIMARY}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
+    echo ""
+    read -p "$(echo -e "${C_SUCCESS}Select location [1-5] [default: 1]: ${C_RESET}")" loc
+    loc=${loc:-1}
+    
+    MTU=1500
+    case $loc in
+        2) MTU=1400; SELECTED="USA" ;;
+        3) MTU=1400; SELECTED="Europe" ;;
+        4) MTU=1400; SELECTED="Asia" ;;
+        5) MTU=1500; SELECTED="Auto-detect" ;;
+        *) MTU=1500; SELECTED="South Africa" ;;
+    esac
+    
+    echo "$MTU" > "$BASE_DIR/mtu"
+    echo "$SELECTED" > "$BASE_DIR/location"
+    
+    log "SUCCESS" "Location set to $SELECTED (MTU: $MTU)"
+    
+    # Kill ports
+    fuser -k 53/udp 2>/dev/null || true
+    fuser -k 5300/udp 2>/dev/null || true
+    sleep 1
+    
+    # Install dependencies
+    log "INFO" "Installing dependencies..."
+    apt update -y 2>/dev/null || true
+    apt install -y curl python3 jq nano iptables dnsutils net-tools openssl socat netcat-openbsd --no-install-recommends 2>/dev/null || true
+    
+    # Setup components
+    setup_dnstt_wrapper
+    setup_edns_proxy
+    setup_ai_predictor
+    setup_zero_loss
+    setup_auto_healer
+    setup_quantum_layer
+    setup_bandwidth_optimizer
+    setup_smart_cache
+    setup_user_manager
+    setup_core_service
+    
+    # Create service files
+    cat > /etc/systemd/system/dnstt-elite-x.service <<EOF
+[Unit]
+Description=ELITE-X DNSTT Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/dnstt-server -udp :$DNSTT_PORT -mtu $MTU -privkey-file /etc/dnstt/server.key $TDOMAIN 127.0.0.1:22
+Restart=always
+RestartSec=5
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    cat > /etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
+[Unit]
+Description=ELITE-X Proxy
+After=dnstt-elite-x.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-proxy.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Generate keys
+    /usr/local/bin/dnstt-server -gen-key -privkey-file /etc/dnstt/server.key -pubkey-file /etc/dnstt/server.pub
+    chmod 600 /etc/dnstt/server.key
+    chmod 644 /etc/dnstt/server.pub
+    
+    # Create banner
+    cat > "$BANNER_DIR/default" <<'EOF'
+╔═════════════════════════════════╗
+        ELITE-X VPN v6.0
+    Quantum Stable • Zero-Loss
+╚═════════════════════════════════╝
+EOF
+    cp "$BANNER_DIR/default" "$BANNER_DIR/ssh-banner"
+    
+    if ! grep -q "^Banner" /etc/ssh/sshd_config; then
+        echo "Banner $BANNER_DIR/ssh-banner" >> /etc/ssh/sshd_config
+    fi
+    systemctl restart sshd
+    
+    # Configure firewall
+    command -v ufw >/dev/null && ufw allow 22/tcp && ufw allow 53/udp
+    
+    # Start services
+    systemctl daemon-reload
+    
+    for service in dnstt-elite-x dnstt-elite-x-proxy elite-x-ai elite-x-zeroloss elite-x-healer elite-x-quantum elite-x-optimizer elite-x-core; do
+        systemctl enable "$service" 2>/dev/null || true
+        systemctl start "$service" 2>/dev/null || true
+    done
+    
+    # Create additional scripts
+    create_refresh_script
+    create_uninstall_script
+    setup_main_menu
+    
+    # Auto-show on login
+    cat > /etc/profile.d/elite-x.sh <<'EOF'
+#!/bin/bash
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
+    export ELITE_X_SHOWN=1
+    rm -f /tmp/elite-x-running 2>/dev/null
+    /usr/local/bin/elite-x
+fi
+EOF
+    chmod +x /etc/profile.d/elite-x.sh
+    
+    cat >> ~/.bashrc <<'EOF'
+alias menu='elite-x'
+alias elite='elite-x'
+alias ai='elite-x-ai status'
+alias stats='elite-x-core status'
+alias cache='elite-x-cache stats'
+alias zeroloss='elite-x-zeroloss stats'
+alias optimizer='elite-x-optimizer status'
+EOF
+    
+    # Final setup
+    get_ip_info
+    
+    clear
+    show_banner
+    echo -e "${C_SUCCESS}╔═══════════════════════════════════════════════════════════════╗${C_RESET}"
+    echo -e "${C_SUCCESS}║${C_INFO}         ELITE-X v6.0 QUANTUM STABLE INSTALLED!                ${C_SUCCESS}║${C_RESET}"
+    echo -e "${C_SUCCESS}╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
+    echo -e "${C_SUCCESS}║  DOMAIN  : ${C_INFO}$TDOMAIN${C_RESET}"
+    echo -e "${C_SUCCESS}║  LOCATION: ${C_INFO}$SELECTED${C_RESET}"
+    echo -e "${C_SUCCESS}║  MTU     : ${C_INFO}$MTU${C_RESET}"
+    echo -e "${C_SUCCESS}║  KEY     : ${C_WARNING}$(cat "$BASE_DIR/key")${C_RESET}"
+    echo -e "${C_SUCCESS}╠═══════════════════════════════════════════════════════════════╣${C_RESET}"
+    echo -e "${C_SUCCESS}║  ✅ AI Traffic Predictor                                      ${C_SUCCESS}║${C_RESET}"
+    echo -e "${C_SUCCESS}║  ✅ Zero-Loss Technology                                      ${C_SUCCESS}║${C_RESET}"
+    echo -e "${C_SUCCESS}║  ✅ Auto-Healing Tunnel                                       ${C_SUCCESS}║${C_RESET}"
+    echo -e "${C_SUCCESS}║  ✅ Quantum Encryption Layer                                  ${C_SUCCESS}║${C_RESET}"
+    echo -e "${C_SUCCESS}║  ✅ Bandwidth Optimizer                                       ${C_SUCCESS}║${C_RESET}"
+    echo -e "${C_SUCCESS}║  ✅ Smart DNS Cache                                           ${C_SUCCESS}║${C_RESET}"
+    echo -e "${C_SUCCESS}╚═══════════════════════════════════════════════════════════════╝${C_RESET}"
+    
+    # Check services
+    sleep 2
+    echo -e "\n${C_INFO}Service Status:${C_RESET}"
+    systemctl is-active dnstt-elite-x >/dev/null 2>&1 && echo -e "  ${C_SUCCESS}●${C_RESET} DNSTT Server: RUNNING" || echo -e "  ${C_DANGER}●${C_RESET} DNSTT Server: FAILED"
+    systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1 && echo -e "  ${C_SUCCESS}●${C_RESET} DNSTT Proxy: RUNNING" || echo -e "  ${C_DANGER}●${C_RESET} DNSTT Proxy: FAILED"
+    
+    echo ""
+    echo -e "${C_SUCCESS}Opening dashboard in 3 seconds...${C_RESET}"
+    sleep 3
+    /usr/local/bin/elite-x
+}
+
+# Run main function
 main "$@"
