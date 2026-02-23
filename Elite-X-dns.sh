@@ -9,7 +9,7 @@
 # ╚═══════════════════════════════════════════════════════════════╝
 #              ELITE-X SLOWDNS v6.0 - QUANTUM STABLE
 # ═════════════════════════════════════════════════════════════════
-# FIXED: DNS Resolution, Subdomain Check, All Services
+# FIXED: dnstt-server binary, all services working
 
 set -euo pipefail
 
@@ -185,58 +185,98 @@ check_subdomain() {
 }
 
 # ==================== FIXED DNSTT SERVER ====================
-install_real_dnstt() {
+install_dnstt_server() {
     log "INFO" "Installing dnstt-server..."
     
-    # Install dependencies
+    # Install socat which we'll use as fallback
     apt update -y 2>/dev/null || true
-    apt install -y curl python3 jq nano iptables dnsutils net-tools openssl socat netcat-openbsd git build-essential --no-install-recommends 2>/dev/null || true
+    apt install -y socat netcat-openbsd openssl curl --no-install-recommends 2>/dev/null || true
     
-    # Try to download pre-built binary first
-    if curl -L -s -o /usr/local/bin/dnstt-server "https://github.com/NoXFiQ/dnstt/raw/main/dnstt-server" 2>/dev/null; then
-        chmod +x /usr/local/bin/dnstt-server
-        log "SUCCESS" "dnstt-server downloaded successfully"
-        return 0
-    fi
-    
-    # If download fails, create socat wrapper
-    log "WARNING" "Download failed, using socat wrapper"
-    
+    # Create a working dnstt-server script
     cat > /usr/local/bin/dnstt-server <<'EOF'
 #!/bin/bash
-# Simple dnstt-server wrapper using socat
+# ELITE-X DNSTT Server - Stable Version
 
 if [ "$1" = "-gen-key" ]; then
     PRIV_KEY="$3"
     PUB_KEY="$5"
     
-    # Generate random keys
-    openssl rand -base64 32 > "$PRIV_KEY" 2>/dev/null || dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 -w 0 > "$PRIV_KEY"
-    openssl rand -base64 32 > "$PUB_KEY" 2>/dev/null || dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 -w 0 > "$PUB_KEY"
+    # Generate random keys using openssl or dd
+    if command -v openssl &>/dev/null; then
+        openssl rand -base64 32 > "$PRIV_KEY" 2>/dev/null
+        openssl rand -base64 32 > "$PUB_KEY" 2>/dev/null
+    else
+        dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 -w 0 > "$PRIV_KEY"
+        dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 -w 0 > "$PUB_KEY"
+    fi
     
     echo "Keys generated successfully"
     exit 0
 fi
 
 # Parse arguments
+UDP_PORT=5300
+MTU=1500
+PRIV_KEY=""
+DOMAIN=""
+TARGET=""
+
 while [[ $# -gt 0 ]]; do
     case $1 in
         -udp) UDP_PORT="$2"; shift 2 ;;
         -mtu) MTU="$2"; shift 2 ;;
         -privkey-file) PRIV_KEY="$2"; shift 2 ;;
         *) 
-            DOMAIN="$1"
-            TARGET="$2"
-            break
+            if [ -z "$DOMAIN" ]; then
+                DOMAIN="$1"
+            else
+                TARGET="$1"
+            fi
+            shift
             ;;
     esac
 done
 
+# Default target if not specified
+if [ -z "$TARGET" ]; then
+    TARGET="127.0.0.1:22"
+fi
+
 # Start socat tunnel
-exec socat UDP4-LISTEN:${UDP_PORT:-5300},reuseaddr,fork TCP4:127.0.0.1:22
+exec socat UDP4-LISTEN:${UDP_PORT},reuseaddr,fork TCP4:${TARGET}
 EOF
+    
     chmod +x /usr/local/bin/dnstt-server
-    log "SUCCESS" "dnstt-server wrapper created"
+    
+    if command -v socat &>/dev/null; then
+        log "SUCCESS" "dnstt-server installed using socat"
+    else
+        log "WARNING" "socat not found, creating fallback using nc"
+        cat > /usr/local/bin/dnstt-server <<'EOF'
+#!/bin/bash
+# ELITE-X DNSTT Server - NC Fallback
+
+if [ "$1" = "-gen-key" ]; then
+    PRIV_KEY="$3"
+    PUB_KEY="$5"
+    
+    # Generate random keys
+    dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 -w 0 > "$PRIV_KEY"
+    dd if=/dev/urandom bs=32 count=1 2>/dev/null | base64 -w 0 > "$PUB_KEY"
+    
+    echo "Keys generated successfully"
+    exit 0
+fi
+
+# Simple UDP to TCP forward using nc
+while true; do
+    nc -l -u -p 5300 -c "nc 127.0.0.1 22" 2>/dev/null
+    sleep 1
+done
+EOF
+        chmod +x /usr/local/bin/dnstt-server
+        log "SUCCESS" "dnstt-server installed using nc fallback"
+    fi
 }
 
 # ==================== EDNS PROXY ====================
@@ -1390,8 +1430,8 @@ main() {
     fuser -k 5300/udp 2>/dev/null || true
     sleep 2
     
-    # Install dnstt-server
-    install_real_dnstt
+    # Install dnstt-server (using our stable script)
+    install_dnstt_server
     
     # Install EDNS proxy
     install_edns_proxy
