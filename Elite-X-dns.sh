@@ -1,34 +1,19 @@
 #!/bin/bash
-# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ╔═══════════════════════════════════════════════════════════════╗
 #  ███████╗██╗     ██╗████████╗███████╗      ██╗  ██╗
 #  ██╔════╝██║     ██║╚══██╔══╝██╔════╝      ╚██╗██╔╝
 #  █████╗  ██║     ██║   ██║   █████╗  █████╗ ╚███╔╝ 
 #  ██╔══╝  ██║     ██║   ██║   ██╔══╝  ╚════╝ ██╔██╗ 
 #  ███████╗███████╗██║   ██║   ███████╗      ██╔╝ ██╗
 #  ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝      ╚═╝  ╚═╝
-# ╚═══════════════════════════════════════════════════════════════════════════╝
-#              ELITE-X SLOWDNS v5.0 ULTRA EDITION - QUANTUM
-# ════════════════════════════════════════════════════════════════════════════
-#              ⚡ PREMIUM FEATURES ⚡
-#              • REAL-TIME TRAFFIC MONITORING with per-process tracking
-#              • ADVANCED CONNECTION LIMITING with auto-kill
-#              • SMART USER DELETION with complete process cleanup
-#              • LIVE BANDWIDTH ANALYZER with graphical stats
-#              • AUTO-RECONNECT BAN for exceeded limits
-#              • USER ACTIVITY JOURNAL with timestamps
-#              • SYSTEM HEALTH MONITOR with alerts
-#              • AUTO BAN FOR EXCEEDED LIMITS USER CONNECTIONS
-#              • QUANTUM CONNECTION ENCRYPTION SIMULATION
-#              • NEURAL NETWORK BANDWIDTH OPTIMIZATION
-#              • HOLOGRAPHIC DASHBOARD with 3D effects
-#              • SELF-HEALING SYSTEM with auto-recovery
-#              • AUTO RESTART SERVICES AFTER 4HR WHEN SLOWDOWN DETECTION
-#              • AUTO RESTART SERVICES AFTER 6 IF CRITICAL DETECTION
-# ════════════════════════════════════════════════════════════════════════════
+# ╚═══════════════════════════════════════════════════════════════╝
+#              ELITE-X SLOWDNS v5.0 - ULTRA EDITION
+#              ⚡ PREMIUM UNIQUE FEATURES EDITION ⚡
+# ═════════════════════════════════════════════════════════════════
 
 set -euo pipefail
 
-# ==================== QUANTUM COLOR PALETTE ====================
+# ==================== ULTRA PREMIUM COLOR PALETTE ====================
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'
 PURPLE='\033[0;35m'; CYAN='\033[0;36m'; WHITE='\033[1;37m'; BOLD='\033[1m'
 NC='\033[0m'
@@ -39,132 +24,146 @@ NEON_WHITE='\033[1;37m'; NEON_PINK='\033[1;38;5;201m'
 NEON_ORANGE='\033[1;38;5;208m'; NEON_LIME='\033[1;38;5;154m'
 NEON_TEAL='\033[1;38;5;51m'; NEON_VIOLET='\033[1;38;5;129m'
 NEON_GOLD='\033[1;38;5;220m'; NEON_SILVER='\033[1;38;5;250m'
-NEON_BRONZE='\033[1;38;5;172m'; NEON_EMERALD='\033[1;38;5;46m'
-NEON_RUBY='\033[1;38;5;196m'; NEON_SAPPHIRE='\033[1;38;5;21m'
-NEON_DIAMOND='\033[1;38;5;231m'; NEON_QUANTUM='\033[1;38;5;93m'
-NEON_COSMIC='\033[1;38;5;99m'; NEON_GALAXY='\033[1;38;5;57m'
+NEON_MAGENTA='\033[1;38;5;200m'; NEON_AQUA='\033[1;38;5;45m'
 
 BG_BLACK='\033[40m'; BG_RED='\033[41m'; BG_GREEN='\033[42m'
 BG_YELLOW='\033[43m'; BG_BLUE='\033[44m'; BG_PURPLE='\033[45m'
 BG_CYAN='\033[46m'; BG_WHITE='\033[47m'
 
 BLINK='\033[5m'; UNDERLINE='\033[4m'; REVERSE='\033[7m'
+HIDDEN='\033[8m'; STRIKE='\033[9m'
 
 print_color() { echo -e "${2}${1}${NC}"; }
 
+# ==================== PREMIUM UNIQUE FEATURES ====================
+# Real-time traffic monitoring with per-process tracking
+# Advanced connection limiting with auto-kill
+# Smart user deletion with complete process cleanup
+# Live bandwidth analyzer with graphical stats
+# Auto-reconnect ban for exceeded limits
+# System health monitor with alerts
+# Auto ban for exceeded limits user connections limits
+
 # ==================== COMPLETE UNINSTALL FUNCTION ====================
 complete_uninstall() {
-    echo -e "${NEON_RED}${BLINK}🗑️  QUANTUM UNINSTALL - REMOVING EVERYTHING...${NC}"
+    echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
     
-    systemctl stop dnstt-elite-quantum dnstt-elite-quantum-proxy elite-quantum-traffic elite-quantum-cleaner quantum-connection-limiter quantum-journal quantum-health 2>/dev/null || true
-    systemctl disable dnstt-elite-quantum dnstt-elite-quantum-proxy elite-quantum-traffic elite-quantum-cleaner quantum-connection-limiter quantum-journal quantum-health 2>/dev/null || true
+    systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-connection-limiter elite-x-health-monitor 2>/dev/null || true
+    systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-connection-limiter elite-x-health-monitor 2>/dev/null || true
     
-    rm -f /etc/systemd/system/{dnstt-elite-quantum*,elite-quantum-*,quantum-*}
+    rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
     
-    echo -e "${NEON_YELLOW}🔍 Removing all QUANTUM users...${NC}"
+    echo -e "${NEON_YELLOW}🔍 Removing all ELITE-X users...${NC}"
     
-    if [ -d "/etc/elite-quantum/users" ]; then
-        for user_file in /etc/elite-quantum/users/*; do
+    if [ -d "/etc/elite-x/users" ]; then
+        for user_file in /etc/elite-x/users/*; do
             if [ -f "$user_file" ]; then
                 username=$(basename "$user_file")
                 echo -e "${NEON_RED}Removing user: $username${NC}"
-                pkill -9 -u "$username" 2>/dev/null || true
-                killall -9 -u "$username" 2>/dev/null || true
+                # Kill all processes for this user
+                pkill -u "$username" 2>/dev/null || true
+                # Kill all SSH sessions
+                ss -tnp | grep :22 | grep -i "$username" | awk '{print $6}' | cut -d, -f2 | cut -d= -f2 | xargs kill -9 2>/dev/null || true
+                # Force remove user
                 userdel -r -f "$username" 2>/dev/null || true
+                # Remove home directory
                 rm -rf /home/"$username" 2>/dev/null || true
+                # Remove from /etc/passwd if still there
+                sed -i "/^$username:/d" /etc/passwd 2>/dev/null || true
+                sed -i "/^$username:/d" /etc/shadow 2>/dev/null || true
+                sed -i "/^$username:/d" /etc/group 2>/dev/null || true
             fi
         done
     fi
     
     pkill -f dnstt-server 2>/dev/null || true
-    pkill -f dnstt-edns-quantum 2>/dev/null || true
+    pkill -f dnstt-edns-proxy 2>/dev/null || true
     
     rm -rf /etc/dnstt
-    rm -rf /etc/elite-quantum
-    rm -f /usr/local/bin/{dnstt-*,elite-quantum-*,quantum-*}
-    rm -f /usr/local/bin/dnstt-edns-quantum.py
-    rm -f /usr/local/bin/elite-quantum-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall,health,journal,monitor}
+    rm -rf /etc/elite-x
+    rm -f /usr/local/bin/{dnstt-*,elite-x*}
+    rm -f /usr/local/bin/dnstt-edns-proxy.py
+    rm -f /usr/local/bin/elite-x-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall,connection-limiter,health-monitor,bandwidth-graph,process-tracker}
     
     sed -i '/^Banner/d' /etc/ssh/sshd_config
     systemctl restart sshd
     
-    rm -f /etc/cron.hourly/elite-quantum-expiry
-    rm -f /etc/profile.d/elite-quantum-dashboard.sh
-    sed -i '/elite-quantum/d' /root/.bashrc 2>/dev/null || true
+    rm -f /etc/cron.hourly/elite-x-expiry
+    rm -f /etc/profile.d/elite-x-dashboard.sh
+    sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
     
     systemctl daemon-reload
     
-    echo -e "${NEON_GREEN}${BLINK}✅✅✅ QUANTUM UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
+    echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
 }
 
 # ==================== SELF DESTRUCT ====================
 self_destruct() {
-    echo -e "${NEON_YELLOW}${BLINK}🧹 CLEANING QUANTUM INSTALLATION TRACES...${NC}"
+    echo -e "${NEON_YELLOW}${BLINK}🧹 CLEANING INSTALLATION TRACES...${NC}"
     
     history -c 2>/dev/null || true
     cat /dev/null > ~/.bash_history 2>/dev/null || true
     cat /dev/null > /root/.bash_history 2>/dev/null || true
     
-    if [ -f "$0" ] && [ "$0" != "/usr/local/bin/elite-quantum" ]; then
+    if [ -f "$0" ] && [ "$0" != "/usr/local/bin/elite-x" ]; then
         local script_path=$(readlink -f "$0")
         rm -f "$script_path" 2>/dev/null || true
     fi
     
-    sed -i '/elite-quantum/d' /var/log/auth.log 2>/dev/null || true
+    sed -i '/elite-x/d' /var/log/auth.log 2>/dev/null || true
     
-    echo -e "${NEON_GREEN}${BOLD}✅ QUANTUM CLEANUP COMPLETE!${NC}"
+    echo -e "${NEON_GREEN}${BOLD}✅ CLEANUP COMPLETE!${NC}"
 }
 
-# ==================== QUANTUM QUOTE ====================
+# ==================== ULTRA PREMIUM QUOTE ====================
 show_quote() {
     echo ""
-    echo -e "${NEON_QUANTUM}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_COSMIC}${BOLD}${BLINK}                                                                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_GOLD}${BOLD}           ███████╗██╗     ██╗████████╗███████╗     ██╗  ██╗                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_SILVER}${BOLD}           ██╔════╝██║     ██║╚══██╔══╝██╔════╝     ╚██╗██╔╝                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_BRONZE}${BOLD}           █████╗  ██║     ██║   ██║   █████╗  █████╗╚███╔╝                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_EMERALD}${BOLD}           ██╔══╝  ██║     ██║   ██║   ██╔══╝  ╚════╝██╔██╗                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_SAPPHIRE}${BOLD}           ███████╗███████╗██║   ██║   ███████╗     ██╔╝ ██╗                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_RUBY}${BOLD}           ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝     ╚═╝  ╚═╝                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_GALAXY}${BOLD}                         ⚡ QUANTUM ULTRA EDITION v5.0 ⚡                              ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_COSMIC}${BOLD}                                                                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${NEON_GOLD}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_GOLD}║${NEON_SILVER}${BOLD}${BLINK}                                                               ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}${BOLD}           ███████╗██╗     ██╗████████╗███████╗     ██╗  ██╗           ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_CYAN}${BOLD}           ██╔════╝██║     ██║╚══██╔══╝██╔════╝     ╚██╗██╔╝           ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_GREEN}${BOLD}           █████╗  ██║     ██║   ██║   █████╗  █████╗╚███╔╝            ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_YELLOW}${BOLD}           ██╔══╝  ██║     ██║   ██║   ██╔══╝  ╚════╝██╔██╗            ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_PURPLE}${BOLD}           ███████╗███████╗██║   ██║   ███████╗     ██╔╝ ██╗           ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_PINK}${BOLD}           ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝     ╚═╝  ╚═╝           ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_SILVER}${BOLD}                                                               ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${NEON_GOLD}║${NEON_MAGENTA}${BOLD}           ⚡ PREMIUM ULTRA EDITION - UNIQUE FEATURES ⚡            ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_AQUA}${BOLD}     • REAL-TIME TRAFFIC • CONNECTION LIMITER • AUTO-BAN        ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
-# ==================== QUANTUM BANNER ====================
+# ==================== ULTRA PREMIUM BANNER ====================
 show_banner() {
     clear
-    echo -e "${NEON_QUANTUM}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_COSMIC}${BOLD}${BG_BLACK}                                                                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_GOLD}${BOLD}${BG_BLACK}              ███████╗██╗     ██╗████████╗███████╗                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_SILVER}${BOLD}${BG_BLACK}              ██╔════╝██║     ██║╚══██╔══╝██╔════╝                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_BRONZE}${BOLD}${BG_BLACK}              █████╗  ██║     ██║   ██║   █████╗                            ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_EMERALD}${BOLD}${BG_BLACK}              ██╔══╝  ██║     ██║   ██║   ██╔══╝                            ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_SAPPHIRE}${BOLD}${BG_BLACK}              ███████╗███████╗██║   ██║   ███████╗                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_RUBY}${BOLD}${BG_BLACK}              ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_GALAXY}${BOLD}${BG_BLACK}                         ⚡ QUANTUM ULTRA EDITION ⚡                            ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_GREEN}${BOLD}                ⚡ REAL-TIME MONITORING • QUANTUM ENCRYPTION • NEURAL OPTIMIZATION        ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_PINK}${BOLD}                ⚡ AUTO-HEALING • HOLOGRAPHIC DASHBOARD • CONNECTION LIMITING              ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${NEON_GOLD}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_GOLD}║${NEON_SILVER}${BOLD}${BG_BLACK}              ███████╗██╗     ██╗████████╗███████╗                    ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_MAGENTA}${BOLD}${BG_BLACK}              ██╔════╝██║     ██║╚══██╔══╝██╔════╝                    ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_AQUA}${BOLD}${BG_BLACK}              █████╗  ██║     ██║   ██║   █████╗                      ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_TEAL}${BOLD}${BG_BLACK}              ██╔══╝  ██║     ██║   ██║   ██╔══╝                      ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_PINK}${BOLD}${BG_BLACK}              ███████╗███████╗██║   ██║   ███████╗                    ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_VIOLET}${BOLD}${BG_BLACK}              ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝                    ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}${BOLD}               ELITE-X SLOWDNS v5.0 - ULTRA PREMIUM EDITION          ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_GREEN}${BOLD}                ⚡ UNIQUE PREMIUM FEATURES EDITION ⚡                  ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
 # ==================== ACTIVATION ====================
-ACTIVATION_KEY="QUANTUM-2026-ELITE-X-08"
-TEMP_KEY="QUANTUM-TRIAL-0208"
-ACTIVATION_FILE="/etc/elite-quantum/activated"
-ACTIVATION_TYPE_FILE="/etc/elite-quantum/activation_type"
-ACTIVATION_DATE_FILE="/etc/elite-quantum/activation_date"
-EXPIRY_DAYS_FILE="/etc/elite-quantum/expiry_days"
-KEY_FILE="/etc/elite-quantum/key"
+ACTIVATION_KEY="ELITEX-2026-DAN-4D-08"
+TEMP_KEY="ELITE-X-TEST-0208"
+ACTIVATION_FILE="/etc/elite-x/activated"
+ACTIVATION_TYPE_FILE="/etc/elite-x/activation_type"
+ACTIVATION_DATE_FILE="/etc/elite-x/activation_date"
+EXPIRY_DAYS_FILE="/etc/elite-x/expiry_days"
+KEY_FILE="/etc/elite-x/key"
 TIMEZONE="Africa/Dar_es_Salaam"
 
 # ==================== SPEED MODES ====================
-SPEED_MODE_FILE="/etc/elite-quantum/speed_mode"
-QUANTUM_MODE_FILE="/etc/elite-quantum/quantum_mode"
-CURRENT_MODE="quantum"
+SPEED_MODE_FILE="/etc/elite-x/speed_mode"
+CURRENT_MODE="ultra"
 
 set_timezone() {
     timedatectl set-timezone $TIMEZONE 2>/dev/null || ln -sf /usr/share/zoneinfo/$TIMEZONE /etc/localtime 2>/dev/null || true
@@ -181,7 +180,7 @@ check_expiry() {
             
             if [ $current_date -ge $expiry_date ]; then
                 echo -e "${NEON_RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
-                echo -e "${NEON_RED}║${NEON_YELLOW}${BLINK}           ⚠️ QUANTUM TRIAL EXPIRED ⚠️                           ${NEON_RED}║${NC}"
+                echo -e "${NEON_RED}║${NEON_YELLOW}${BLINK}           ⚠️ TRIAL PERIOD EXPIRED ⚠️                           ${NEON_RED}║${NC}"
                 echo -e "${NEON_RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
                 echo -e "${NEON_RED}║${NEON_WHITE}  Your 2-day trial has ended. Script will self-destruct...     ${NEON_RED}║${NC}"
                 echo -e "${NEON_RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
@@ -190,7 +189,7 @@ check_expiry() {
                 complete_uninstall
                 
                 rm -f "$0"
-                echo -e "${NEON_GREEN}✅ ELITE-QUANTUM has been uninstalled.${NC}"
+                echo -e "${NEON_GREEN}✅ ELITE-X has been uninstalled.${NC}"
                 exit 0
             else
                 local days_left=$(( (expiry_date - current_date) / 86400 ))
@@ -203,13 +202,13 @@ check_expiry() {
 
 activate_script() {
     local input_key="$1"
-    mkdir -p /etc/elite-quantum
+    mkdir -p /etc/elite-x
     
     if [ "$input_key" = "$ACTIVATION_KEY" ] || [ "$input_key" = "Whtsapp 0713628668" ]; then
         echo "$ACTIVATION_KEY" > "$ACTIVATION_FILE"
         echo "$ACTIVATION_KEY" > "$KEY_FILE"
         echo "lifetime" > "$ACTIVATION_TYPE_FILE"
-        echo "Lifetime (Quantum)" > /etc/elite-quantum/expiry
+        echo "Lifetime" > /etc/elite-x/expiry
         return 0
     elif [ "$input_key" = "$TEMP_KEY" ]; then
         echo "$TEMP_KEY" > "$ACTIVATION_FILE"
@@ -217,15 +216,37 @@ activate_script() {
         echo "temporary" > "$ACTIVATION_TYPE_FILE"
         echo "$(date +%Y-%m-%d)" > "$ACTIVATION_DATE_FILE"
         echo "2" > "$EXPIRY_DAYS_FILE"
-        echo "2 Days Quantum Trial" > /etc/elite-quantum/expiry
+        echo "2 Days Trial" > /etc/elite-x/expiry
         return 0
     fi
     return 1
 }
 
-# ==================== QUANTUM SPEED MODE FUNCTIONS ====================
-apply_quantum_normal() {
-    echo -e "${NEON_GREEN}⚡ Applying QUANTUM NORMAL mode...${NC}"
+# ==================== SPEED MODE FUNCTIONS ====================
+apply_normal_mode() {
+    echo -e "${NEON_GREEN}⚡ Applying NORMAL mode...${NC}"
+    
+    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
+    sysctl -w net.core.netdev_max_backlog=5000 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1
+    sysctl -w net.core.default_qdisc=pfifo_fast >/dev/null 2>&1
+    
+    for iface in $(ls /sys/class/net/ | grep -v lo); do
+        ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
+        ip link set dev $iface txqueuelen 10000 2>/dev/null || true
+    done
+    
+    echo "normal" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_GREEN}✅ Normal mode applied - Stable connection${NC}"
+}
+
+apply_overclocked_mode() {
+    echo -e "${NEON_YELLOW}⚡⚡ Applying OVERCLOCKED mode...${NC}"
+    
+    modprobe tcp_bbr 2>/dev/null || true
     
     sysctl -w net.core.rmem_max=268435456 >/dev/null 2>&1
     sysctl -w net.core.wmem_max=268435456 >/dev/null 2>&1
@@ -233,118 +254,533 @@ apply_quantum_normal() {
     sysctl -w net.ipv4.tcp_wmem="4096 65536 268435456" >/dev/null 2>&1
     sysctl -w net.core.netdev_max_backlog=10000 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-    sysctl -w net.core.default_qdisc=fq_codel >/dev/null 2>&1
-    
-    for iface in $(ls /sys/class/net/ | grep -v lo); do
-        ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
-        ip link set dev $iface txqueuelen 20000 2>/dev/null || true
-    done
-    
-    echo "quantum_normal" > "$SPEED_MODE_FILE"
-    echo "normal" > "$QUANTUM_MODE_FILE"
-    echo -e "${NEON_GREEN}✅ Quantum Normal mode applied - Stable Quantum Connection${NC}"
-}
-
-apply_quantum_overclocked() {
-    echo -e "${NEON_YELLOW}⚡⚡ Applying QUANTUM OVERCLOCKED mode...${NC}"
-    
-    modprobe tcp_bbr 2>/dev/null || true
-    
-    sysctl -w net.core.rmem_max=536870912 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=536870912 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_rmem="4096 87380 536870912" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_wmem="4096 65536 536870912" >/dev/null 2>&1
-    sysctl -w net.core.netdev_max_backlog=50000 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
     sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_notsent_lowat=16384 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
     
     for iface in $(ls /sys/class/net/ | grep -v lo); do
         ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
-        ethtool -G $iface rx 4096 tx 4096 2>/dev/null || true
-        ip link set dev $iface txqueuelen 50000 2>/dev/null || true
+        ip link set dev $iface txqueuelen 20000 2>/dev/null || true
     done
     
-    echo "quantum_overclocked" > "$SPEED_MODE_FILE"
-    echo "overclocked" > "$QUANTUM_MODE_FILE"
-    echo -e "${NEON_YELLOW}✅ Quantum Overclocked mode applied - Faster Quantum Speed${NC}"
+    echo "overclocked" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_YELLOW}✅ Overclocked mode applied - Faster speed${NC}"
 }
 
-apply_quantum_ultra() {
-    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying QUANTUM ULTRA CLOCKED mode...${NC}"
+apply_ultra_mode() {
+    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying ULTRA CLOCKED mode...${NC}"
     
     modprobe tcp_bbr 2>/dev/null || true
     
-    sysctl -w net.core.rmem_max=1073741824 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=1073741824 >/dev/null 2>&1
-    sysctl -w net.core.rmem_default=536870912 >/dev/null 2>&1
-    sysctl -w net.core.wmem_default=536870912 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_rmem="4096 87380 1073741824" >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_wmem="4096 65536 1073741824" >/dev/null 2>&1
-    sysctl -w net.core.netdev_max_backlog=500000 >/dev/null 2>&1
-    sysctl -w net.core.somaxconn=262144 >/dev/null 2>&1
+    sysctl -w net.core.rmem_max=536870912 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=536870912 >/dev/null 2>&1
+    sysctl -w net.core.rmem_default=268435456 >/dev/null 2>&1
+    sysctl -w net.core.wmem_default=268435456 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 536870912" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 536870912" >/dev/null 2>&1
+    sysctl -w net.core.netdev_max_backlog=200000 >/dev/null 2>&1
+    sysctl -w net.core.somaxconn=131072 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
     sysctl -w net.core.default_qdisc=fq_codel >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_notsent_lowat=8192 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_tw_reuse=1 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_fin_timeout=5 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_fin_timeout=10 >/dev/null 2>&1
     
     for iface in $(ls /sys/class/net/ | grep -v lo); do
         ethtool -K $iface tx on rx on sg on tso on gso on gro on 2>/dev/null || true
-        ethtool -G $iface rx 8192 tx 8192 2>/dev/null || true
-        ip link set dev $iface txqueuelen 200000 2>/dev/null || true
-        echo ff > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
-        echo 8192 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
+        ethtool -G $iface rx 4096 tx 4096 2>/dev/null || true
+        ip link set dev $iface txqueuelen 50000 2>/dev/null || true
+        echo f > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
+        echo 4096 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
     done
     
-    echo 524288 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
+    echo 262144 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
     
     for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
         [ -f "$cpu" ] && echo "performance" > "$cpu" 2>/dev/null || true
     done
     
-    echo "quantum_ultra" > "$SPEED_MODE_FILE"
-    echo "ultra" > "$QUANTUM_MODE_FILE"
-    echo -e "${NEON_RED}${BLINK}✅ Quantum Ultra mode applied - MAXIMUM QUANTUM SPEED${NC}"
+    echo "ultra" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_RED}${BLINK}✅ Ultra mode applied - MAXIMUM SPEED${NC}"
 }
 
 apply_speed_mode() {
     local mode="$1"
     
     case $mode in
-        normal|quantum_normal)
-            apply_quantum_normal
+        normal)
+            apply_normal_mode
             ;;
-        overclocked|quantum_overclocked)
-            apply_quantum_overclocked
+        overclocked)
+            apply_overclocked_mode
             ;;
-        ultra|quantum_ultra)
-            apply_quantum_ultra
+        ultra)
+            apply_ultra_mode
             ;;
         *)
-            apply_quantum_ultra
+            apply_ultra_mode
             ;;
     esac
     
-    systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy 2>/dev/null || true
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
 }
 
 get_mode_emoji() {
     local mode="$1"
     case $mode in
-        quantum_normal) echo "${NEON_GREEN}● QUANTUM NORMAL${NC}" ;;
-        quantum_overclocked) echo "${NEON_YELLOW}⚡ QUANTUM OVERCLOCKED${NC}" ;;
-        quantum_ultra) echo "${NEON_RED}${BLINK}🚀 QUANTUM ULTRA${NC}" ;;
-        *) echo "${NEON_RED}🚀 QUANTUM ULTRA${NC}" ;;
+        normal) echo "${NEON_GREEN}● NORMAL${NC}" ;;
+        overclocked) echo "${NEON_YELLOW}⚡ OVERCLOCKED${NC}" ;;
+        ultra) echo "${NEON_RED}${BLINK}🚀 ULTRA${NC}" ;;
+        *) echo "${NEON_RED}🚀 ULTRA${NC}" ;;
     esac
 }
 
-# ==================== QUANTUM BOOSTER FUNCTIONS ====================
-enable_quantum_bbr_plus() {
-    echo -e "${NEON_CYAN}🚀 ENABLING QUANTUM BBR PLUS CONGESTION CONTROL...${NC}"
+# ==================== UNIQUE PREMIUM FEATURE 1: ADVANCED CONNECTION LIMITER ====================
+setup_connection_limiter() {
+    cat > /usr/local/bin/elite-x-connection-limiter <<'EOF'
+#!/bin/bash
+
+NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
+NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'
+
+USER_DB="/etc/elite-x/users"
+CONNECTION_LOG="/var/log/elite-x-connections.log"
+BAN_LIST="/etc/elite-x/banned_users"
+
+mkdir -p /etc/elite-x
+touch $BAN_LIST
+
+# Function to get current connections for a user
+get_user_connections() {
+    local username="$1"
+    local connections=0
+    
+    # Get SSH connections
+    connections=$(ss -tnp | grep :22 | grep ESTAB | while read line; do
+        pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
+        if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+            user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
+            if [ "$user" = "$username" ]; then
+                echo "1"
+            fi
+        fi
+    done | wc -l)
+    
+    echo $connections
+}
+
+# Function to ban user
+ban_user() {
+    local username="$1"
+    local reason="$2"
+    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    
+    echo "$username:$timestamp:$reason" >> $BAN_LIST
+    
+    # Kill all connections
+    pkill -u "$username" 2>/dev/null || true
+    ss -tnp | grep :22 | while read line; do
+        pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
+        if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+            user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
+            if [ "$user" = "$username" ]; then
+                kill -9 $pid 2>/dev/null || true
+            fi
+        fi
+    done
+    
+    # Lock account
+    usermod -L "$username" 2>/dev/null || true
+    
+    # Update status in user file
+    if [ -f "$USER_DB/$username" ]; then
+        sed -i "s/^Status:.*/Status: BANNED ($reason)/" "$USER_DB/$username" 2>/dev/null || echo "Status: BANNED ($reason)" >> "$USER_DB/$username"
+    fi
+    
+    echo "$timestamp - User $username banned: $reason" >> /var/log/elite-x-connection-limiter.log
+    echo -e "${NEON_RED}⛔ User $username banned: $reason${NC}" > /dev/null 2>&1
+}
+
+# Function to unban user
+unban_user() {
+    local username="$1"
+    sed -i "/^$username:/d" $BAN_LIST
+    usermod -U "$username" 2>/dev/null || true
+    
+    if [ -f "$USER_DB/$username" ]; then
+        sed -i 's/^Status:.*/Status: ACTIVE/' "$USER_DB/$username" 2>/dev/null
+    fi
+    
+    echo "$(date "+%Y-%m-%d %H:%M:%S") - User $username unbanned" >> /var/log/elite-x-connection-limiter.log
+}
+
+# Main monitoring loop
+while true; do
+    if [ -d "$USER_DB" ]; then
+        for user_file in "$USER_DB"/*; do
+            if [ -f "$user_file" ]; then
+                username=$(basename "$user_file")
+                
+                # Check if user is banned
+                if grep -q "^$username:" $BAN_LIST; then
+                    # Check if ban should be lifted (after 24 hours)
+                    ban_time=$(grep "^$username:" $BAN_LIST | cut -d: -f2)
+                    ban_timestamp=$(date -d "$ban_time" +%s 2>/dev/null || echo 0)
+                    current_timestamp=$(date +%s)
+                    
+                    if [ $((current_timestamp - ban_timestamp)) -gt 86400 ]; then
+                        unban_user "$username"
+                    fi
+                    continue
+                fi
+                
+                # Get connection limit from user file
+                conn_limit=$(grep "Connections:" "$user_file" | cut -d' ' -f2)
+                
+                if [ ! -z "$conn_limit" ] && [ "$conn_limit" -gt 0 ] 2>/dev/null; then
+                    current_conn=$(get_user_connections "$username")
+                    
+                    if [ "$current_conn" -gt "$conn_limit" ]; then
+                        ban_user "$username" "Connection limit exceeded ($current_conn/$conn_limit)"
+                    fi
+                fi
+            fi
+        done
+    fi
+    sleep 5
+done
+EOF
+    chmod +x /usr/local/bin/elite-x-connection-limiter
+
+    # Create systemd service
+    cat > /etc/systemd/system/elite-x-connection-limiter.service <<EOF
+[Unit]
+Description=ELITE-X Advanced Connection Limiter
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/elite-x-connection-limiter
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl daemon-reload
+    systemctl enable elite-x-connection-limiter.service 2>/dev/null || true
+    systemctl start elite-x-connection-limiter.service 2>/dev/null || true
+}
+
+# ==================== UNIQUE PREMIUM FEATURE 2: REAL-TIME PROCESS TRACKER ====================
+setup_process_tracker() {
+    cat > /usr/local/bin/elite-x-process-tracker <<'EOF'
+#!/bin/bash
+
+NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
+NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'
+
+USER_DB="/etc/elite-x/users"
+PROCESS_LOG="/var/log/elite-x-processes.log"
+
+while true; do
+    clear
+    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}              REAL-TIME PROCESS TRACKER - REFRESH 3S              ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    
+    echo -e "${NEON_WHITE}USER         PID     CPU%    MEM%    COMMAND                              CONNECTIONS${NC}"
+    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────────${NC}"
+    
+    if [ -d "$USER_DB" ]; then
+        for user_file in "$USER_DB"/*; do
+            if [ -f "$user_file" ]; then
+                username=$(basename "$user_file")
+                
+                # Get processes for this user
+                ps_output=$(ps -u "$username" -o pid=,pcpu=,pmem=,comm= 2>/dev/null | head -5)
+                
+                if [ ! -z "$ps_output" ]; then
+                    while read pid cpu mem comm; do
+                        # Get connections for this PID
+                        connections=$(ss -tnp 2>/dev/null | grep "pid=$pid" | wc -l)
+                        printf "${NEON_GREEN}%-12s ${NEON_WHITE}%-7s ${NEON_YELLOW}%-6s ${NEON_PURPLE}%-6s ${NEON_CYAN}%-35s ${NEON_RED}%-5s${NC}\n" \
+                               "$username" "$pid" "$cpu%" "$mem%" "${comm:0:35}" "$connections"
+                    done <<< "$ps_output"
+                fi
+            fi
+        done
+    fi
+    
+    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────────${NC}"
+    echo -e "${NEON_YELLOW}Total Processes: $(ps aux | wc -l) | Total Connections: $(ss -tnp | grep ESTAB | wc -l)${NC}"
+    echo -e "${NEON_YELLOW}Press Ctrl+C to exit - Auto-refresh 3s${NC}"
+    sleep 3
+done
+EOF
+    chmod +x /usr/local/bin/elite-x-process-tracker
+}
+
+# ==================== UNIQUE PREMIUM FEATURE 3: LIVE BANDWIDTH GRAPH ====================
+setup_bandwidth_graph() {
+    cat > /usr/local/bin/elite-x-bandwidth-graph <<'EOF'
+#!/bin/bash
+
+NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
+NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'
+
+declare -A rx_history
+declare -A tx_history
+history_size=30
+
+get_bandwidth() {
+    local username="$1"
+    local total_rx=0
+    local total_tx=0
+    
+    user_pids=$(pgrep -u "$username" 2>/dev/null)
+    
+    for pid in $user_pids; do
+        if [ -f "/proc/$pid/net/dev" ]; then
+            while read line; do
+                if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+) ]]; then
+                    iface="${BASH_REMATCH[1]}"
+                    if [ "$iface" != "lo" ]; then
+                        rx_bytes=$(echo "$line" | awk '{print $2}')
+                        tx_bytes=$(echo "$line" | awk '{print $10}')
+                        total_rx=$((total_rx + rx_bytes))
+                        total_tx=$((total_tx + tx_bytes))
+                    fi
+                fi
+            done < "/proc/$pid/net/dev" 2>/dev/null
+        fi
+    done
+    
+    echo "$total_rx $total_tx"
+}
+
+draw_graph() {
+    local values=("$@")
+    local max_val=0
+    
+    for val in "${values[@]}"; do
+        if [ "$val" -gt "$max_val" ]; then
+            max_val=$val
+        fi
+    done
+    
+    if [ "$max_val" -eq 0 ]; then
+        max_val=1
+    fi
+    
+    for val in "${values[@]}"; do
+        local bar_length=$((val * 50 / max_val))
+        printf "["
+        for ((i=0; i<bar_length; i++)); do
+            echo -n "█"
+        done
+        for ((i=bar_length; i<50; i++)); do
+            echo -n "░"
+        done
+        printf "] %s KB/s\n" "$val"
+    done
+}
+
+while true; do
+    clear
+    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}              LIVE BANDWIDTH GRAPH - PER USER                      ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    
+    if [ -d "/etc/elite-x/users" ]; then
+        for user_file in /etc/elite-x/users/*; do
+            if [ -f "$user_file" ]; then
+                username=$(basename "$user_file")
+                
+                # Get current bandwidth
+                read rx tx <<< $(get_bandwidth "$username")
+                
+                # Update history
+                rx_history[$username]="${rx_history[$username]} $rx"
+                tx_history[$username]="${tx_history[$username]} $tx"
+                
+                # Keep only last $history_size values
+                rx_history[$username]=$(echo "${rx_history[$username]}" | tr ' ' '\n' | tail -n $history_size | tr '\n' ' ')
+                tx_history[$username]=$(echo "${tx_history[$username]}" | tr ' ' '\n' | tail -n $history_size | tr '\n' ' ')
+                
+                # Calculate rate (KB/s)
+                rx_array=(${rx_history[$username]})
+                tx_array=(${tx_history[$username]})
+                
+                if [ ${#rx_array[@]} -ge 2 ]; then
+                    rx_rate=$(( (${rx_array[-1]} - ${rx_array[-2]}) / 1024 ))
+                    tx_rate=$(( (${tx_array[-1]} - ${tx_array[-2]}) / 1024 ))
+                    
+                    # Ensure non-negative
+                    [ "$rx_rate" -lt 0 ] && rx_rate=0
+                    [ "$tx_rate" -lt 0 ] && tx_rate=0
+                    
+                    echo -e "${NEON_GREEN}User: $username${NC}"
+                    echo -e "${NEON_CYAN}Download:${NC}"
+                    draw_graph "${rx_array[@]: -10}"
+                    echo -e "${NEON_YELLOW}Upload:${NC}"
+                    draw_graph "${tx_array[@]: -10}"
+                    echo -e "${NEON_WHITE}Current: ↓${rx_rate}KB/s ↑${tx_rate}KB/s${NC}"
+                    echo ""
+                fi
+            fi
+        done
+    fi
+    
+    echo -e "${NEON_YELLOW}Press Ctrl+C to exit - Auto-refresh 2s${NC}"
+    sleep 2
+done
+EOF
+    chmod +x /usr/local/bin/elite-x-bandwidth-graph
+}
+
+# ==================== UNIQUE PREMIUM FEATURE 4: SYSTEM HEALTH MONITOR ====================
+setup_health_monitor() {
+    cat > /usr/local/bin/elite-x-health-monitor <<'EOF'
+#!/bin/bash
+
+NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
+NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'
+
+HEALTH_LOG="/var/log/elite-x-health.log"
+ALERT_THRESHOLD_CPU=80
+ALERT_THRESHOLD_MEM=90
+ALERT_THRESHOLD_DISK=85
+
+send_alert() {
+    local message="$1"
+    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
+    echo "$timestamp - ALERT: $message" >> $HEALTH_LOG
+    echo -e "${NEON_RED}⚠️ HEALTH ALERT: $message${NC}" > /dev/tty 2>/dev/null || true
+}
+
+monitor_system() {
+    while true; do
+        clear
+        echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}              SYSTEM HEALTH MONITOR - REFRESH 5S                 ${NEON_CYAN}║${NC}"
+        echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+        
+        # CPU Usage
+        cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d. -f1)
+        cpu_color=$NEON_GREEN
+        [ "$cpu_usage" -gt "$ALERT_THRESHOLD_CPU" ] && cpu_color=$NEON_RED
+        echo -e "${NEON_WHITE}CPU Usage:${NC} $cpu_color${cpu_usage}%${NC}"
+        
+        # Memory Usage
+        mem_total=$(free -m | awk '/^Mem:/{print $2}')
+        mem_used=$(free -m | awk '/^Mem:/{print $3}')
+        mem_percent=$((mem_used * 100 / mem_total))
+        mem_color=$NEON_GREEN
+        [ "$mem_percent" -gt "$ALERT_THRESHOLD_MEM" ] && mem_color=$NEON_RED
+        echo -e "${NEON_WHITE}Memory Usage:${NC} $mem_color${mem_used}MB/${mem_total}MB (${mem_percent}%)${NC}"
+        
+        # Disk Usage
+        disk_usage=$(df -h / | awk 'NR==2 {print $5}' | sed 's/%//')
+        disk_color=$NEON_GREEN
+        [ "$disk_usage" -gt "$ALERT_THRESHOLD_DISK" ] && disk_color=$NEON_RED
+        echo -e "${NEON_WHITE}Disk Usage:${NC} $disk_color${disk_usage}%${NC}"
+        
+        # Load Average
+        load_avg=$(uptime | awk -F'load average:' '{print $2}')
+        cores=$(nproc)
+        load_1min=$(echo $load_avg | cut -d, -f1 | sed 's/ //')
+        load_color=$NEON_GREEN
+        [ "$(echo "$load_1min > $cores" | bc 2>/dev/null)" = "1" ] && load_color=$NEON_RED
+        echo -e "${NEON_WHITE}Load Average:${NC} $load_color$load_avg${NC}"
+        
+        # Temperature (if available)
+        if [ -f /sys/class/thermal/thermal_zone0/temp ]; then
+            temp=$(cat /sys/class/thermal/thermal_zone0/temp)
+            temp_c=$((temp / 1000))
+            temp_color=$NEON_GREEN
+            [ "$temp_c" -gt 70 ] && temp_color=$NEON_RED
+            echo -e "${NEON_WHITE}Temperature:${NC} $temp_color${temp_c}°C${NC}"
+        fi
+        
+        # Network Health
+        ping -c 1 8.8.8.8 >/dev/null 2>&1
+        if [ $? -eq 0 ]; then
+            echo -e "${NEON_WHITE}Network:${NC} ${NEON_GREEN}● ONLINE${NC}"
+        else
+            echo -e "${NEON_WHITE}Network:${NC} ${NEON_RED}● OFFLINE${NC}"
+        fi
+        
+        # Service Status
+        dns_status=$(systemctl is-active dnstt-elite-x 2>/dev/null)
+        dns_color=$NEON_RED
+        [ "$dns_status" = "active" ] && dns_color=$NEON_GREEN
+        echo -e "${NEON_WHITE}DNS Service:${NC} ${dns_color}●${NC}"
+        
+        proxy_status=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null)
+        proxy_color=$NEON_RED
+        [ "$proxy_status" = "active" ] && proxy_color=$NEON_GREEN
+        echo -e "${NEON_WHITE}Proxy Service:${NC} ${proxy_color}●${NC}"
+        
+        echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────${NC}"
+        
+        # Check thresholds and send alerts
+        [ "$cpu_usage" -gt "$ALERT_THRESHOLD_CPU" ] && send_alert "High CPU usage: ${cpu_usage}%"
+        [ "$mem_percent" -gt "$ALERT_THRESHOLD_MEM" ] && send_alert "High memory usage: ${mem_percent}%"
+        [ "$disk_usage" -gt "$ALERT_THRESHOLD_DISK" ] && send_alert "High disk usage: ${disk_usage}%"
+        
+        echo -e "${NEON_YELLOW}Press Ctrl+C to exit - Auto-refresh 5s${NC}"
+        sleep 5
+    done
+}
+
+monitor_system
+EOF
+    chmod +x /usr/local/bin/elite-x-health-monitor
+
+    # Create systemd service for background monitoring
+    cat > /etc/systemd/system/elite-x-health-monitor.service <<EOF
+[Unit]
+Description=ELITE-X System Health Monitor
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/elite-x-health-monitor --daemon
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    # Create daemon mode
+    cat > /usr/local/bin/elite-x-health-monitor-daemon <<'EOF'
+#!/bin/bash
+while true; do
+    cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d. -f1)
+    mem_percent=$(free | awk '/^Mem:/{printf "%.0f", $3/$2 * 100}')
+    disk_usage=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
+    
+    if [ "$cpu_usage" -gt 80 ] || [ "$mem_percent" -gt 90 ] || [ "$disk_usage" -gt 85 ]; then
+        echo "$(date): Alert - CPU:$cpu_usage% MEM:$mem_percent% DISK:$disk_usage%" >> /var/log/elite-x-health.log
+    fi
+    sleep 30
+done
+EOF
+    chmod +x /usr/local/bin/elite-x-health-monitor-daemon
+
+    systemctl daemon-reload
+    systemctl enable elite-x-health-monitor.service 2>/dev/null || true
+    systemctl start elite-x-health-monitor.service 2>/dev/null || true
+}
+
+# ==================== BOOSTER FUNCTIONS ====================
+enable_bbr_plus() {
+    echo -e "${NEON_CYAN}🚀 ENABLING BBR PLUS CONGESTION CONTROL...${NC}"
     
     modprobe tcp_bbr 2>/dev/null || true
     echo "tcp_bbr" >> /etc/modules-load.d/modules.conf 2>/dev/null || true
@@ -352,7 +788,7 @@ enable_quantum_bbr_plus() {
     if ! grep -q "tcp_congestion_control = bbr" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
-# ========== QUANTUM BBR PLUS BOOST ==========
+# ========== BBR PLUS BOOST ==========
 net.core.default_qdisc = fq_codel
 net.ipv4.tcp_congestion_control = bbr
 net.ipv4.tcp_notsent_lowat = 16384
@@ -360,11 +796,11 @@ net.ipv4.tcp_slow_start_after_idle = 0
 EOF
     fi
     
-    echo -e "${NEON_GREEN}✅ Quantum BBR + FQ Codel enabled!${NC}"
+    echo -e "${NEON_GREEN}✅ BBR + FQ Codel enabled!${NC}"
 }
 
-optimize_quantum_cpu() {
-    echo -e "${NEON_CYAN}⚡ OPTIMIZING CPU FOR QUANTUM PERFORMANCE...${NC}"
+optimize_cpu_performance() {
+    echo -e "${NEON_CYAN}⚡ OPTIMIZING CPU FOR MAX PERFORMANCE...${NC}"
     
     for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
         [ -f "$cpu" ] && echo "performance" > "$cpu" 2>/dev/null || true
@@ -374,41 +810,41 @@ optimize_quantum_cpu() {
         echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
     fi
     
-    echo -e "${NEON_GREEN}✅ CPU optimized for quantum max speed!${NC}"
+    echo -e "${NEON_GREEN}✅ CPU optimized for max speed!${NC}"
 }
 
-tune_quantum_kernel() {
-    echo -e "${NEON_CYAN}🧠 TUNING QUANTUM KERNEL PARAMETERS...${NC}"
+tune_kernel_parameters() {
+    echo -e "${NEON_CYAN}🧠 TUNING KERNEL PARAMETERS...${NC}"
     
-    if ! grep -q "QUANTUM KERNEL BOOSTER" /etc/sysctl.conf 2>/dev/null; then
+    if ! grep -q "KERNEL BOOSTER" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
-# ========== QUANTUM KERNEL BOOSTER ==========
-fs.file-max = 4194304
-fs.nr_open = 4194304
-fs.inotify.max_user_watches = 1048576
-fs.inotify.max_user_instances = 1024
-fs.inotify.max_queued_events = 32768
-vm.swappiness = 1
-vm.vfs_cache_pressure = 30
-vm.dirty_ratio = 20
-vm.dirty_background_ratio = 2
-vm.min_free_kbytes = 262144
+# ========== KERNEL BOOSTER ==========
+fs.file-max = 2097152
+fs.nr_open = 2097152
+fs.inotify.max_user_watches = 524288
+fs.inotify.max_user_instances = 512
+fs.inotify.max_queued_events = 16384
+vm.swappiness = 5
+vm.vfs_cache_pressure = 40
+vm.dirty_ratio = 30
+vm.dirty_background_ratio = 3
+vm.min_free_kbytes = 131072
 vm.overcommit_memory = 1
-vm.overcommit_ratio = 75
-vm.max_map_count = 1048576
+vm.overcommit_ratio = 50
+vm.max_map_count = 524288
 kernel.sched_autogroup_enabled = 0
-kernel.sched_min_granularity_ns = 4000000
-kernel.sched_wakeup_granularity_ns = 5000000
+kernel.sched_min_granularity_ns = 8000000
+kernel.sched_wakeup_granularity_ns = 10000000
 kernel.numa_balancing = 0
 EOF
     fi
     
-    echo -e "${NEON_GREEN}✅ Quantum kernel parameters tuned!${NC}"
+    echo -e "${NEON_GREEN}✅ Kernel parameters tuned!${NC}"
 }
 
-optimize_quantum_irq() {
-    echo -e "${NEON_CYAN}🔄 OPTIMIZING QUANTUM IRQ AFFINITY...${NC}"
+optimize_irq_affinity() {
+    echo -e "${NEON_CYAN}🔄 OPTIMIZING IRQ AFFINITY...${NC}"
     
     apt install -y irqbalance 2>/dev/null || true
     
@@ -422,11 +858,11 @@ EOF
     systemctl enable irqbalance 2>/dev/null || true
     systemctl restart irqbalance 2>/dev/null || true
     
-    echo -e "${NEON_GREEN}✅ Quantum IRQ affinity optimized!${NC}"
+    echo -e "${NEON_GREEN}✅ IRQ affinity optimized!${NC}"
 }
 
-optimize_quantum_dns() {
-    echo -e "${NEON_CYAN}📡 OPTIMIZING QUANTUM DNS CACHE...${NC}"
+optimize_dns_cache() {
+    echo -e "${NEON_CYAN}📡 OPTIMIZING DNS CACHE...${NC}"
     
     apt install -y dnsmasq 2>/dev/null || true
     
@@ -439,13 +875,13 @@ server=8.8.8.8
 server=8.8.4.4
 server=1.1.1.1
 server=1.0.0.1
-cache-size=50000
-dns-forward-max=5000
-neg-ttl=7200
-max-ttl=7200
-min-cache-ttl=7200
-max-cache-ttl=172800
-edns-packet-max=8192
+cache-size=10000
+dns-forward-max=1000
+neg-ttl=3600
+max-ttl=3600
+min-cache-ttl=3600
+max-cache-ttl=86400
+edns-packet-max=4096
 EOF
     
     systemctl enable dnsmasq 2>/dev/null || true
@@ -454,11 +890,11 @@ EOF
     echo "nameserver 127.0.0.1" > /etc/resolv.conf
     echo "nameserver 8.8.8.8" >> /etc/resolv.conf
     
-    echo -e "${NEON_GREEN}✅ Quantum DNS cache optimized!${NC}"
+    echo -e "${NEON_GREEN}✅ DNS cache optimized!${NC}"
 }
 
-optimize_quantum_offloading() {
-    echo -e "${NEON_CYAN}🔧 OPTIMIZING QUANTUM INTERFACE OFFLOADING...${NC}"
+optimize_interface_offloading() {
+    echo -e "${NEON_CYAN}🔧 OPTIMIZING INTERFACE OFFLOADING...${NC}"
     
     for iface in $(ls /sys/class/net/ | grep -v lo); do
         ethtool -K $iface tx on rx on 2>/dev/null || true
@@ -466,19 +902,19 @@ optimize_quantum_offloading() {
         ethtool -K $iface tso on 2>/dev/null || true
         ethtool -K $iface gso on 2>/dev/null || true
         ethtool -K $iface gro on 2>/dev/null || true
-        ethtool -G $iface rx 8192 tx 8192 2>/dev/null || true
+        ethtool -G $iface rx 4096 tx 4096 2>/dev/null || true
     done
     
-    echo -e "${NEON_GREEN}✅ Quantum interface offloading optimized!${NC}"
+    echo -e "${NEON_GREEN}✅ Interface offloading optimized!${NC}"
 }
 
-optimize_quantum_tcp() {
-    echo -e "${NEON_CYAN}📶 APPLYING QUANTUM TCP ULTRA BOOST...${NC}"
+optimize_tcp_parameters() {
+    echo -e "${NEON_CYAN}📶 APPLYING TCP ULTRA BOOST...${NC}"
     
-    if ! grep -q "QUANTUM TCP ULTRA BOOST" /etc/sysctl.conf 2>/dev/null; then
+    if ! grep -q "TCP ULTRA BOOST" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
-# ========== QUANTUM TCP ULTRA BOOST ==========
+# ========== TCP ULTRA BOOST ==========
 net.ipv4.tcp_timestamps = 1
 net.ipv4.tcp_sack = 1
 net.ipv4.tcp_fack = 1
@@ -486,28 +922,28 @@ net.ipv4.tcp_dsack = 1
 net.ipv4.tcp_window_scaling = 1
 net.ipv4.tcp_adv_win_scale = 2
 net.ipv4.tcp_app_win = 31
-net.ipv4.tcp_rmem = 4096 87380 1073741824
-net.ipv4.tcp_wmem = 4096 65536 1073741824
+net.ipv4.tcp_rmem = 4096 87380 536870912
+net.ipv4.tcp_wmem = 4096 65536 536870912
 net.ipv4.tcp_fastopen = 3
 net.ipv4.tcp_moderate_rcvbuf = 1
 net.ipv4.tcp_no_metrics_save = 1
-net.ipv4.tcp_keepalive_time = 15
-net.ipv4.tcp_keepalive_intvl = 3
+net.ipv4.tcp_keepalive_time = 30
+net.ipv4.tcp_keepalive_intvl = 5
 net.ipv4.tcp_keepalive_probes = 3
 net.ipv4.tcp_retries1 = 2
 net.ipv4.tcp_retries2 = 3
 net.ipv4.tcp_syn_retries = 2
 net.ipv4.tcp_synack_retries = 2
-net.ipv4.tcp_fin_timeout = 3
+net.ipv4.tcp_fin_timeout = 5
 net.ipv4.tcp_tw_reuse = 1
 EOF
     fi
     
-    echo -e "${NEON_GREEN}✅ Quantum TCP ultra boost applied!${NC}"
+    echo -e "${NEON_GREEN}✅ TCP ultra boost applied!${NC}"
 }
 
-setup_quantum_qos() {
-    echo -e "${NEON_CYAN}🎯 SETTING UP QUANTUM QOS PRIORITIES...${NC}"
+setup_qos_priorities() {
+    echo -e "${NEON_CYAN}🎯 SETTING UP QOS PRIORITIES...${NC}"
     
     apt install -y iproute2 2>/dev/null || true
     
@@ -516,10 +952,10 @@ setup_quantum_qos() {
         tc qdisc del dev $DEV root 2>/dev/null || true
         tc qdisc add dev $DEV root handle 1: htb default 30 2>/dev/null || true
         
-        tc class add dev $DEV parent 1: classid 1:1 htb rate 20000mbit ceil 20000mbit 2>/dev/null || true
-        tc class add dev $DEV parent 1:1 classid 1:10 htb rate 10000mbit ceil 20000mbit prio 0 2>/dev/null || true
-        tc class add dev $DEV parent 1:1 classid 1:20 htb rate 6000mbit ceil 20000mbit prio 1 2>/dev/null || true
-        tc class add dev $DEV parent 1:1 classid 1:30 htb rate 4000mbit ceil 20000mbit prio 2 2>/dev/null || true
+        tc class add dev $DEV parent 1: classid 1:1 htb rate 10000mbit ceil 10000mbit 2>/dev/null || true
+        tc class add dev $DEV parent 1:1 classid 1:10 htb rate 5000mbit ceil 10000mbit prio 0 2>/dev/null || true
+        tc class add dev $DEV parent 1:1 classid 1:20 htb rate 3000mbit ceil 10000mbit prio 1 2>/dev/null || true
+        tc class add dev $DEV parent 1:1 classid 1:30 htb rate 2000mbit ceil 10000mbit prio 2 2>/dev/null || true
         
         tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip dport 22 0xffff flowid 1:10 2>/dev/null || true
         tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip sport 22 0xffff flowid 1:10 2>/dev/null || true
@@ -527,104 +963,149 @@ setup_quantum_qos() {
         tc filter add dev $DEV protocol ip parent 1:0 prio 2 u32 match ip sport 53 0xffff flowid 1:20 2>/dev/null || true
     fi
     
-    echo -e "${NEON_GREEN}✅ Quantum QoS priorities configured!${NC}"
+    echo -e "${NEON_GREEN}✅ QoS priorities configured!${NC}"
 }
 
-optimize_quantum_memory() {
-    echo -e "${NEON_CYAN}💾 OPTIMIZING QUANTUM MEMORY USAGE...${NC}"
+optimize_memory_usage() {
+    echo -e "${NEON_CYAN}💾 OPTIMIZING MEMORY USAGE...${NC}"
     
-    echo 1 > /proc/sys/vm/swappiness 2>/dev/null || true
+    echo 5 > /proc/sys/vm/swappiness 2>/dev/null || true
     sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
     echo 1 > /proc/sys/vm/compact_memory 2>/dev/null || true
-    echo 262144 > /proc/sys/vm/min_free_kbytes 2>/dev/null || true
+    echo 131072 > /proc/sys/vm/min_free_kbytes 2>/dev/null || true
     
-    echo -e "${NEON_GREEN}✅ Quantum memory optimized!${NC}"
+    echo -e "${NEON_GREEN}✅ Memory optimized!${NC}"
 }
 
-optimize_quantum_buffer() {
-    echo -e "${NEON_CYAN}⚡ OVERCLOCKING QUANTUM BUFFERS & MTU...${NC}"
+optimize_buffer_mtu() {
+    echo -e "${NEON_CYAN}⚡ OVERCLOCKING BUFFERS & MTU...${NC}"
     
     BEST_MTU=$(ping -M do -s 1472 -c 1 google.com 2>/dev/null | grep -o "mtu=[0-9]*" | cut -d= -f2 || echo "1500")
     if [ -z "$BEST_MTU" ] || [ "$BEST_MTU" -lt 1000 ]; then
         BEST_MTU=1500
     fi
-    echo -e "${NEON_GREEN}✅ Optimal Quantum MTU detected: $BEST_MTU${NC}"
+    echo -e "${NEON_GREEN}✅ Optimal MTU detected: $BEST_MTU${NC}"
     
-    if ! grep -q "QUANTUM BUFFER OVERCLOCK" /etc/sysctl.conf 2>/dev/null; then
+    if ! grep -q "BUFFER OVERCLOCK" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
-# ========== QUANTUM BUFFER OVERCLOCK ==========
-net.core.rmem_max = 1073741824
-net.core.wmem_max = 1073741824
-net.core.rmem_default = 536870912
-net.core.wmem_default = 536870912
-net.core.netdev_max_backlog = 5000000
-net.core.somaxconn = 262144
-net.core.optmem_max = 100663296
-net.ipv4.udp_rmem_min = 262144
-net.ipv4.udp_wmem_min = 262144
+# ========== BUFFER OVERCLOCK ==========
+net.core.rmem_max = 536870912
+net.core.wmem_max = 536870912
+net.core.rmem_default = 268435456
+net.core.wmem_default = 268435456
+net.core.netdev_max_backlog = 2000000
+net.core.somaxconn = 131072
+net.core.optmem_max = 50331648
+net.ipv4.udp_rmem_min = 131072
+net.ipv4.udp_wmem_min = 131072
 EOF
     fi
     
     for iface in $(ls /sys/class/net/ | grep -v lo); do
         ip link set dev $iface mtu $BEST_MTU 2>/dev/null || true
-        ip link set dev $iface txqueuelen 500000 2>/dev/null || true
+        ip link set dev $iface txqueuelen 200000 2>/dev/null || true
     done
     
-    echo -e "${NEON_GREEN}✅ Quantum buffers overclocked to 1GB!${NC}"
+    echo -e "${NEON_GREEN}✅ Buffers overclocked to 512MB!${NC}"
 }
 
-optimize_quantum_steering() {
-    echo -e "${NEON_CYAN}🎮 ENABLING QUANTUM NETWORK STEERING...${NC}"
+optimize_network_steering() {
+    echo -e "${NEON_CYAN}🎮 ENABLING NETWORK STEERING...${NC}"
     
     for iface in $(ls /sys/class/net/ | grep -v lo); do
-        echo ff > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
-        echo 8192 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
+        echo f > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
+        echo 4096 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
     done
     
-    echo 524288 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
+    echo 262144 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
     
-    echo -e "${NEON_GREEN}✅ Quantum network steering enabled!${NC}"
+    echo -e "${NEON_GREEN}✅ Network steering enabled!${NC}"
 }
 
-enable_quantum_tfo() {
-    echo -e "${NEON_CYAN}🔓 ENABLING QUANTUM TCP FAST OPEN MASTER...${NC}"
+enable_tcp_fastopen_master() {
+    echo -e "${NEON_CYAN}🔓 ENABLING TCP FAST OPEN MASTER...${NC}"
     
-    if ! grep -q "QUANTUM TCP FAST OPEN" /etc/sysctl.conf 2>/dev/null; then
+    if ! grep -q "TCP FAST OPEN" /etc/sysctl.conf 2>/dev/null; then
         cat >> /etc/sysctl.conf <<EOF
 
-# ========== QUANTUM TCP FAST OPEN ==========
+# ========== TCP FAST OPEN ==========
 net.ipv4.tcp_fastopen = 3
 net.ipv4.tcp_fack = 1
 net.ipv4.tcp_early_retrans = 3
 EOF
     fi
     
-    echo -e "${NEON_GREEN}✅ Quantum TCP Fast Open enabled!${NC}"
+    echo -e "${NEON_GREEN}✅ TCP Fast Open enabled!${NC}"
 }
 
-apply_all_quantum_boosters() {
-    echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL QUANTUM BOOSTERS - ULTRA MODE 🚀🚀🚀${NC}"
-    enable_quantum_bbr_plus
-    optimize_quantum_cpu
-    tune_quantum_kernel
-    optimize_quantum_irq
-    optimize_quantum_dns
-    optimize_quantum_offloading
-    optimize_quantum_tcp
-    setup_quantum_qos
-    optimize_quantum_memory
-    optimize_quantum_buffer
-    optimize_quantum_steering
-    enable_quantum_tfo
+apply_all_boosters() {
+    echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL BOOSTERS - ULTRA MODE 🚀🚀🚀${NC}"
+    enable_bbr_plus
+    optimize_cpu_performance
+    tune_kernel_parameters
+    optimize_irq_affinity
+    optimize_dns_cache
+    optimize_interface_offloading
+    optimize_tcp_parameters
+    setup_qos_priorities
+    optimize_memory_usage
+    optimize_buffer_mtu
+    optimize_network_steering
+    enable_tcp_fastopen_master
     sysctl -p 2>/dev/null || true
-    echo -e "${NEON_GREEN}${BOLD}✅✅✅ ALL QUANTUM BOOSTERS APPLIED SUCCESSFULLY! ✅✅✅${NC}"
-    echo -e "${NEON_YELLOW}⚠️ Quantum system reboot recommended for maximum effect${NC}"
+    echo -e "${NEON_GREEN}${BOLD}✅✅✅ ALL BOOSTERS APPLIED SUCCESSFULLY! ✅✅✅${NC}"
+    echo -e "${NEON_YELLOW}⚠️ System reboot recommended for maximum effect${NC}"
+}
+
+# ==================== BOOSTER MENU ====================
+booster_menu() {
+    while true; do
+        clear
+        echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                    🚀 ELITE-X ULTIMATE BOOSTER 🚀                       ${NEON_CYAN}║${NC}"
+        echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B1] 🔥 TCP BBR + FQ Codel (Congestion Control)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B2] ⚡ CPU Performance Mode (Overclock)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B3] 🧠 Kernel Parameter Tuning${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B4] 🔄 IRQ Affinity Optimization${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B5] 📡 DNS Cache Booster (200x Faster)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B6] 🔧 Network Interface Offloading${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B7] 📶 TCP Ultra Boost (512MB Buffers)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B8] 🎯 QoS Priority Setup${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B9] 💾 Memory Optimizer${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B10] ⚡ Buffer/MTU Overclock${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B11] 🎮 Network Steering${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B12] 🔓 TCP Fast Open Master${NC}"
+        echo -e "${NEON_CYAN}║${NEON_RED}  [B13] 🚀 APPLY ALL BOOSTERS (MAXIMUM SPEED)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [0] ↩️ Back to Settings${NC}"
+        echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        read -p "$(echo -e $NEON_GREEN"Booster option: "$NC)" bch
+        
+        case $bch in
+            B1|b1) enable_bbr_plus; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B2|b2) optimize_cpu_performance; read -p "Press Enter..." ;;
+            B3|b3) tune_kernel_parameters; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B4|b4) optimize_irq_affinity; read -p "Press Enter..." ;;
+            B5|b5) optimize_dns_cache; read -p "Press Enter..." ;;
+            B6|b6) optimize_interface_offloading; read -p "Press Enter..." ;;
+            B7|b7) optimize_tcp_parameters; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B8|b8) setup_qos_priorities; read -p "Press Enter..." ;;
+            B9|b9) optimize_memory_usage; read -p "Press Enter..." ;;
+            B10|b10) optimize_buffer_mtu; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B11|b11) optimize_network_steering; read -p "Press Enter..." ;;
+            B12|b12) enable_tcp_fastopen_master; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B13|b13) apply_all_boosters; read -p "Press Enter..." ;;
+            0) return ;;
+            *) echo -e "${NEON_RED}Invalid option${NC}"; read -p "Press Enter..." ;;
+        esac
+    done
 }
 
 # ==================== FIXED IP INFO FUNCTION ====================
 get_ip_info() {
-    echo -e "${NEON_CYAN}🌐 Fetching Quantum IP information...${NC}"
+    echo -e "${NEON_CYAN}🌐 Fetching IP information...${NC}"
     
     IP=""
     
@@ -638,15 +1119,15 @@ get_ip_info() {
     fi
     
     if [ -z "$IP" ]; then
-        echo "Unknown" > /etc/elite-quantum/cached_ip
-        echo "Unknown" > /etc/elite-quantum/cached_location
-        echo "Unknown" > /etc/elite-quantum/cached_isp
-        echo -e "${NEON_RED}❌ Failed to detect Quantum IP${NC}"
+        echo "Unknown" > /etc/elite-x/cached_ip
+        echo "Unknown" > /etc/elite-x/cached_location
+        echo "Unknown" > /etc/elite-x/cached_isp
+        echo -e "${NEON_RED}❌ Failed to detect IP${NC}"
         return 1
     fi
     
-    echo "$IP" > /etc/elite-quantum/cached_ip
-    echo -e "${NEON_GREEN}✅ Quantum IP detected: $IP${NC}"
+    echo "$IP" > /etc/elite-x/cached_ip
+    echo -e "${NEON_GREEN}✅ IP detected: $IP${NC}"
     
     LOCATION="Unknown"
     ISP="Unknown"
@@ -683,11 +1164,11 @@ get_ip_info() {
         fi
     fi
     
-    echo "$LOCATION" > /etc/elite-quantum/cached_location
-    echo "$ISP" > /etc/elite-quantum/cached_isp
+    echo "$LOCATION" > /etc/elite-x/cached_location
+    echo "$ISP" > /etc/elite-x/cached_isp
     
-    echo -e "${NEON_GREEN}✅ Quantum Location: $LOCATION${NC}"
-    echo -e "${NEON_GREEN}✅ Quantum ISP: $ISP${NC}"
+    echo -e "${NEON_GREEN}✅ Location: $LOCATION${NC}"
+    echo -e "${NEON_GREEN}✅ ISP: $ISP${NC}"
     
     return 0
 }
@@ -697,7 +1178,7 @@ check_subdomain() {
     local subdomain="$1"
     local vps_ip=$(curl -4 -s ifconfig.me 2>/dev/null || echo "")
     
-    echo -e "${NEON_YELLOW}🔍 CHECKING QUANTUM SUBDOMAIN DNS RESOLUTION...${NC}"
+    echo -e "${NEON_YELLOW}🔍 CHECKING SUBDOMAIN DNS RESOLUTION...${NC}"
     echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${NEON_CYAN}║${NEON_WHITE}  Subdomain: ${NEON_GREEN}$subdomain${NC}"
     echo -e "${NEON_CYAN}║${NEON_WHITE}  VPS IPv4 : ${NEON_GREEN}$vps_ip${NC}"
@@ -725,26 +1206,22 @@ check_subdomain() {
     fi
 }
 
-# ==================== FIXED QUANTUM EDNS PROXY ====================
-install_quantum_edns_proxy() {
-    echo -e "${NEON_CYAN}Installing optimized Quantum EDNS proxy...${NC}"
+# ==================== FIXED EDNS PROXY ====================
+install_edns_proxy() {
+    echo -e "${NEON_CYAN}Installing optimized EDNS proxy...${NC}"
     
-    cat >/usr/local/bin/dnstt-edns-quantum.py <<'EOF'
+    cat >/usr/local/bin/dnstt-edns-proxy.py <<'EOF'
 #!/usr/bin/env python3
 import socket
 import threading
 import struct
 import time
-import os
-import signal
-import sys
 
 LISTEN_IP = '0.0.0.0'
 LISTEN_PORT = 53
 DNSTT_IP = '127.0.0.1'
 DNSTT_PORT = 5300
-BUFFER_SIZE = 32768
-QUANTUM_MODE = True
+BUFFER_SIZE = 16384
 
 def add_edns0(data, max_size=4096):
     if len(data) < 12:
@@ -796,31 +1273,23 @@ def add_edns0(data, max_size=4096):
 
 def handle_query(server_socket, data, client_addr):
     try:
-        modified = add_edns0(data, 8192)
+        modified = add_edns0(data, 4096)
         dnstt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        dnstt.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2097152)
-        dnstt.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2097152)
-        dnstt.settimeout(1)
+        dnstt.settimeout(2)
         dnstt.sendto(modified, (DNSTT_IP, DNSTT_PORT))
         response, _ = dnstt.recvfrom(BUFFER_SIZE)
-        modified_resp = add_edns0(response, 1024)
+        modified_resp = add_edns0(response, 512)
         server_socket.sendto(modified_resp, client_addr)
     except:
         pass
     finally:
         dnstt.close()
 
-def signal_handler(sig, frame):
-    sys.exit(0)
-
 def main():
-    signal.signal(signal.SIGINT, signal_handler)
-    signal.signal(signal.SIGTERM, signal_handler)
-    
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2097152)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2097152)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1048576)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1048576)
     sock.bind((LISTEN_IP, LISTEN_PORT))
     
     while True:
@@ -834,325 +1303,28 @@ if __name__ == "__main__":
     main()
 EOF
 
-    chmod +x /usr/local/bin/dnstt-edns-quantum.py
-}
-
-# ==================== QUANTUM CONNECTION LIMITER ====================
-setup_connection_limiter() {
-    cat > /usr/local/bin/quantum-connection-limiter <<'EOF'
-#!/bin/bash
-
-NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
-NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'
-
-USER_DB="/etc/elite-quantum/users"
-BAN_DB="/etc/elite-quantum/banned"
-mkdir -p $BAN_DB
-
-enforce_connection_limits() {
-    for user_file in "$USER_DB"/*; do
-        if [ -f "$user_file" ]; then
-            username=$(basename "$user_file")
-            
-            conn_limit=$(grep "Conn_Limit:" "$user_file" 2>/dev/null | cut -d' ' -f2)
-            if [ -z "$conn_limit" ] || [ "$conn_limit" -eq 0 ]; then
-                continue
-            fi
-            
-            current_conn=$(ss -tnp | grep :22 | grep ESTAB | grep -o "users:((.*" | grep -o "pid=[0-9]*" | while read pid; do
-                ps -o user= -p ${pid#pid=} 2>/dev/null
-            done | grep -c "^$username$")
-            
-            if [ -f "$BAN_DB/$username" ]; then
-                ban_time=$(cat "$BAN_DB/$username")
-                current_time=$(date +%s)
-                if [ $((current_time - ban_time)) -lt 3600 ]; then
-                    pkill -u "$username" 2>/dev/null || true
-                    continue
-                else
-                    rm -f "$BAN_DB/$username"
-                fi
-            fi
-            
-            if [ "$current_conn" -gt "$conn_limit" ]; then
-                echo "$(date): User $username exceeded connection limit ($current_conn > $conn_limit)" >> /var/log/quantum-limiter.log
-                date +%s > "$BAN_DB/$username"
-                pkill -u "$username" 2>/dev/null || true
-                sed -i 's/^Status:.*/Status: BANNED (Connection Limit)/' "$user_file" 2>/dev/null || echo "Status: BANNED (Connection Limit)" >> "$user_file"
-            fi
-        fi
-    done
-}
-
-while true; do
-    enforce_connection_limits
-    sleep 30
-done
-EOF
-    chmod +x /usr/local/bin/quantum-connection-limiter
-
-    cat > /etc/systemd/system/quantum-connection-limiter.service <<EOF
-[Unit]
-Description=Quantum Connection Limiter
-After=network.target
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/quantum-connection-limiter
-Restart=always
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable quantum-connection-limiter.service 2>/dev/null || true
-    systemctl start quantum-connection-limiter.service 2>/dev/null || true
-}
-
-# ==================== QUANTUM ACTIVITY JOURNAL ====================
-setup_quantum_journal() {
-    cat > /usr/local/bin/quantum-journal <<'EOF'
-#!/bin/bash
-
-NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
-NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'; BOLD='\033[1m'
-
-JOURNAL_FILE="/var/log/quantum-journal.log"
-
-log_activity() {
-    local username="$1"
-    local action="$2"
-    local details="$3"
-    local timestamp=$(date "+%Y-%m-%d %H:%M:%S")
-    echo "$timestamp | $username | $action | $details" >> "$JOURNAL_FILE"
-}
-
-show_journal() {
-    clear
-    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}               QUANTUM ACTIVITY JOURNAL                            ${NEON_CYAN}║${NC}"
-    echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    
-    if [ ! -f "$JOURNAL_FILE" ]; then
-        echo -e "${NEON_RED}No journal entries found${NC}"
-    else
-        tail -50 "$JOURNAL_FILE" | while read line; do
-            echo -e "${NEON_WHITE}$line${NC}"
-        done
-    fi
-    
-    echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-}
-
-monitor_and_log() {
-    while true; do
-        if [ -d "/etc/elite-quantum/users" ]; then
-            for user_file in /etc/elite-quantum/users/*; do
-                if [ -f "$user_file" ]; then
-                    username=$(basename "$user_file")
-                    connections=$(ss -tnp | grep :22 | grep ESTAB | grep -o "users:((.*" | grep -o "pid=[0-9]*" | while read pid; do
-                        ps -o user= -p ${pid#pid=} 2>/dev/null
-                    done | grep -c "^$username$")
-                    
-                    if [ "$connections" -gt 0 ]; then
-                        log_activity "$username" "ACTIVE" "$connections connections"
-                    fi
-                fi
-            done
-        fi
-        sleep 300
-    done
-}
-
-case $1 in
-    show) show_journal ;;
-    log) log_activity "$2" "$3" "$4" ;;
-    monitor) monitor_and_log ;;
-    *) echo "Usage: quantum-journal {show|log|monitor}" ;;
-esac
-EOF
-    chmod +x /usr/local/bin/quantum-journal
-
-    cat > /etc/systemd/system/quantum-journal.service <<EOF
-[Unit]
-Description=Quantum Activity Journal
-After=network.target
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/quantum-journal monitor
-Restart=always
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable quantum-journal.service 2>/dev/null || true
-    systemctl start quantum-journal.service 2>/dev/null || true
-}
-
-# ==================== QUANTUM HEALTH MONITOR ====================
-setup_quantum_health() {
-    cat > /usr/local/bin/quantum-health <<'EOF'
-#!/bin/bash
-
-NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
-NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'; BLINK='\033[5m'
-
-HEALTH_LOG="/var/log/quantum-health.log"
-LAST_RESTART_FILE="/etc/elite-quantum/last_restart"
-
-check_services() {
-    local issues=0
-    
-    if ! systemctl is-active dnstt-elite-quantum >/dev/null 2>&1; then
-        echo "$(date): DNSTT service down, restarting..." >> "$HEALTH_LOG"
-        systemctl restart dnstt-elite-quantum
-        ((issues++))
-    fi
-    
-    if ! systemctl is-active dnstt-elite-quantum-proxy >/dev/null 2>&1; then
-        echo "$(date): Proxy service down, restarting..." >> "$HEALTH_LOG"
-        systemctl restart dnstt-elite-quantum-proxy
-        ((issues++))
-    fi
-    
-    return $issues
-}
-
-check_slowdown() {
-    local current_load=$(uptime | awk -F'load average:' '{print $2}' | cut -d, -f1 | tr -d ' ')
-    local cpu_count=$(nproc)
-    local load_per_cpu=$(echo "$current_load / $cpu_count" | bc -l 2>/dev/null | cut -d. -f1)
-    
-    if [ -z "$load_per_cpu" ] || [ "$load_per_cpu" -gt 10 ]; then
-        return 1
-    fi
-    return 0
-}
-
-check_critical() {
-    local dnstt_fails=$(systemctl show dnstt-elite-quantum -p NRestarts 2>/dev/null | cut -d= -f2)
-    local proxy_fails=$(systemctl show dnstt-elite-quantum-proxy -p NRestarts 2>/dev/null | cut -d= -f2)
-    
-    if [ "${dnstt_fails:-0}" -gt 5 ] || [ "${proxy_fails:-0}" -gt 5 ]; then
-        return 1
-    fi
-    return 0
-}
-
-auto_heal() {
-    local current_time=$(date +%s)
-    local last_restart=0
-    
-    if [ -f "$LAST_RESTART_FILE" ]; then
-        last_restart=$(cat "$LAST_RESTART_FILE")
-    fi
-    
-    local time_diff=$(( (current_time - last_restart) / 3600 ))
-    
-    if [ $time_diff -ge 4 ]; then
-        if ! check_slowdown; then
-            echo "$(date): Auto-restart due to slowdown (4hr)" >> "$HEALTH_LOG"
-            systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy
-            date +%s > "$LAST_RESTART_FILE"
-        fi
-    fi
-    
-    if [ $time_diff -ge 6 ]; then
-        if ! check_critical; then
-            echo "$(date): Critical auto-restart (6hr)" >> "$HEALTH_LOG"
-            systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy
-            date +%s > "$LAST_RESTART_FILE"
-        fi
-    fi
-}
-
-show_health() {
-    clear
-    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}               QUANTUM HEALTH MONITOR                             ${NEON_CYAN}║${NC}"
-    echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    
-    echo -e "${NEON_WHITE}System Uptime:${NEON_GREEN} $(uptime -p)${NC}"
-    echo -e "${NEON_WHITE}Load Average:${NEON_GREEN} $(uptime | awk -F'load average:' '{print $2}')${NC}"
-    echo -e "${NEON_WHITE}Memory Usage:${NEON_GREEN} $(free -h | awk '/^Mem:/ {print $3"/"$2}')${NC}"
-    
-    echo ""
-    echo -e "${NEON_WHITE}Service Status:${NC}"
-    if systemctl is-active dnstt-elite-quantum >/dev/null 2>&1; then
-        echo -e "  DNSTT: ${NEON_GREEN}● HEALTHY${NC}"
-    else
-        echo -e "  DNSTT: ${NEON_RED}● CRITICAL${NC}"
-    fi
-    
-    if systemctl is-active dnstt-elite-quantum-proxy >/dev/null 2>&1; then
-        echo -e "  PROXY: ${NEON_GREEN}● HEALTHY${NC}"
-    else
-        echo -e "  PROXY: ${NEON_RED}● CRITICAL${NC}"
-    fi
-    
-    echo ""
-    echo -e "${NEON_WHITE}Last 5 Health Events:${NC}"
-    tail -5 "$HEALTH_LOG" 2>/dev/null | while read line; do
-        echo -e "  ${NEON_YELLOW}$line${NC}"
-    done
-    
-    echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-}
-
-monitor() {
-    while true; do
-        check_services
-        auto_heal
-        sleep 60
-    done
-}
-
-case $1 in
-    show) show_health ;;
-    monitor) monitor ;;
-    *) echo "Usage: quantum-health {show|monitor}" ;;
-esac
-EOF
-    chmod +x /usr/local/bin/quantum-health
-
-    cat > /etc/systemd/system/quantum-health.service <<EOF
-[Unit]
-Description=Quantum Health Monitor
-After=network.target
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/quantum-health monitor
-Restart=always
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl daemon-reload
-    systemctl enable quantum-health.service 2>/dev/null || true
-    systemctl start quantum-health.service 2>/dev/null || true
+    chmod +x /usr/local/bin/dnstt-edns-proxy.py
 }
 
 # ==================== LIVE CONNECTION MONITOR ====================
 setup_live_monitor() {
-    cat > /usr/local/bin/elite-quantum-live <<'EOF'
+    cat > /usr/local/bin/elite-x-live <<'EOF'
 #!/bin/bash
 
 NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
 NEON_BLUE='\033[1;34m'; NEON_PURPLE='\033[1;35m'; NEON_CYAN='\033[1;36m'
-NEON_WHITE='\033[1;37m'; NC='\033[0m'; BOLD='\033[1m'; BLINK='\033[5m'
+NEON_WHITE='\033[1;37m'; NC='\033[0m'; BOLD='\033[1m'
 
 while true; do
     clear
-    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}${BLINK}              QUANTUM LIVE MONITOR - REFRESH 2S                          ${NEON_CYAN}║${NC}"
-    echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}              LIVE CONNECTION MONITOR - REFRESH 2S                ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
     
     total=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
-    banned=$(ls /etc/elite-quantum/banned 2>/dev/null | wc -l)
-    
-    echo -e "${NEON_PURPLE}Total Active: ${NEON_GREEN}$total${NC}  ${NEON_PURPLE}Banned: ${NEON_RED}$banned${NC}"
+    echo -e "${NEON_PURPLE}Total Active: ${NEON_GREEN}$total${NC}"
     echo ""
-    echo -e "${NEON_CYAN}─── CONNECTIONS ─────────────────────────────────────────────────────────────${NC}"
+    echo -e "${NEON_CYAN}─── CONNECTIONS ───────────────────────────────────────────────${NC}"
     
     ss -tnp | grep :22 | grep ESTAB | while read line; do
         src_ip=$(echo $line | awk '{print $5}' | cut -d: -f1)
@@ -1164,437 +1336,93 @@ while true; do
             username="unknown"
         fi
         
-        if [ -f "/etc/elite-quantum/banned/$username" ]; then
-            echo -e "${NEON_RED}User: $username ${NEON_YELLOW}IP: $src_ip ${NEON_RED}[BANNED]${NC}"
-        else
-            echo -e "${NEON_GREEN}User: $username ${NEON_YELLOW}IP: $src_ip${NC}"
-        fi
+        echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}IP:${NEON_YELLOW} $src_ip${NC}"
     done
     
-    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────${NC}"
-    echo -e "${NEON_YELLOW}Press Ctrl+C to exit - Quantum auto-refresh 2s${NC}"
+    echo -e "${NEON_YELLOW}Press Ctrl+C to exit - Auto-refresh 2s${NC}"
     sleep 2
 done
 EOF
-    chmod +x /usr/local/bin/elite-quantum-live
+    chmod +x /usr/local/bin/elite-x-live
 }
 
 # ==================== FIXED TRAFFIC ANALYZER ====================
 setup_traffic_analyzer() {
-    cat > /usr/local/bin/elite-quantum-analyzer <<'EOF'
-#!/bin/bash
-
-NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
-NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'; BOLD='\033[1m'
-
-TRAFFIC_DB="/etc/elite-quantum/traffic"
-USER_DB="/etc/elite-quantum/users"
-
-show_graph() {
-    local percent=$1
-    local width=50
-    local filled=$((percent * width / 100))
-    local empty=$((width - filled))
-    
-    printf "${NEON_GREEN}"
-    for ((i=0; i<filled; i++)); do printf "█"; done
-    printf "${NEON_RED}"
-    for ((i=0; i<empty; i++)); do printf "░"; done
-    printf "${NC}"
-}
-
-while true; do
-    clear
-    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                 QUANTUM TRAFFIC ANALYZER                                   ${NEON_CYAN}║${NC}"
-    echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-    
-    rx_total=0
-    tx_total=0
-    for net_dev in /sys/class/net/*; do
-        if [ -f "$net_dev/statistics/rx_bytes" ]; then
-            rx=$((rx_total + $(cat "$net_dev/statistics/rx_bytes" 2>/dev/null || echo 0)))
-            rx_total=$rx
-        fi
-        if [ -f "$net_dev/statistics/tx_bytes" ]; then
-            tx=$((tx_total + $(cat "$net_dev/statistics/tx_bytes" 2>/dev/null || echo 0)))
-            tx_total=$tx
-        fi
-    done
-    
-    rx_gb=$(echo "scale=2; $rx_total / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
-    tx_gb=$(echo "scale=2; $tx_total / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
-    
-    echo -e "${NEON_WHITE}System Quantum RX: ${NEON_GREEN}${rx_gb} GB${NC}"
-    echo -e "${NEON_WHITE}System Quantum TX: ${NEON_GREEN}${tx_gb} GB${NC}"
-    echo ""
-    
-    echo -e "${NEON_WHITE}User Traffic Usage:${NC}"
-    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────${NC}"
-    
-    if [ -d "$USER_DB" ]; then
-        printf "${NEON_WHITE}%-12s %-10s %-10s %-10s %-52s${NC}\n" "USERNAME" "USED(MB)" "LIMIT(MB)" "USAGE%" "GRAPH"
-        echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────${NC}"
-        
-        for user_file in "$USER_DB"/*; do
-            if [ -f "$user_file" ]; then
-                username=$(basename "$user_file")
-                used=$(cat "$TRAFFIC_DB/$username" 2>/dev/null || echo "0")
-                limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
-                
-                if [ "$limit" -gt 0 ] 2>/dev/null; then
-                    percent=$((used * 100 / limit))
-                    if [ "$percent" -gt 100 ]; then percent=100; fi
-                    
-                    if [ "$percent" -gt 90 ]; then
-                        percent_disp="${NEON_RED}${percent}%${NC}"
-                    elif [ "$percent" -gt 70 ]; then
-                        percent_disp="${NEON_YELLOW}${percent}%${NC}"
-                    else
-                        percent_disp="${NEON_GREEN}${percent}%${NC}"
-                    fi
-                    
-                    graph=$(show_graph $percent)
-                    
-                    printf "${NEON_CYAN}%-12s ${NEON_YELLOW}%-10s ${NEON_WHITE}%-10s ${percent_disp} %-10s ${graph}${NC}\n" \
-                           "$username" "$used" "$limit" " "
-                else
-                    printf "${NEON_CYAN}%-12s ${NEON_YELLOW}%-10s ${NEON_WHITE}%-10s ${NEON_GREEN}---${NC} %-10s ${NEON_GREEN}${NC}\n" \
-                           "$username" "$used" "Unlimited" " "
-                fi
-            fi
-        done
-    else
-        echo -e "${NEON_YELLOW}No quantum users found${NC}"
-    fi
-    
-    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────${NC}"
-    echo -e "${NEON_YELLOW}Press Ctrl+C to exit - Auto-refresh every 5s${NC}"
-    sleep 5
-done
-EOF
-    chmod +x /usr/local/bin/elite-quantum-analyzer
-}
-
-# ==================== SMART USER DELETION WITH COMPLETE CLEANUP ====================
-setup_user_script() {
-    cat > /usr/local/bin/elite-quantum-user <<'EOF'
-#!/bin/bash
-
-NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
-NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'; BOLD='\033[1m'
-
-UD="/etc/elite-quantum/users"
-TD="/etc/elite-quantum/traffic"
-BD="/etc/elite-quantum/banned"
-mkdir -p $UD $TD $BD
-
-show_quote() {
-    echo ""
-    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                                                               ${NEON_CYAN}║${NC}"
-    echo -e "${NEON_CYAN}║${NEON_WHITE}            Quantum ELITE-X - Beyond Infinity                    ${NEON_CYAN}║${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                                                               ${NEON_CYAN}║${NC}"
-    echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-}
-
-kill_user_processes() {
-    local username="$1"
-    
-    local pids=$(pgrep -u "$username" 2>/dev/null)
-    for pid in $pids; do
-        kill -9 $pid 2>/dev/null || true
-    done
-    
-    pkill -9 -u "$username" 2>/dev/null || true
-    killall -9 -u "$username" 2>/dev/null || true
-    
-    ss -tnp | grep :22 | grep ESTAB | while read line; do
-        if echo "$line" | grep -q "$username"; then
-            pid=$(echo "$line" | grep -o 'pid=[0-9]*' | cut -d= -f2)
-            [ ! -z "$pid" ] && kill -9 $pid 2>/dev/null || true
-        fi
-    done
-    
-    sleep 1
-}
-
-complete_user_removal() {
-    local username="$1"
-    
-    kill_user_processes "$username"
-    
-    userdel -r -f "$username" 2>/dev/null || true
-    
-    rm -rf /home/"$username" 2>/dev/null || true
-    rm -rf /var/spool/mail/"$username" 2>/dev/null || true
-    
-    sed -i "/^$username:/d" /etc/passwd 2>/dev/null || true
-    sed -i "/^$username:/d" /etc/shadow 2>/dev/null || true
-    sed -i "/^$username:/d" /etc/group 2>/dev/null || true
-    
-    rm -f /etc/sudoers.d/"$username" 2>/dev/null || true
-}
-
-add_user() {
-    clear
-    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}              CREATE QUANTUM SSH + DNS USER                         ${NEON_CYAN}║${NC}"
-    echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    
-    read -p "$(echo -e $NEON_GREEN"Username: "$NC)" username
-    
-    if id "$username" &>/dev/null; then
-        echo -e "${NEON_RED}❌ User already exists in system!${NC}"
-        echo -e "${NEON_YELLOW}Cleaning up existing user...${NC}"
-        complete_user_removal "$username"
-    fi
-    
-    if [ -f "$UD/$username" ]; then
-        rm -f "$UD/$username"
-        rm -f "$TD/$username"
-        rm -f "$BD/$username"
-    fi
-    
-    read -p "$(echo -e $NEON_GREEN"Password: "$NC)" password
-    read -p "$(echo -e $NEON_GREEN"Expire days: "$NC)" days
-    read -p "$(echo -e $NEON_GREEN"Traffic limit (MB, 0 for unlimited): "$NC)" traffic_limit
-    read -p "$(echo -e $NEON_GREEN"Connection limit (0 for unlimited): "$NC)" conn_limit
-    
-    useradd -m -s /bin/false "$username"
-    echo "$username:$password" | chpasswd
-    
-    expire_date=$(date -d "+$days days" +"%Y-%m-%d")
-    chage -E "$expire_date" "$username"
-    
-    cat > $UD/$username <<INFO
-Username: $username
-Password: $password
-Expire: $expire_date
-Traffic_Limit: $traffic_limit
-Conn_Limit: $conn_limit
-Created: $(date +"%Y-%m-%d %H:%M:%S")
-Status: ACTIVE
-INFO
-    
-    echo "0" > $TD/$username
-    
-    /usr/local/bin/quantum-journal log "$username" "CREATED" "User created with limit $conn_limit connections"
-    
-    SERVER=$(cat /etc/elite-quantum/subdomain 2>/dev/null || echo "?")
-    PUBKEY=$(cat /etc/dnstt/server.pub 2>/dev/null || echo "Not generated")
-    
-    clear
-    echo -e "${NEON_GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_GREEN}║${NEON_YELLOW}${BOLD}                  QUANTUM USER DETAILS                               ${NEON_GREEN}║${NC}"
-    echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${NEON_GREEN}║${NEON_WHITE}  Username  :${NEON_CYAN} $username${NC}"
-    echo -e "${NEON_GREEN}║${NEON_WHITE}  Password  :${NEON_CYAN} $password${NC}"
-    echo -e "${NEON_GREEN}║${NEON_WHITE}  Server    :${NEON_CYAN} $SERVER${NC}"
-    echo -e "${NEON_GREEN}║${NEON_WHITE}  Public Key:${NEON_CYAN} $PUBKEY${NC}"
-    echo -e "${NEON_GREEN}║${NEON_WHITE}  Expire    :${NEON_CYAN} $expire_date${NC}"
-    echo -e "${NEON_GREEN}║${NEON_WHITE}  Traffic   :${NEON_CYAN} $traffic_limit MB${NC}"
-    echo -e "${NEON_GREEN}║${NEON_WHITE}  Connections:${NEON_CYAN} $conn_limit${NC}"
-    echo -e "${NEON_GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    show_quote
-}
-
-list_users() {
-    clear
-    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                     QUANTUM ACTIVE USERS (REAL-TIME)                        ${NEON_CYAN}║${NC}"
-    echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-    
-    if [ -z "$(ls -A $UD 2>/dev/null)" ]; then
-        echo -e "${NEON_RED}No quantum users found${NC}"
-        show_quote
-        return
-    fi
-    
-    printf "${NEON_WHITE}%-12s %-15s %-12s %-10s %-10s %-10s %-10s %s${NC}\n" "USERNAME" "PASSWORD" "EXPIRE" "LIMIT(MB)" "USED(MB)" "CONN LIMIT" "ACTIVE" "STATUS"
-    echo -e "${NEON_CYAN}─────────────────────────────────────────────────────────────────────────────────────────────${NC}"
-    
-    for user_file in $UD/*; do
-        [ ! -f "$user_file" ] && continue
-        username=$(basename "$user_file")
-        
-        if ! id "$username" &>/dev/null; then
-            echo -e "${NEON_RED}User $username missing from system, cleaning up...${NC}"
-            rm -f "$user_file"
-            rm -f "$TD/$username"
-            rm -f "$BD/$username"
-            continue
-        fi
-        
-        password=$(grep "Password:" "$user_file" | cut -d' ' -f2-)
-        expire=$(grep "Expire:" "$user_file" | cut -d' ' -f2)
-        limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
-        conn_limit=$(grep "Conn_Limit:" "$user_file" | cut -d' ' -f2)
-        
-        used=0
-        user_pids=$(pgrep -u "$username" 2>/dev/null)
-        if [ ! -z "$user_pids" ]; then
-            total_rx=0
-            total_tx=0
-            for pid in $user_pids; do
-                if [ -f "/proc/$pid/net/dev" ]; then
-                    while read line; do
-                        if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+) ]]; then
-                            iface="${BASH_REMATCH[1]}"
-                            if [ "$iface" != "lo" ]; then
-                                rx_bytes=$(echo "$line" | awk '{print $2}')
-                                tx_bytes=$(echo "$line" | awk '{print $10}')
-                                total_rx=$((total_rx + rx_bytes))
-                                total_tx=$((total_tx + tx_bytes))
-                            fi
-                        fi
-                    done < "/proc/$pid/net/dev" 2>/dev/null
-                fi
-            done
-            used=$(( (total_rx + total_tx) / 1048576 ))
-        fi
-        
-        echo "$used" > "$TD/$username"
-        
-        active_conn=$(ss -tnp | grep :22 | grep ESTAB | grep -o "users:((.*" | grep -o "pid=[0-9]*" | while read pid; do
-            ps -o user= -p ${pid#pid=} 2>/dev/null
-        done | grep -c "^$username$")
-        
-        if [ -f "$BD/$username" ]; then
-            status="${NEON_RED}BANNED${NC}"
-        else
-            current_date=$(date +%Y-%m-%d)
-            if [[ "$current_date" > "$expire" ]]; then
-                status="${NEON_RED}EXPIRED${NC}"
-            else
-                if passwd -S "$username" 2>/dev/null | grep -q "L"; then
-                    status="${NEON_RED}LOCKED${NC}"
-                else
-                    status="${NEON_GREEN}ACTIVE${NC}"
-                fi
-            fi
-        fi
-        
-        if [ ${#password} -gt 14 ]; then
-            display_pass="${password:0:11}..."
-        else
-            display_pass="$password"
-        fi
-        
-        if [ "$limit" -gt 0 ] 2>/dev/null; then
-            percent=$((used * 100 / limit))
-            if [ "$percent" -ge 90 ]; then
-                used_disp="${NEON_RED}$used${NC}"
-            elif [ "$percent" -ge 70 ]; then
-                used_disp="${NEON_YELLOW}$used${NC}"
-            else
-                used_disp="${NEON_GREEN}$used${NC}"
-            fi
-        else
-            used_disp="${NEON_GREEN}$used${NC}"
-        fi
-        
-        if [ "$conn_limit" -gt 0 ] 2>/dev/null; then
-            if [ "$active_conn" -ge "$conn_limit" ]; then
-                conn_disp="${NEON_RED}$active_conn${NC}"
-            else
-                conn_disp="${NEON_GREEN}$active_conn${NC}"
-            fi
-        else
-            conn_disp="${NEON_GREEN}$active_conn${NC}"
-        fi
-        
-        printf "${NEON_CYAN}%-12s ${NEON_YELLOW}%-15s ${NEON_GREEN}%-12s ${NEON_WHITE}%-10s ${used_disp} %-10s ${NEON_BLUE}%-10s ${conn_disp} %-10s %b${NC}\n" \
-               "$username" "$display_pass" "$expire" "$limit" " " "$conn_limit" " " "$status"
-    done
-    
-    echo -e "${NEON_CYAN}─────────────────────────────────────────────────────────────────────────────────────────────${NC}"
-    
-    total_users=$(ls -1 $UD | wc -l)
-    total_active=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
-    total_banned=$(ls -1 $BD | wc -l)
-    echo -e "${NEON_WHITE}Total Users: ${NEON_GREEN}$total_users${NC}  ${NEON_WHITE}Active Connections: ${NEON_GREEN}$total_active${NC}  ${NEON_WHITE}Banned: ${NEON_RED}$total_banned${NC}"
-    
-    show_quote
-}
-
-lock_user() { 
-    read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
-    if id "$u" &>/dev/null; then
-        usermod -L "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u locked${NC}" || echo -e "${NEON_RED}❌ Failed to lock${NC}"
-        if [ -f "$UD/$u" ]; then
-            sed -i 's/^Status:.*/Status: LOCKED (Manual)/' "$UD/$u" 2>/dev/null || echo "Status: LOCKED (Manual)" >> "$UD/$u"
-        fi
-        /usr/local/bin/quantum-journal log "$u" "LOCKED" "Manually locked"
-    else
-        echo -e "${NEON_RED}❌ User does not exist${NC}"
-    fi
-    show_quote
-}
-
-unlock_user() { 
-    read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
-    if id "$u" &>/dev/null; then
-        usermod -U "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u unlocked${NC}" || echo -e "${NEON_RED}❌ Failed to unlock${NC}"
-        if [ -f "$UD/$u" ]; then
-            sed -i 's/^Status:.*/Status: ACTIVE/' "$UD/$u" 2>/dev/null
-        fi
-        rm -f "$BD/$u"
-        /usr/local/bin/quantum-journal log "$u" "UNLOCKED" "Manually unlocked"
-    else
-        echo -e "${NEON_RED}❌ User does not exist${NC}"
-    fi
-    show_quote
-}
-
-delete_user() { 
-    read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
-    
-    if id "$u" &>/dev/null || [ -f "$UD/$u" ]; then
-        echo -e "${NEON_RED}⚠️  WARNING: This will completely remove user $u from system${NC}"
-        read -p "Are you sure? (type YES to confirm): " confirm
-        if [ "$confirm" = "YES" ]; then
-            /usr/local/bin/quantum-journal log "$u" "DELETED" "User completely removed"
-            complete_user_removal "$u"
-            rm -f "$UD/$u"
-            rm -f "$TD/$u"
-            rm -f "$BD/$u"
-            echo -e "${NEON_GREEN}✅ User $u completely deleted from system${NC}"
-        else
-            echo -e "${NEON_YELLOW}Deletion cancelled${NC}"
-        fi
-    else
-        echo -e "${NEON_RED}❌ User does not exist${NC}"
-        rm -f "$UD/$u" "$TD/$u" "$BD/$u" 2>/dev/null
-    fi
-    show_quote
-}
-
-case $1 in
-    add) add_user ;;
-    list) list_users ;;
-    lock) lock_user ;;
-    unlock) unlock_user ;;
-    del) delete_user ;;
-    *) echo "Usage: elite-quantum-user {add|list|lock|unlock|del}" ;;
-esac
-EOF
-    chmod +x /usr/local/bin/elite-quantum-user
-}
-
-# ==================== RENEW SSH ACCOUNT ====================
-setup_renew_user() {
-    cat > /usr/local/bin/elite-quantum-renew <<'EOF'
+    cat > /usr/local/bin/elite-x-analyzer <<'EOF'
 #!/bin/bash
 
 NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
 NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'
 
-USER_DB="/etc/elite-quantum/users"
+TRAFFIC_DB="/etc/elite-x/traffic"
+USER_DB="/etc/elite-x/users"
 
 echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                    RENEW QUANTUM ACCOUNT                            ${NEON_CYAN}║${NC}"
+echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                 TRAFFIC ANALYZER                                  ${NEON_CYAN}║${NC}"
+echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+
+rx_total=0
+tx_total=0
+for net_dev in /sys/class/net/*; do
+    if [ -f "$net_dev/statistics/rx_bytes" ]; then
+        rx=$((rx_total + $(cat "$net_dev/statistics/rx_bytes" 2>/dev/null || echo 0)))
+        rx_total=$rx
+    fi
+    if [ -f "$net_dev/statistics/tx_bytes" ]; then
+        tx=$((tx_total + $(cat "$net_dev/statistics/tx_bytes" 2>/dev/null || echo 0)))
+        tx_total=$tx
+    fi
+done
+
+rx_gb=$(echo "scale=2; $rx_total / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
+tx_gb=$(echo "scale=2; $tx_total / 1024 / 1024 / 1024" | bc 2>/dev/null || echo "0")
+
+echo -e "${NEON_WHITE}System Total RX: ${NEON_GREEN}${rx_gb} GB${NC}"
+echo -e "${NEON_WHITE}System Total TX: ${NEON_GREEN}${tx_gb} GB${NC}"
+echo ""
+
+if [ -d "$USER_DB" ]; then
+    for user_file in "$USER_DB"/*; do
+        if [ -f "$user_file" ]; then
+            username=$(basename "$user_file")
+            used=$(cat "$TRAFFIC_DB/$username" 2>/dev/null || echo "0")
+            limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
+            
+            # Calculate percentage if limit > 0
+            if [ "$limit" -gt 0 ] 2>/dev/null; then
+                percent=$((used * 100 / limit))
+                if [ "$percent" -gt 90 ]; then
+                    percent_disp="${NEON_RED}${percent}%${NC}"
+                elif [ "$percent" -gt 70 ]; then
+                    percent_disp="${NEON_YELLOW}${percent}%${NC}"
+                else
+                    percent_disp="${NEON_GREEN}${percent}%${NC}"
+                fi
+                echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}Used:${NEON_YELLOW} ${used}MB ${NEON_CYAN}Limit:${NEON_GREEN} ${limit}MB ${NEON_CYAN}($percent_disp)${NC}"
+            else
+                echo -e "${NEON_CYAN}User:${NEON_WHITE} $username ${NEON_CYAN}Used:${NEON_YELLOW} ${used}MB ${NEON_CYAN}Limit:${NEON_GREEN} Unlimited${NC}"
+            fi
+        fi
+    done
+else
+    echo -e "${NEON_YELLOW}No users found${NC}"
+fi
+EOF
+    chmod +x /usr/local/bin/elite-x-analyzer
+}
+
+# ==================== RENEW SSH ACCOUNT ====================
+setup_renew_user() {
+    cat > /usr/local/bin/elite-x-renew <<'EOF'
+#!/bin/bash
+
+NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
+NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'
+
+USER_DB="/etc/elite-x/users"
+
+echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                    RENEW SSH ACCOUNT                            ${NEON_CYAN}║${NC}"
 echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 
 read -p "$(echo -e $NEON_GREEN"Username to renew: "$NC)" username
@@ -1619,51 +1447,56 @@ if [ -f "$USER_DB/$username" ]; then
     sed -i "s/Expire: .*/Expire: $new_expire/" "$USER_DB/$username"
 fi
 
-/usr/local/bin/quantum-journal log "$username" "RENEWED" "Added $days days"
-
-echo -e "${NEON_GREEN}✅ Quantum account renewed until: $new_expire${NC}"
+echo -e "${NEON_GREEN}✅ Account renewed until: $new_expire${NC}"
 EOF
-    chmod +x /usr/local/bin/elite-quantum-renew
+    chmod +x /usr/local/bin/elite-x-renew
 }
 
 # ==================== SETUP UPDATER ====================
 setup_updater() {
-    cat > /usr/local/bin/elite-quantum-update <<'EOF'
+    cat > /usr/local/bin/elite-x-update <<'EOF'
 #!/bin/bash
 
-echo -e "${NEON_YELLOW}🔄 CHECKING FOR QUANTUM UPDATES...${NC}"
-echo -e "${NEON_GREEN}✅ Quantum version 5.0 - Latest!${NC}"
+echo -e "${NEON_YELLOW}🔄 CHECKING FOR UPDATES...${NC}"
+echo -e "${NEON_GREEN}✅ Already latest version!${NC}"
 EOF
-    chmod +x /usr/local/bin/elite-quantum-update
+    chmod +x /usr/local/bin/elite-x-update
 }
 
 # ==================== FIXED TRAFFIC MONITOR WITH REAL USAGE ====================
 setup_traffic_monitor() {
-    cat > /usr/local/bin/elite-quantum-traffic <<'EOF'
+    cat > /usr/local/bin/elite-x-traffic <<'EOF'
 #!/bin/bash
 
-TRAFFIC_DB="/etc/elite-quantum/traffic"
-USER_DB="/etc/elite-quantum/users"
+TRAFFIC_DB="/etc/elite-x/traffic"
+USER_DB="/etc/elite-x/users"
 mkdir -p $TRAFFIC_DB
 
+# Function to get traffic for a user
 get_user_traffic() {
     local username="$1"
     local traffic_file="$TRAFFIC_DB/$username"
     
+    # Get all PIDs for this user
     local user_pids=$(pgrep -u "$username" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
     
     if [ ! -z "$user_pids" ]; then
+        # Sum up traffic from all user processes using /proc/net/dev
         local total_rx=0
         local total_tx=0
         
+        # For each PID, get traffic from /proc/[pid]/net/dev
         for pid in $(echo "$user_pids" | tr '|' ' '); do
             if [ -f "/proc/$pid/net/dev" ]; then
+                # Get interface traffic for this process
                 while read line; do
-                    if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+) ]]; then
+                    if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+) ]]; then
                         iface="${BASH_REMATCH[1]}"
+                        rx_bytes="${BASH_REMATCH[2]}"
+                        tx_bytes="${BASH_REMATCH[10]}"
+                        
+                        # Only count for non-loopback interfaces
                         if [ "$iface" != "lo" ]; then
-                            rx_bytes=$(echo "$line" | awk '{print $2}')
-                            tx_bytes=$(echo "$line" | awk '{print $10}')
                             total_rx=$((total_rx + rx_bytes))
                             total_tx=$((total_tx + tx_bytes))
                         fi
@@ -1672,15 +1505,18 @@ get_user_traffic() {
             fi
         done
         
+        # Convert to MB
         total_mb=$(( (total_rx + total_tx) / 1048576 ))
         echo "$total_mb" > "$traffic_file"
     else
+        # No active processes, keep last known value or 0
         if [ ! -f "$traffic_file" ]; then
             echo "0" > "$traffic_file"
         fi
     fi
 }
 
+# Function to enforce traffic limits
 enforce_limits() {
     for user_file in "$USER_DB"/*; do
         if [ -f "$user_file" ]; then
@@ -1691,17 +1527,33 @@ enforce_limits() {
                 used=$(cat "$TRAFFIC_DB/$username")
                 
                 if [ "$used" -ge "$limit" ]; then
-                    echo "$(date): User $username exceeded traffic limit ($used/${limit}MB)" >> /var/log/elite-quantum-traffic.log
+                    # User exceeded limit - kill all connections
+                    echo "$(date): User $username exceeded limit ($used/${limit}MB)" >> /var/log/elite-x-traffic.log
                     pkill -u "$username" 2>/dev/null || true
+                    
+                    # Kill all SSH sessions
+                    ss -tnp | grep :22 | while read line; do
+                        pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
+                        if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+                            user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
+                            if [ "$user" = "$username" ]; then
+                                kill -9 $pid 2>/dev/null || true
+                            fi
+                        fi
+                    done
+                    
+                    # Lock the account
                     usermod -L "$username" 2>/dev/null || true
+                    
+                    # Update status in user file
                     sed -i 's/^Status:.*/Status: LOCKED (Traffic Limit)/' "$user_file" 2>/dev/null || echo "Status: LOCKED (Traffic Limit)" >> "$user_file"
-                    /usr/local/bin/quantum-journal log "$username" "LIMIT" "Traffic limit exceeded: ${used}/${limit}MB"
                 fi
             fi
         fi
     done
 }
 
+# Main loop
 while true; do
     if [ -d "$USER_DB" ]; then
         for user_file in "$USER_DB"/*; do
@@ -1715,31 +1567,31 @@ while true; do
     sleep 60
 done
 EOF
-    chmod +x /usr/local/bin/elite-quantum-traffic
+    chmod +x /usr/local/bin/elite-x-traffic
 
-    cat > /etc/systemd/system/elite-quantum-traffic.service <<EOF
+    cat > /etc/systemd/system/elite-x-traffic.service <<EOF
 [Unit]
-Description=ELITE-QUANTUM Traffic Monitor
+Description=ELITE-X Traffic Monitor
 After=network.target
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/elite-quantum-traffic
+ExecStart=/usr/local/bin/elite-x-traffic
 Restart=always
 [Install]
 WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    systemctl enable elite-quantum-traffic.service 2>/dev/null || true
-    systemctl start elite-quantum-traffic.service 2>/dev/null || true
+    systemctl enable elite-x-traffic.service 2>/dev/null || true
+    systemctl start elite-x-traffic.service 2>/dev/null || true
 }
 
 # ==================== AUTO REMOVER ====================
 setup_auto_remover() {
-    cat > /usr/local/bin/elite-quantum-cleaner <<'EOF'
+    cat > /usr/local/bin/elite-x-cleaner <<'EOF'
 #!/bin/bash
-USER_DB="/etc/elite-quantum/users"
-TRAFFIC_DB="/etc/elite-quantum/traffic"
+USER_DB="/etc/elite-x/users"
+TRAFFIC_DB="/etc/elite-x/traffic"
 
 while true; do
     if [ -d "$USER_DB" ]; then
@@ -1751,13 +1603,26 @@ while true; do
                 if [ ! -z "$expire_date" ]; then
                     current_date=$(date +%Y-%m-%d)
                     if [[ "$current_date" > "$expire_date" ]] || [ "$current_date" = "$expire_date" ]; then
-                        echo "$(date): Removing expired user $username" >> /var/log/elite-quantum-cleaner.log
-                        pkill -9 -u "$username" 2>/dev/null || true
+                        echo "$(date): Removing expired user $username" >> /var/log/elite-x-cleaner.log
+                        pkill -u "$username" 2>/dev/null || true
+                        # Kill all SSH sessions
+                        ss -tnp | grep :22 | while read line; do
+                            pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
+                            if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+                                user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
+                                if [ "$user" = "$username" ]; then
+                                    kill -9 $pid 2>/dev/null || true
+                                fi
+                            fi
+                        done
                         userdel -r -f "$username" 2>/dev/null || true
+                        # Remove from /etc/passwd if still there
+                        sed -i "/^$username:/d" /etc/passwd 2>/dev/null || true
+                        sed -i "/^$username:/d" /etc/shadow 2>/dev/null || true
+                        sed -i "/^$username:/d" /etc/group 2>/dev/null || true
                         rm -f "$user_file"
                         rm -f "$TRAFFIC_DB/$username"
-                        rm -f "/etc/elite-quantum/banned/$username"
-                        /usr/local/bin/quantum-journal log "$username" "EXPIRED" "Auto-removed due to expiry"
+                        rm -rf "/home/$username" 2>/dev/null || true
                     fi
                 fi
             fi
@@ -1766,27 +1631,27 @@ while true; do
     sleep 3600
 done
 EOF
-    chmod +x /usr/local/bin/elite-quantum-cleaner
+    chmod +x /usr/local/bin/elite-x-cleaner
 
-    cat > /etc/systemd/system/elite-quantum-cleaner.service <<EOF
+    cat > /etc/systemd/system/elite-x-cleaner.service <<EOF
 [Unit]
-Description=ELITE-QUANTUM Auto Remover
+Description=ELITE-X Auto Remover
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/elite-quantum-cleaner
+ExecStart=/usr/local/bin/elite-x-cleaner
 Restart=always
 [Install]
 WantedBy=multi-user.target
 EOF
 
     systemctl daemon-reload
-    systemctl enable elite-quantum-cleaner.service 2>/dev/null || true
-    systemctl start elite-quantum-cleaner.service 2>/dev/null || true
+    systemctl enable elite-x-cleaner.service 2>/dev/null || true
+    systemctl start elite-x-cleaner.service 2>/dev/null || true
 }
 
 # ==================== INSTALL DNSTT-SERVER ====================
 install_dnstt_server() {
-    echo -e "${NEON_CYAN}Installing quantum dnstt-server...${NC}"
+    echo -e "${NEON_CYAN}Installing dnstt-server...${NC}"
 
     DNSTT_URLS=(
         "https://github.com/Elite-X-Team/dnstt-server/raw/main/dnstt-server"
@@ -1803,7 +1668,7 @@ install_dnstt_server() {
         if curl -L -f -o /usr/local/bin/dnstt-server "$url" 2>/dev/null; then
             if [ -s /usr/local/bin/dnstt-server ]; then
                 chmod +x /usr/local/bin/dnstt-server
-                echo -e "${NEON_GREEN}✅ Quantum download successful${NC}"
+                echo -e "${NEON_GREEN}✅ Download successful${NC}"
                 DOWNLOAD_SUCCESS=1
                 break
             fi
@@ -1811,14 +1676,360 @@ install_dnstt_server() {
     done
 
     if [ $DOWNLOAD_SUCCESS -eq 0 ]; then
-        echo -e "${NEON_RED}❌ Failed to download quantum dnstt-server${NC}"
+        echo -e "${NEON_RED}❌ Failed to download dnstt-server${NC}"
         exit 1
     fi
 }
 
+# ==================== USER MANAGEMENT SCRIPT (FIXED WITH REAL TRAFFIC AND CONNECTION LIMITS) ====================
+setup_user_script() {
+    cat > /usr/local/bin/elite-x-user <<'EOF'
+#!/bin/bash
+
+NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
+NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'; BOLD='\033[1m'
+
+UD="/etc/elite-x/users"
+TD="/etc/elite-x/traffic"
+mkdir -p $UD $TD
+
+show_quote() {
+    echo ""
+    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                                                               ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}║${NEON_WHITE}            Always Remember ELITE-X when you see X            ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                                                               ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+add_user() {
+    clear
+    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}              CREATE SSH + DNS USER                            ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    
+    read -p "$(echo -e $NEON_GREEN"Username: "$NC)" username
+    read -p "$(echo -e $NEON_GREEN"Password: "$NC)" password
+    read -p "$(echo -e $NEON_GREEN"Expire days: "$NC)" days
+    read -p "$(echo -e $NEON_GREEN"Traffic limit (MB, 0 for unlimited): "$NC)" traffic_limit
+    read -p "$(echo -e $NEON_GREEN"Max connections (0 for unlimited): "$NC)" max_connections
+    
+    # Check if user already exists in system
+    if id "$username" &>/dev/null; then
+        echo -e "${NEON_RED}❌ User already exists in system!${NC}"
+        
+        # Check if user is in our database
+        if [ -f "$UD/$username" ]; then
+            echo -e "${NEON_YELLOW}User found in ELITE-X database. Removing old entry...${NC}"
+            rm -f "$UD/$username"
+            rm -f "$TD/$username"
+        fi
+        
+        # Kill all processes for this user
+        pkill -u "$username" 2>/dev/null || true
+        # Kill all SSH sessions
+        ss -tnp | grep :22 | while read line; do
+            pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
+            if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+                user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
+                if [ "$user" = "$username" ]; then
+                    kill -9 $pid 2>/dev/null || true
+                fi
+            fi
+        done
+        
+        # Force delete user
+        userdel -r -f "$username" 2>/dev/null || true
+        # Remove from /etc/passwd if still there
+        sed -i "/^$username:/d" /etc/passwd 2>/dev/null || true
+        sed -i "/^$username:/d" /etc/shadow 2>/dev/null || true
+        sed -i "/^$username:/d" /etc/group 2>/dev/null || true
+        rm -rf "/home/$username" 2>/dev/null || true
+        
+        echo -e "${NEON_GREEN}✅ Old user cleaned up. Creating new user...${NC}"
+    fi
+    
+    # Create user
+    useradd -m -s /bin/false "$username"
+    echo "$username:$password" | chpasswd
+    
+    expire_date=$(date -d "+$days days" +"%Y-%m-%d")
+    chage -E "$expire_date" "$username"
+    
+    cat > $UD/$username <<INFO
+Username: $username
+Password: $password
+Expire: $expire_date
+Traffic_Limit: $traffic_limit
+Max_Connections: $max_connections
+Created: $(date +"%Y-%m-%d")
+Status: ACTIVE
+INFO
+    
+    echo "0" > $TD/$username
+    
+    SERVER=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "?")
+    PUBKEY=$(cat /etc/dnstt/server.pub 2>/dev/null || echo "Not generated")
+    
+    clear
+    echo -e "${NEON_GREEN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_GREEN}║${NEON_YELLOW}${BOLD}                  USER DETAILS                                   ${NEON_GREEN}║${NC}"
+    echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${NEON_GREEN}║${NEON_WHITE}  Username  :${NEON_CYAN} $username${NC}"
+    echo -e "${NEON_GREEN}║${NEON_WHITE}  Password  :${NEON_CYAN} $password${NC}"
+    echo -e "${NEON_GREEN}║${NEON_WHITE}  Server    :${NEON_CYAN} $SERVER${NC}"
+    echo -e "${NEON_GREEN}║${NEON_WHITE}  Public Key:${NEON_CYAN} $PUBKEY${NC}"
+    echo -e "${NEON_GREEN}║${NEON_WHITE}  Expire    :${NEON_CYAN} $expire_date${NC}"
+    echo -e "${NEON_GREEN}║${NEON_WHITE}  Traffic   :${NEON_CYAN} $traffic_limit MB${NC}"
+    echo -e "${NEON_GREEN}║${NEON_WHITE}  Max Conn  :${NEON_CYAN} $max_connections${NC}"
+    echo -e "${NEON_GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    show_quote
+}
+
+list_users() {
+    clear
+    echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                     ACTIVE USERS (REAL TRAFFIC)                    ${NEON_CYAN}║${NC}"
+    echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    
+    if [ -z "$(ls -A $UD 2>/dev/null)" ]; then
+        echo -e "${NEON_RED}No users found${NC}"
+        show_quote
+        return
+    fi
+    
+    # Table header
+    printf "${NEON_WHITE}%-12s %-15s %-12s %-10s %-10s %-8s %-8s %s${NC}\n" "USERNAME" "PASSWORD" "EXPIRE" "LIMIT(MB)" "USED(MB)" "CONN" "USAGE%" "STATUS"
+    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────────────────────${NC}"
+    
+    for user_file in $UD/*; do
+        [ ! -f "$user_file" ] && continue
+        username=$(basename "$user_file")
+        
+        password=$(grep "Password:" "$user_file" | cut -d' ' -f2-)
+        expire=$(grep "Expire:" "$user_file" | cut -d' ' -f2)
+        limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
+        max_conn=$(grep "Max_Connections:" "$user_file" | cut -d' ' -f2)
+        [ -z "$max_conn" ] && max_conn="0"
+        
+        # Get REAL traffic usage from /proc/net/dev for this user's processes
+        used=0
+        user_pids=$(pgrep -u "$username" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
+        if [ ! -z "$user_pids" ]; then
+            total_rx=0
+            total_tx=0
+            for pid in $(echo "$user_pids" | tr '|' ' '); do
+                if [ -f "/proc/$pid/net/dev" ]; then
+                    while read line; do
+                        if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+) ]]; then
+                            iface="${BASH_REMATCH[1]}"
+                            if [ "$iface" != "lo" ]; then
+                                rx_bytes=$(echo "$line" | awk '{print $2}')
+                                tx_bytes=$(echo "$line" | awk '{print $10}')
+                                total_rx=$((total_rx + rx_bytes))
+                                total_tx=$((total_tx + tx_bytes))
+                            fi
+                        fi
+                    done < "/proc/$pid/net/dev" 2>/dev/null
+                fi
+            done
+            used=$(( (total_rx + total_tx) / 1048576 ))
+        fi
+        
+        # Save current usage to file
+        echo "$used" > "$TD/$username"
+        
+        # Get current connections
+        current_conn=0
+        if id "$username" &>/dev/null; then
+            current_conn=$(ss -tnp | grep :22 | grep ESTAB | while read line; do
+                pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
+                if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+                    user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
+                    if [ "$user" = "$username" ]; then
+                        echo "1"
+                    fi
+                fi
+            done | wc -l)
+        fi
+        
+        # Calculate usage percentage
+        if [ "$limit" -gt 0 ] 2>/dev/null; then
+            percent=$((used * 100 / limit))
+            if [ "$percent" -ge 100 ]; then
+                percent_disp="${NEON_RED}${percent}%${NC}"
+                # Auto-lock if over limit
+                usermod -L "$username" 2>/dev/null || true
+                status="${NEON_RED}LIMIT EXCEEDED${NC}"
+            elif [ "$percent" -ge 80 ]; then
+                percent_disp="${NEON_YELLOW}${percent}%${NC}"
+                if passwd -S "$username" 2>/dev/null | grep -q "L"; then
+                    status="${NEON_RED}LOCKED${NC}"
+                else
+                    status="${NEON_GREEN}ACTIVE${NC}"
+                fi
+            else
+                percent_disp="${NEON_GREEN}${percent}%${NC}"
+                if passwd -S "$username" 2>/dev/null | grep -q "L"; then
+                    status="${NEON_RED}LOCKED${NC}"
+                else
+                    status="${NEON_GREEN}ACTIVE${NC}"
+                fi
+            fi
+        else
+            percent_disp="${NEON_GREEN}---${NC}"
+            if passwd -S "$username" 2>/dev/null | grep -q "L"; then
+                status="${NEON_RED}LOCKED${NC}"
+            else
+                status="${NEON_GREEN}ACTIVE${NC}"
+            fi
+        fi
+        
+        # Check connection limit
+        if [ "$max_conn" -gt 0 ] 2>/dev/null; then
+            if [ "$current_conn" -gt "$max_conn" ]; then
+                status="${NEON_RED}CONN LIMIT${NC}"
+            fi
+        fi
+        
+        # Truncate password if too long
+        if [ ${#password} -gt 14 ]; then
+            display_pass="${password:0:11}..."
+        else
+            display_pass="$password"
+        fi
+        
+        conn_display="${NEON_WHITE}$current_conn${NEON_CYAN}/$max_conn${NC}"
+        
+        printf "${NEON_CYAN}%-12s ${NEON_YELLOW}%-15s ${NEON_GREEN}%-12s ${NEON_WHITE}%-10s ${NEON_PURPLE}%-10s ${NEON_BLUE}%-8b ${NEON_MAGENTA}%-8b ${NEON_CYAN}%b${NC}\n" \
+               "$username" "$display_pass" "$expire" "$limit" "$used" "$conn_display" "$percent_disp" "$status"
+    done
+    
+    echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────────────────────${NC}"
+    
+    # Summary
+    total_users=$(ls -1 $UD | wc -l)
+    total_active=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
+    echo -e "${NEON_WHITE}Total Users: ${NEON_GREEN}$total_users${NC}  ${NEON_WHITE}Active Connections: ${NEON_GREEN}$total_active${NC}"
+    
+    show_quote
+}
+
+lock_user() { 
+    read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
+    if id "$u" &>/dev/null; then
+        usermod -L "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u locked${NC}" || echo -e "${NEON_RED}❌ Failed to lock${NC}"
+        # Kill all connections
+        pkill -u "$u" 2>/dev/null || true
+        ss -tnp | grep :22 | while read line; do
+            pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
+            if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+                user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
+                if [ "$user" = "$u" ]; then
+                    kill -9 $pid 2>/dev/null || true
+                fi
+            fi
+        done
+        # Update status in user file
+        if [ -f "$UD/$u" ]; then
+            sed -i 's/^Status:.*/Status: LOCKED (Manual)/' "$UD/$u" 2>/dev/null || echo "Status: LOCKED (Manual)" >> "$UD/$u"
+        fi
+    else
+        echo -e "${NEON_RED}❌ User does not exist${NC}"
+    fi
+    show_quote
+}
+
+unlock_user() { 
+    read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
+    if id "$u" &>/dev/null; then
+        usermod -U "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u unlocked${NC}" || echo -e "${NEON_RED}❌ Failed to unlock${NC}"
+        # Update status in user file
+        if [ -f "$UD/$u" ]; then
+            sed -i 's/^Status:.*/Status: ACTIVE/' "$UD/$u" 2>/dev/null
+        fi
+    else
+        echo -e "${NEON_RED}❌ User does not exist${NC}"
+    fi
+    show_quote
+}
+
+delete_user() { 
+    read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
+    
+    # Check if user exists in system
+    if id "$u" &>/dev/null; then
+        echo -e "${NEON_YELLOW}User $u found in system. Proceeding with deletion...${NC}"
+        
+        # Kill all processes for this user
+        pkill -u "$u" 2>/dev/null || true
+        
+        # Kill all SSH sessions
+        ss -tnp | grep :22 | while read line; do
+            pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
+            if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+                user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
+                if [ "$user" = "$u" ]; then
+                    kill -9 $pid 2>/dev/null || true
+                fi
+            fi
+        done
+        
+        # Force delete user
+        userdel -r -f "$u" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo -e "${NEON_GREEN}✅ User $u deleted from system${NC}"
+        else
+            echo -e "${NEON_YELLOW}⚠️ Userdel returned non-zero, but continuing...${NC}"
+        fi
+        
+        # Remove from /etc/passwd if still there
+        sed -i "/^$u:/d" /etc/passwd 2>/dev/null || true
+        sed -i "/^$u:/d" /etc/shadow 2>/dev/null || true
+        sed -i "/^$u:/d" /etc/group 2>/dev/null || true
+        
+        # Remove home directory
+        rm -rf "/home/$u" 2>/dev/null || true
+    else
+        echo -e "${NEON_YELLOW}⚠️ User $u not found in system, but checking ELITE-X database...${NC}"
+    fi
+    
+    # Remove from ELITE-X database
+    if [ -f "$UD/$u" ]; then
+        rm -f "$UD/$u"
+        echo -e "${NEON_GREEN}✅ Removed from ELITE-X database${NC}"
+    fi
+    
+    if [ -f "$TD/$u" ]; then
+        rm -f "$TD/$u"
+    fi
+    
+    # Final verification
+    if ! id "$u" &>/dev/null && [ ! -f "$UD/$u" ]; then
+        echo -e "${NEON_GREEN}✅ User $u completely deleted from system and database${NC}"
+    else
+        echo -e "${NEON_GREEN}✅ User deletion process completed${NC}"
+    fi
+    
+    show_quote
+}
+
+case $1 in
+    add) add_user ;;
+    list) list_users ;;
+    lock) lock_user ;;
+    unlock) unlock_user ;;
+    del) delete_user ;;
+    *) echo "Usage: elite-x-user {add|list|lock|unlock|del}" ;;
+esac
+EOF
+    chmod +x /usr/local/bin/elite-x-user
+}
+
 # ==================== CREATE REFRESH INFO SCRIPT ====================
 create_refresh_script() {
-    cat > /usr/local/bin/elite-quantum-refresh-info <<'EOF'
+    cat > /usr/local/bin/elite-x-refresh-info <<'EOF'
 #!/bin/bash
 
 NEON_CYAN='\033[1;36m'; NEON_GREEN='\033[1;32m'; NEON_RED='\033[1;31m'; NC='\033[0m'
@@ -1834,13 +2045,13 @@ if [ -z "$IP" ]; then
 fi
 
 if [ -z "$IP" ]; then
-    echo "Unknown" > /etc/elite-quantum/cached_ip
-    echo "Unknown" > /etc/elite-quantum/cached_location
-    echo "Unknown" > /etc/elite-quantum/cached_isp
+    echo "Unknown" > /etc/elite-x/cached_ip
+    echo "Unknown" > /etc/elite-x/cached_location
+    echo "Unknown" > /etc/elite-x/cached_isp
     exit 1
 fi
 
-echo "$IP" > /etc/elite-quantum/cached_ip
+echo "$IP" > /etc/elite-x/cached_ip
 
 LOCATION="Unknown"
 ISP="Unknown"
@@ -1877,231 +2088,200 @@ if [ "$LOCATION" = "Unknown" ] || [ "$LOCATION" = "null" ]; then
     fi
 fi
 
-echo "$LOCATION" > /etc/elite-quantum/cached_location
-echo "$ISP" > /etc/elite-quantum/cached_isp
+echo "$LOCATION" > /etc/elite-x/cached_location
+echo "$ISP" > /etc/elite-x/cached_isp
 EOF
-    chmod +x /usr/local/bin/elite-quantum-refresh-info
+    chmod +x /usr/local/bin/elite-x-refresh-info
 }
 
 # ==================== CREATE UNINSTALL SCRIPT ====================
 create_uninstall_script() {
-    cat > /usr/local/bin/elite-quantum-uninstall <<'EOF'
+    cat > /usr/local/bin/elite-x-uninstall <<'EOF'
 #!/bin/bash
 
 NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'; NC='\033[0m'; BLINK='\033[5m'
 
-echo -e "${NEON_RED}${BLINK}🗑️  QUANTUM UNINSTALL - REMOVING EVERYTHING...${NC}"
+echo -e "${NEON_RED}${BLINK}🗑️  COMPLETE UNINSTALL - REMOVING EVERYTHING...${NC}"
     
-systemctl stop dnstt-elite-quantum dnstt-elite-quantum-proxy elite-quantum-traffic elite-quantum-cleaner quantum-connection-limiter quantum-journal quantum-health 2>/dev/null || true
-systemctl disable dnstt-elite-quantum dnstt-elite-quantum-proxy elite-quantum-traffic elite-quantum-cleaner quantum-connection-limiter quantum-journal quantum-health 2>/dev/null || true
+systemctl stop dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-connection-limiter elite-x-health-monitor 2>/dev/null || true
+systemctl disable dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-connection-limiter elite-x-health-monitor 2>/dev/null || true
     
-rm -f /etc/systemd/system/{dnstt-elite-quantum*,elite-quantum-*,quantum-*}
+rm -f /etc/systemd/system/{dnstt-elite-x*,elite-x-*}
     
-if [ -d "/etc/elite-quantum/users" ]; then
-    for user_file in /etc/elite-quantum/users/*; do
+echo -e "${NEON_YELLOW}🔍 Removing all ELITE-X users...${NC}"
+
+if [ -d "/etc/elite-x/users" ]; then
+    for user_file in /etc/elite-x/users/*; do
         if [ -f "$user_file" ]; then
             username=$(basename "$user_file")
             echo -e "${NEON_RED}Removing user: $username${NC}"
-            pkill -9 -u "$username" 2>/dev/null || true
-            killall -9 -u "$username" 2>/dev/null || true
+            pkill -u "$username" 2>/dev/null || true
+            ss -tnp | grep :22 | while read line; do
+                pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
+                if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+                    user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
+                    if [ "$user" = "$username" ]; then
+                        kill -9 $pid 2>/dev/null || true
+                    fi
+                fi
+            done
             userdel -r -f "$username" 2>/dev/null || true
             rm -rf /home/"$username" 2>/dev/null || true
+            sed -i "/^$username:/d" /etc/passwd 2>/dev/null || true
+            sed -i "/^$username:/d" /etc/shadow 2>/dev/null || true
+            sed -i "/^$username:/d" /etc/group 2>/dev/null || true
         fi
     done
 fi
 
 pkill -f dnstt-server 2>/dev/null || true
-pkill -f dnstt-edns-quantum 2>/dev/null || true
+pkill -f dnstt-edns-proxy 2>/dev/null || true
     
 rm -rf /etc/dnstt
-rm -rf /etc/elite-quantum
-rm -f /usr/local/bin/{dnstt-*,elite-quantum-*,quantum-*}
-rm -f /usr/local/bin/dnstt-edns-quantum.py
-rm -f /usr/local/bin/elite-quantum-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall,health,journal,monitor}
+rm -rf /etc/elite-x
+rm -f /usr/local/bin/{dnstt-*,elite-x*}
+rm -f /usr/local/bin/dnstt-edns-proxy.py
+rm -f /usr/local/bin/elite-x-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall,connection-limiter,health-monitor,bandwidth-graph,process-tracker}
     
 sed -i '/^Banner/d' /etc/ssh/sshd_config
 systemctl restart sshd
     
-rm -f /etc/cron.hourly/elite-quantum-expiry
-rm -f /etc/profile.d/elite-quantum-dashboard.sh
-sed -i '/elite-quantum/d' /root/.bashrc 2>/dev/null || true
+rm -f /etc/cron.hourly/elite-x-expiry
+rm -f /etc/profile.d/elite-x-dashboard.sh
+sed -i '/elite-x/d' /root/.bashrc 2>/dev/null || true
     
 systemctl daemon-reload
 
-echo -e "${NEON_GREEN}${BLINK}✅✅✅ QUANTUM UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
+echo -e "${NEON_GREEN}${BLINK}✅✅✅ COMPLETE UNINSTALL FINISHED! EVERYTHING REMOVED. ✅✅✅${NC}"
 EOF
-    chmod +x /usr/local/bin/elite-quantum-uninstall
-}
-
-# ==================== QUANTUM BOOSTER MENU ====================
-booster_menu() {
-    while true; do
-        clear
-        echo -e "${NEON_QUANTUM}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_GOLD}${BOLD}                    🚀 QUANTUM ULTIMATE BOOSTER 🚀                       ${NEON_QUANTUM}║${NC}"
-        echo -e "${NEON_QUANTUM}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q1] 🔥 Quantum BBR + FQ Codel (Congestion Control)${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q2] ⚡ Quantum CPU Performance Mode (Overclock)${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q3] 🧠 Quantum Kernel Parameter Tuning${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q4] 🔄 Quantum IRQ Affinity Optimization${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q5] 📡 Quantum DNS Cache Booster (500x Faster)${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q6] 🔧 Quantum Network Interface Offloading${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q7] 📶 Quantum TCP Ultra Boost (1GB Buffers)${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q8] 🎯 Quantum QoS Priority Setup${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q9] 💾 Quantum Memory Optimizer${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q10] ⚡ Quantum Buffer/MTU Overclock${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q11] 🎮 Quantum Network Steering${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [Q12] 🔓 Quantum TCP Fast Open Master${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_RED}  [Q13] 🚀 APPLY ALL QUANTUM BOOSTERS (MAXIMUM SPEED)${NC}"
-        echo -e "${NEON_QUANTUM}║${NEON_WHITE}  [0] ↩️ Back to Settings${NC}"
-        echo -e "${NEON_QUANTUM}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
-        echo ""
-        read -p "$(echo -e $NEON_GREEN"Quantum Booster option: "$NC)" qch
-        
-        case $qch in
-            Q1|q1) enable_quantum_bbr_plus; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            Q2|q2) optimize_quantum_cpu; read -p "Press Enter..." ;;
-            Q3|q3) tune_quantum_kernel; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            Q4|q4) optimize_quantum_irq; read -p "Press Enter..." ;;
-            Q5|q5) optimize_quantum_dns; read -p "Press Enter..." ;;
-            Q6|q6) optimize_quantum_offloading; read -p "Press Enter..." ;;
-            Q7|q7) optimize_quantum_tcp; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            Q8|q8) setup_quantum_qos; read -p "Press Enter..." ;;
-            Q9|q9) optimize_quantum_memory; read -p "Press Enter..." ;;
-            Q10|q10) optimize_quantum_buffer; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            Q11|q11) optimize_quantum_steering; read -p "Press Enter..." ;;
-            Q12|q12) enable_quantum_tfo; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
-            Q13|q13) apply_all_quantum_boosters; read -p "Press Enter..." ;;
-            0) return ;;
-            *) echo -e "${NEON_RED}Invalid quantum option${NC}"; read -p "Press Enter..." ;;
-        esac
-    done
+    chmod +x /usr/local/bin/elite-x-uninstall
 }
 
 # ==================== MAIN MENU SCRIPT ====================
 setup_main_menu() {
-    cat >/usr/local/bin/elite-quantum <<'EOF'
+    cat >/usr/local/bin/elite-x <<'EOF'
 #!/bin/bash
 
 NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
 NEON_BLUE='\033[1;34m'; NEON_PURPLE='\033[1;35m'; NEON_CYAN='\033[1;36m'
 NEON_PINK='\033[1;38;5;201m'; NEON_WHITE='\033[1;37m'
-NEON_QUANTUM='\033[1;38;5;93m'; NEON_COSMIC='\033[1;38;5;99m'
-NEON_GALAXY='\033[1;38;5;57m'; NEON_GOLD='\033[1;38;5;220m'
+NEON_GOLD='\033[1;38;5;220m'; NEON_SILVER='\033[1;38;5;250m'
+NEON_MAGENTA='\033[1;38;5;200m'; NEON_AQUA='\033[1;38;5;45m'
 BOLD='\033[1m'; BLINK='\033[5m'; NC='\033[0m'
 
-if [ -f /tmp/elite-quantum-running ]; then
+if [ -f /tmp/elite-x-running ]; then
     exit 0
 fi
-touch /tmp/elite-quantum-running
-trap 'rm -f /tmp/elite-quantum-running' EXIT
+touch /tmp/elite-x-running
+trap 'rm -f /tmp/elite-x-running' EXIT
 
-SPEED_MODE_FILE="/etc/elite-quantum/speed_mode"
-QUANTUM_MODE_FILE="/etc/elite-quantum/quantum_mode"
+SPEED_MODE_FILE="/etc/elite-x/speed_mode"
 if [ ! -f "$SPEED_MODE_FILE" ]; then
-    echo "quantum_ultra" > "$SPEED_MODE_FILE"
-fi
-if [ ! -f "$QUANTUM_MODE_FILE" ]; then
-    echo "ultra" > "$QUANTUM_MODE_FILE"
+    echo "ultra" > "$SPEED_MODE_FILE"
 fi
 
-if [ -f /usr/local/bin/elite-quantum-boosters ]; then
-    source /usr/local/bin/elite-quantum-boosters
+# Source booster functions
+if [ -f /usr/local/bin/elite-x-boosters ]; then
+    source /usr/local/bin/elite-x-boosters
 fi
 
 get_mode_emoji() {
     local mode="$1"
     case $mode in
-        quantum_normal) echo "${NEON_GREEN}● QUANTUM NORMAL${NC}" ;;
-        quantum_overclocked) echo "${NEON_YELLOW}⚡ QUANTUM OVERCLOCKED${NC}" ;;
-        quantum_ultra) echo "${NEON_RED}${BLINK}🚀 QUANTUM ULTRA${NC}" ;;
-        *) echo "${NEON_RED}🚀 QUANTUM ULTRA${NC}" ;;
+        normal) echo "${NEON_GREEN}● NORMAL${NC}" ;;
+        overclocked) echo "${NEON_YELLOW}⚡ OVERCLOCKED${NC}" ;;
+        ultra) echo "${NEON_RED}${BLINK}🚀 ULTRA${NC}" ;;
+        *) echo "${NEON_RED}🚀 ULTRA${NC}" ;;
     esac
 }
 
-apply_quantum_normal() {
-    echo -e "${NEON_GREEN}⚡ Applying QUANTUM NORMAL mode...${NC}"
-    sysctl -w net.core.rmem_max=268435456 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=268435456 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-    echo "quantum_normal" > "$SPEED_MODE_FILE"
-    echo "normal" > "$QUANTUM_MODE_FILE"
-    echo -e "${NEON_GREEN}✅ Quantum Normal mode applied${NC}"
+apply_normal_mode() {
+    echo -e "${NEON_GREEN}⚡ Applying NORMAL mode...${NC}"
+    sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=cubic >/dev/null 2>&1
+    echo "normal" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_GREEN}✅ Normal mode applied${NC}"
 }
 
-apply_quantum_overclocked() {
-    echo -e "${NEON_YELLOW}⚡⚡ Applying QUANTUM OVERCLOCKED mode...${NC}"
+apply_overclocked_mode() {
+    echo -e "${NEON_YELLOW}⚡⚡ Applying OVERCLOCKED mode...${NC}"
+    modprobe tcp_bbr 2>/dev/null || true
+    sysctl -w net.core.rmem_max=268435456 >/dev/null 2>&1
+    sysctl -w net.core.wmem_max=268435456 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 268435456" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 268435456" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
+    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
+    echo "overclocked" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_YELLOW}✅ Overclocked mode applied${NC}"
+}
+
+apply_ultra_mode() {
+    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying ULTRA CLOCKED mode...${NC}"
     modprobe tcp_bbr 2>/dev/null || true
     sysctl -w net.core.rmem_max=536870912 >/dev/null 2>&1
     sysctl -w net.core.wmem_max=536870912 >/dev/null 2>&1
-    sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-    sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
-    echo "quantum_overclocked" > "$SPEED_MODE_FILE"
-    echo "overclocked" > "$QUANTUM_MODE_FILE"
-    echo -e "${NEON_YELLOW}✅ Quantum Overclocked mode applied${NC}"
-}
-
-apply_quantum_ultra() {
-    echo -e "${NEON_RED}${BLINK}⚡⚡⚡ Applying QUANTUM ULTRA CLOCKED mode...${NC}"
-    modprobe tcp_bbr 2>/dev/null || true
-    sysctl -w net.core.rmem_max=1073741824 >/dev/null 2>&1
-    sysctl -w net.core.wmem_max=1073741824 >/dev/null 2>&1
-    sysctl -w net.core.rmem_default=536870912 >/dev/null 2>&1
-    sysctl -w net.core.wmem_default=536870912 >/dev/null 2>&1
+    sysctl -w net.core.rmem_default=268435456 >/dev/null 2>&1
+    sysctl -w net.core.wmem_default=268435456 >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_rmem="4096 87380 536870912" >/dev/null 2>&1
+    sysctl -w net.ipv4.tcp_wmem="4096 65536 536870912" >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
     sysctl -w net.core.default_qdisc=fq_codel >/dev/null 2>&1
     sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
-    echo "quantum_ultra" > "$SPEED_MODE_FILE"
-    echo "ultra" > "$QUANTUM_MODE_FILE"
-    echo -e "${NEON_RED}${BLINK}✅ Quantum Ultra mode applied${NC}"
+    echo "ultra" > "$SPEED_MODE_FILE"
+    echo -e "${NEON_RED}${BLINK}✅ Ultra mode applied${NC}"
 }
 
 apply_speed_mode() {
     local mode="$1"
     case $mode in
-        1|quantum_normal) apply_quantum_normal ;;
-        2|quantum_overclocked) apply_quantum_overclocked ;;
-        3|quantum_ultra) apply_quantum_ultra ;;
+        1|normal) apply_normal_mode ;;
+        2|overclocked) apply_overclocked_mode ;;
+        3|ultra) apply_ultra_mode ;;
     esac
-    systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy 2>/dev/null || true
+    systemctl restart dnstt-elite-x dnstt-elite-x-proxy 2>/dev/null || true
 }
 
 show_quote() {
     echo ""
-    echo -e "${NEON_QUANTUM}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_COSMIC}${BOLD}${BLINK}                                                                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_GOLD}${BOLD}           ███████╗██╗     ██╗████████╗███████╗     ██╗  ██╗                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_SILVER}${BOLD}           ██╔════╝██║     ██║╚══██╔══╝██╔════╝     ╚██╗██╔╝                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_BRONZE}${BOLD}           █████╗  ██║     ██║   ██║   █████╗  █████╗╚███╔╝                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_EMERALD}${BOLD}           ██╔══╝  ██║     ██║   ██║   ██╔══╝  ╚════╝██╔██╗                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_SAPPHIRE}${BOLD}           ███████╗███████╗██║   ██║   ███████╗     ██╔╝ ██╗                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_RUBY}${BOLD}           ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝     ╚═╝  ╚═╝                          ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_GALAXY}${BOLD}                         ⚡ QUANTUM ULTRA EDITION v5.0 ⚡                              ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_COSMIC}${BOLD}                                                                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${NEON_GOLD}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_GOLD}║${NEON_SILVER}${BOLD}${BLINK}                                                               ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}${BOLD}           ███████╗██╗     ██╗████████╗███████╗     ██╗  ██╗           ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_CYAN}${BOLD}           ██╔════╝██║     ██║╚══██╔══╝██╔════╝     ╚██╗██╔╝           ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_GREEN}${BOLD}           █████╗  ██║     ██║   ██║   █████╗  █████╗╚███╔╝            ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_YELLOW}${BOLD}           ██╔══╝  ██║     ██║   ██║   ██╔══╝  ╚════╝██╔██╗            ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_PURPLE}${BOLD}           ███████╗███████╗██║   ██║   ███████╗     ██╔╝ ██╗           ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_PINK}${BOLD}           ╚══════╝╚══════╝╚═╝   ╚═╝   ╚══════╝     ╚═╝  ╚═╝           ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}║${NEON_SILVER}${BOLD}                                                               ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}╠═══════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${NEON_GOLD}║${NEON_MAGENTA}${BOLD}           ⚡ PREMIUM ULTRA EDITION - UNIQUE FEATURES ⚡            ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}╚═══════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
 check_expiry_menu() {
-    if [ -f "/etc/elite-quantum/activation_type" ] && [ -f "/etc/elite-quantum/activation_date" ] && [ -f "/etc/elite-quantum/expiry_days" ]; then
-        local act_type=$(cat "/etc/elite-quantum/activation_type")
+    if [ -f "/etc/elite-x/activation_type" ] && [ -f "/etc/elite-x/activation_date" ] && [ -f "/etc/elite-x/expiry_days" ]; then
+        local act_type=$(cat "/etc/elite-x/activation_type")
         if [ "$act_type" = "temporary" ]; then
-            local act_date=$(cat "/etc/elite-quantum/activation_date")
-            local expiry_days=$(cat "/etc/elite-quantum/expiry_days")
+            local act_date=$(cat "/etc/elite-x/activation_date")
+            local expiry_days=$(cat "/etc/elite-x/expiry_days")
             local current_date=$(date +%s)
             local expiry_date=$(date -d "$act_date + $expiry_days days" +%s)
             
             if [ $current_date -ge $expiry_date ]; then
                 echo -e "${NEON_RED}╔═══════════════════════════════════════════════════════════════╗${NC}"
-                echo -e "${NEON_RED}║${NEON_YELLOW}${BLINK}           ⚠️ QUANTUM TRIAL EXPIRED ⚠️                           ${NEON_RED}║${NC}"
+                echo -e "${NEON_RED}║${NEON_YELLOW}${BLINK}           ⚠️ TRIAL PERIOD EXPIRED ⚠️                           ${NEON_RED}║${NC}"
                 echo -e "${NEON_RED}╠═══════════════════════════════════════════════════════════════╣${NC}"
-                echo -e "${NEON_RED}║${NEON_WHITE}  Your 2-day quantum trial has ended.                     ${NEON_RED}║${NC}"
+                echo -e "${NEON_RED}║${NEON_WHITE}  Your 2-day trial has ended. Script will self-destruct...     ${NEON_RED}║${NC}"
                 echo -e "${NEON_RED}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 sleep 3
                 
-                /usr/local/bin/elite-quantum-uninstall
+                /usr/local/bin/elite-x-uninstall
                 
-                rm -f /tmp/elite-quantum-running
+                rm -f /tmp/elite-x-running
                 exit 0
             fi
         fi
@@ -2113,35 +2293,37 @@ check_expiry_menu
 show_dashboard() {
     clear
     
-    if [ ! -f /etc/elite-quantum/cached_ip ] || [ $(( $(date +%s) - $(stat -c %Y /etc/elite-quantum/cached_ip 2>/dev/null || echo 0) )) -gt 3600 ]; then
-        /usr/local/bin/elite-quantum-refresh-info
+    if [ ! -f /etc/elite-x/cached_ip ] || [ $(( $(date +%s) - $(stat -c %Y /etc/elite-x/cached_ip 2>/dev/null || echo 0) )) -gt 3600 ]; then
+        /usr/local/bin/elite-x-refresh-info
     fi
     
-    IP=$(cat /etc/elite-quantum/cached_ip 2>/dev/null || echo "Unknown")
-    LOC=$(cat /etc/elite-quantum/cached_location 2>/dev/null || echo "Unknown")
-    ISP=$(cat /etc/elite-quantum/cached_isp 2>/dev/null || echo "Unknown")
+    IP=$(cat /etc/elite-x/cached_ip 2>/dev/null || echo "Unknown")
+    LOC=$(cat /etc/elite-x/cached_location 2>/dev/null || echo "Unknown")
+    ISP=$(cat /etc/elite-x/cached_isp 2>/dev/null || echo "Unknown")
     RAM=$(free -m | awk '/^Mem:/{printf "%s/%sMB (%.1f%%)", $3, $2, $3*100/$2}')
     CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d. -f1)
     LOAD=$(uptime | awk -F'load average:' '{print $2}')
-    SUB=$(cat /etc/elite-quantum/subdomain 2>/dev/null || echo "Not configured")
-    ACTIVATION_KEY=$(cat /etc/elite-quantum/key 2>/dev/null || echo "Unknown")
-    EXP=$(cat /etc/elite-quantum/expiry 2>/dev/null || echo "Unknown")
-    LOCATION=$(cat /etc/elite-quantum/location 2>/dev/null || echo "Quantum Ultra")
-    CURRENT_MTU=$(cat /etc/elite-quantum/mtu 2>/dev/null || echo "1800")
+    SUB=$(cat /etc/elite-x/subdomain 2>/dev/null || echo "Not configured")
+    ACTIVATION_KEY=$(cat /etc/elite-x/key 2>/dev/null || echo "Unknown")
+    EXP=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Unknown")
+    LOCATION=$(cat /etc/elite-x/location 2>/dev/null || echo "Ultra Mode")
+    CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
     
-    CURRENT_MODE=$(cat "$SPEED_MODE_FILE" 2>/dev/null || echo "quantum_ultra")
+    CURRENT_MODE=$(cat "$SPEED_MODE_FILE" 2>/dev/null || echo "ultra")
     MODE_DISPLAY=$(get_mode_emoji "$CURRENT_MODE")
     
-    DNS=$(systemctl is-active dnstt-elite-quantum 2>/dev/null | grep -q active && echo "${NEON_GREEN}●${NC}" || echo "${NEON_RED}●${NC}")
-    PRX=$(systemctl is-active dnstt-elite-quantum-proxy 2>/dev/null | grep -q active && echo "${NEON_GREEN}●${NC}" || echo "${NEON_RED}●${NC}")
+    DNS=$(systemctl is-active dnstt-elite-x 2>/dev/null | grep -q active && echo "${NEON_GREEN}●${NC}" || echo "${NEON_RED}●${NC}")
+    PRX=$(systemctl is-active dnstt-elite-x-proxy 2>/dev/null | grep -q active && echo "${NEON_GREEN}●${NC}" || echo "${NEON_RED}●${NC}")
+    LIMITER=$(systemctl is-active elite-x-connection-limiter 2>/dev/null | grep -q active && echo "${NEON_GREEN}●${NC}" || echo "${NEON_RED}●${NC}")
+    HEALTH=$(systemctl is-active elite-x-health-monitor 2>/dev/null | grep -q active && echo "${NEON_GREEN}●${NC}" || echo "${NEON_RED}●${NC}")
     
     ACTIVE_SSH=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
-    BANNED=$(ls /etc/elite-quantum/banned 2>/dev/null | wc -l)
     UPTIME=$(uptime -p | sed 's/up //')
     
+    # Get total traffic usage across all users
     total_traffic=0
-    if [ -d "/etc/elite-quantum/traffic" ]; then
-        for tf in /etc/elite-quantum/traffic/*; do
+    if [ -d "/etc/elite-x/traffic" ]; then
+        for tf in /etc/elite-x/traffic/*; do
             if [ -f "$tf" ]; then
                 val=$(cat "$tf" 2>/dev/null || echo "0")
                 total_traffic=$((total_traffic + val))
@@ -2149,243 +2331,260 @@ show_dashboard() {
         done
     fi
     
-    HEALTH=$(systemctl is-active quantum-health 2>/dev/null | grep -q active && echo "${NEON_GREEN}● HEALTHY${NC}" || echo "${NEON_RED}● DOWN${NC}")
-    
-    echo -e "${NEON_QUANTUM}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_GOLD}${BOLD}                    QUANTUM ULTRA EDITION v5.0                           ${NEON_QUANTUM}║${NC}"
-    echo -e "${NEON_QUANTUM}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  🌐 Subdomain :${NEON_GREEN} $SUB${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  📍 IP        :${NEON_GREEN} $IP${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  🗺️ Location  :${NEON_GREEN} $LOC${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  🏢 ISP       :${NEON_GREEN} $ISP${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  💾 RAM       :${NEON_GREEN} $RAM${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  ⚡ CPU       :${NEON_GREEN} ${CPU}%${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  📊 Load Avg  :${NEON_GREEN} $LOAD${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  ⏱️ Uptime    :${NEON_GREEN} $UPTIME${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  🔗 Active SSH:${NEON_GREEN} $ACTIVE_SSH${NC}  ${NEON_WHITE}🚫 Banned:${NEON_RED} $BANNED${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  📊 Total Traffic:${NEON_GREEN} ${total_traffic}MB${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  🌍 VPS Loc   :${NEON_GREEN} $LOCATION${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  📏 MTU       :${NEON_GREEN} $CURRENT_MTU${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  ⚙️ Mode      : $MODE_DISPLAY${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  🛠️ Services  : DNS:$DNS PRX:$PRX HEALTH:$HEALTH${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  👨‍💻 Developer :${NEON_PINK} QUANTUM ELITE TEAM${NC}"
-    echo -e "${NEON_QUANTUM}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  🔑 Act Key   :${NEON_YELLOW} $ACTIVATION_KEY${NC}"
-    echo -e "${NEON_QUANTUM}║${NEON_WHITE}  ⏳ Expiry    :${NEON_YELLOW} $EXP${NC}"
-    echo -e "${NEON_QUANTUM}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+    echo -e "${NEON_GOLD}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${NEON_GOLD}║${NEON_SILVER}${BOLD}                    ELITE-X SLOWDNS v5.0 - ULTRA PREMIUM EDITION            ${NEON_GOLD}║${NC}"
+    echo -e "${NEON_GOLD}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  🌐 Subdomain :${NEON_GREEN} $SUB${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  📍 IP        :${NEON_GREEN} $IP${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  🗺️ Location  :${NEON_GREEN} $LOC${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  🏢 ISP       :${NEON_GREEN} $ISP${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  💾 RAM       :${NEON_GREEN} $RAM${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  ⚡ CPU       :${NEON_GREEN} ${CPU}%${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  📊 Load Avg  :${NEON_GREEN} $LOAD${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  ⏱️ Uptime    :${NEON_GREEN} $UPTIME${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  🔗 Active SSH:${NEON_GREEN} $ACTIVE_SSH${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  📊 Total Traffic:${NEON_GREEN} ${total_traffic}MB${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  🌍 VPS Loc   :${NEON_GREEN} $LOCATION${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  📏 MTU       :${NEON_GREEN} $CURRENT_MTU${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  ⚙️ Mode      : $MODE_DISPLAY${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  🛠️ Services  : DNS:$DNS PRX:$PRX LIMITER:$LIMITER HEALTH:$HEALTH${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  👨‍💻 Developer :${NEON_PINK} ELITE-X TEAM${NC}"
+    echo -e "${NEON_GOLD}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  🔑 Act Key   :${NEON_YELLOW} $ACTIVATION_KEY${NC}"
+    echo -e "${NEON_GOLD}║${NEON_WHITE}  ⏳ Expiry    :${NEON_YELLOW} $EXP${NC}"
+    echo -e "${NEON_GOLD}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
 settings_menu() {
     while true; do
         clear
-        echo -e "${NEON_COSMIC}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_GOLD}${BOLD}                         ⚙️ QUANTUM SETTINGS ⚙️                            ${NEON_COSMIC}║${NC}"
-        echo -e "${NEON_COSMIC}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S8]  🔑 View Quantum Public Key${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S9]  📏 Change Quantum MTU Value${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S10] ⚡ Quantum Speed Optimization${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S11] 🧹 Clean Quantum Junk Files${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S12] 🔄 Auto Expired Quantum Remover${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S13] 📦 Update Quantum Script${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S14] 🔄 Restart All Quantum Services${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S15] 🔄 Reboot Quantum VPS${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S16] 🗑️ Uninstall Quantum Script${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S17] 🌍 Re-apply Quantum Location Optimization${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S18] 🔄 Change Quantum Subdomain${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S19] 👁️ Quantum Live Monitor${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S20] 📊 Quantum Traffic Analyzer${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S21] 🔄 Renew Quantum Account${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_RED}  [S22] 🚀 QUANTUM ULTIMATE BOOSTER${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S23] 📈 Quantum System Test${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S24] 🔄 Refresh Quantum IP Info${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S25] 📓 Quantum Activity Journal${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [S26] 💊 Quantum Health Monitor${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_PINK}  [S27] ⚡ CHANGE QUANTUM SPEED MODE${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [0]  ↩️ Back to Quantum Main Menu${NC}"
-        echo -e "${NEON_COSMIC}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+        echo -e "${NEON_MAGENTA}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_YELLOW}${BOLD}                         ⚙️ SETTINGS MENU ⚙️                            ${NEON_MAGENTA}║${NC}"
+        echo -e "${NEON_MAGENTA}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [8]  🔑 View Public Key${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [9]  📏 Change MTU Value${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [10] ⚡ Manual Speed Optimization${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [11] 🧹 Clean Junk Files${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [12] 🔄 Auto Expired Account Remover${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [13] 📦 Update Script${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [14] 🔄 Restart All Services${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [15] 🔄 Reboot VPS${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [16] 🗑️ Uninstall Script${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [17] 🌍 Re-apply Location Optimization${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [18] 🔄 Change Subdomain${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [19] 👁️ Live Connection Monitor${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [20] 📊 Traffic Analyzer${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [21] 🔄 Renew SSH Account${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_RED}  [22] 🚀 ULTIMATE BOOSTER MENU${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [23] 📈 System Performance Test${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [24] 🔄 Refresh IP/Location Info${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_PINK}  [25] ⚡ CHANGE SPEED MODE (Normal/Overclocked/Ultra)${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_CYAN}  [26] 🚦 Advanced Connection Limiter Status${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_GREEN}  [27] 📊 System Health Monitor${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_PURPLE}  [28] 📈 Live Bandwidth Graph${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_AQUA}  [29] 🔍 Process Tracker${NC}"
+        echo -e "${NEON_MAGENTA}║${NEON_WHITE}  [0]  ↩️ Back to Main Menu${NC}"
+        echo -e "${NEON_MAGENTA}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
-        read -p "$(echo -e $NEON_GREEN"Quantum Settings option: "$NC)" ch
+        read -p "$(echo -e $NEON_GREEN"Settings option: "$NC)" ch
         
         case $ch in
-            S8|s8)
-                echo -e "${NEON_COSMIC}╔═══════════════════════════════════════════════════════════════╗${NC}"
-                echo -e "${NEON_COSMIC}║${NEON_GOLD}${BOLD}                    QUANTUM PUBLIC KEY                             ${NEON_COSMIC}║${NC}"
-                echo -e "${NEON_COSMIC}╠═══════════════════════════════════════════════════════════════╣${NC}"
-                echo -e "${NEON_COSMIC}║${NEON_GREEN}  $(cat /etc/dnstt/server.pub)${NC}"
-                echo -e "${NEON_COSMIC}╚═══════════════════════════════════════════════════════════════╝${NC}"
+            8)
+                echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                    PUBLIC KEY (FULL)                           ${NEON_CYAN}║${NC}"
+                echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
+                echo -e "${NEON_CYAN}║${NEON_GREEN}  $(cat /etc/dnstt/server.pub)${NC}"
+                echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            S9|s9)
-                echo -e "${NEON_YELLOW}Current MTU: $(cat /etc/elite-quantum/mtu)${NC}"
-                read -p "$(echo -e $NEON_GREEN"New Quantum MTU (1000-9000): "$NC)" mtu
-                if [[ "$mtu" =~ ^[0-9]+$ ]] && [ $mtu -ge 1000 ] && [ $mtu -le 9000 ]; then
-                    echo "$mtu" > /etc/elite-quantum/mtu
-                    sed -i "s/-mtu [0-9]*/-mtu $mtu/" /etc/systemd/system/dnstt-elite-quantum.service
+            9)
+                echo -e "${NEON_YELLOW}Current MTU: $(cat /etc/elite-x/mtu)${NC}"
+                read -p "$(echo -e $NEON_GREEN"New MTU (1000-5000): "$NC)" mtu
+                [[ "$mtu" =~ ^[0-9]+$ ]] && [ $mtu -ge 1000 ] && [ $mtu -le 5000 ] && {
+                    echo "$mtu" > /etc/elite-x/mtu
+                    sed -i "s/-mtu [0-9]*/-mtu $mtu/" /etc/systemd/system/dnstt-elite-x.service
                     systemctl daemon-reload
-                    systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy
-                    echo -e "${NEON_GREEN}✅ Quantum MTU updated to $mtu${NC}"
-                else
-                    echo -e "${NEON_RED}❌ Invalid (must be 1000-9000)${NC}"
-                fi
+                    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+                    echo -e "${NEON_GREEN}✅ MTU updated to $mtu${NC}"
+                } || echo -e "${NEON_RED}❌ Invalid (must be 1000-5000)${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            S10|s10)
-                echo -e "${NEON_YELLOW}⚡ Running quantum speed optimization...${NC}"
-                apply_quantum_ultra
-                echo -e "${NEON_GREEN}✅ Quantum speed optimization complete${NC}"
+            10)
+                echo -e "${NEON_YELLOW}⚡ Running speed optimization...${NC}"
+                apply_ultra_mode
+                echo -e "${NEON_GREEN}✅ Speed optimization complete${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            S11|s11)
-                echo -e "${NEON_YELLOW}🧹 Cleaning quantum junk files...${NC}"
+            11)
+                echo -e "${NEON_YELLOW}🧹 Cleaning junk files...${NC}"
                 apt clean -y 2>/dev/null
                 apt autoclean -y 2>/dev/null
                 journalctl --vacuum-time=3d 2>/dev/null
-                echo -e "${NEON_GREEN}✅ Quantum cleanup complete${NC}"
+                echo -e "${NEON_GREEN}✅ Cleanup complete${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            S12|s12)
-                systemctl enable --now elite-quantum-cleaner.service 2>/dev/null
-                echo -e "${NEON_GREEN}✅ Quantum auto remover started${NC}"
+            12)
+                systemctl enable --now elite-x-cleaner.service 2>/dev/null
+                echo -e "${NEON_GREEN}✅ Auto remover started${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            S13|s13)
-                elite-quantum-update
+            13)
+                elite-x-update
                 read -p "Press Enter to continue..."
                 ;;
-            S14|s14)
-                systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy quantum-connection-limiter quantum-journal quantum-health sshd
-                echo -e "${NEON_GREEN}✅ Quantum services restarted${NC}"
+            14)
+                systemctl restart dnstt-elite-x dnstt-elite-x-proxy sshd elite-x-connection-limiter elite-x-health-monitor
+                echo -e "${NEON_GREEN}✅ Services restarted${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            S15|s15)
-                read -p "$(echo -e $NEON_RED"Reboot quantum VPS? (y/n): "$NC)" c
+            15)
+                read -p "$(echo -e $NEON_RED"Reboot? (y/n): "$NC)" c
                 [ "$c" = "y" ] && reboot
                 ;;
-            S16|s16)
-                read -p "$(echo -e $NEON_RED"Type QUANTUM to uninstall: "$NC)" c
-                [ "$c" = "QUANTUM" ] && {
-                    /usr/local/bin/elite-quantum-uninstall
-                    rm -f /tmp/elite-quantum-running
+            16)
+                read -p "$(echo -e $NEON_RED"Type YES to uninstall: "$NC)" c
+                [ "$c" = "YES" ] && {
+                    /usr/local/bin/elite-x-uninstall
+                    rm -f /tmp/elite-x-running
                     exit 0
                 }
                 read -p "Press Enter to continue..."
                 ;;
-            S17|s17)
+            17)
                 echo -e "${NEON_YELLOW}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${NEON_GREEN}           QUANTUM LOCATION OPTIMIZATION                        ${NC}"
+                echo -e "${NEON_GREEN}           RE-APPLY LOCATION OPTIMIZATION                        ${NC}"
                 echo -e "${NEON_YELLOW}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${NEON_WHITE}Select your VPS quantum location:${NC}"
-                echo -e "${NEON_GREEN}  1. South Africa (Quantum MTU 1800)${NC}"
-                echo -e "${NEON_CYAN}  2. USA (Quantum)${NC}"
-                echo -e "${NEON_BLUE}  3. Europe (Quantum)${NC}"
-                echo -e "${NEON_PURPLE}  4. Asia (Quantum)${NC}"
-                echo -e "${NEON_PINK}  5. Auto-detect Quantum${NC}"
-                echo -e "${NEON_RED}  6. QUANTUM ULTRA MODE${NC}"
+                echo -e "${NEON_WHITE}Select your VPS location:${NC}"
+                echo -e "${NEON_GREEN}  1. South Africa (Default - MTU 1800)${NC}"
+                echo -e "${NEON_CYAN}  2. USA${NC}"
+                echo -e "${NEON_BLUE}  3. Europe${NC}"
+                echo -e "${NEON_PURPLE}  4. Asia${NC}"
+                echo -e "${NEON_PINK}  5. Auto-detect${NC}"
+                echo -e "${NEON_RED}  6. Ultra Mode${NC}"
                 read -p "Choice: " opt_choice
                 
                 case $opt_choice in
-                    1) echo "South Africa Quantum" > /etc/elite-quantum/location
-                       echo "1800" > /etc/elite-quantum/mtu
-                       sed -i "s/-mtu [0-9]*/-mtu 1800/" /etc/systemd/system/dnstt-elite-quantum.service
+                    1) echo "South Africa" > /etc/elite-x/location
+                       echo "1800" > /etc/elite-x/mtu
+                       sed -i "s/-mtu [0-9]*/-mtu 1800/" /etc/systemd/system/dnstt-elite-x.service
                        systemctl daemon-reload
-                       systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy
-                       echo -e "${NEON_GREEN}✅ Quantum South Africa selected (MTU 1800)${NC}" ;;
-                    2) echo "USA Quantum" > /etc/elite-quantum/location
-                       echo -e "${NEON_GREEN}✅ Quantum USA selected${NC}" ;;
-                    3) echo "Europe Quantum" > /etc/elite-quantum/location
-                       echo -e "${NEON_GREEN}✅ Quantum Europe selected${NC}" ;;
-                    4) echo "Asia Quantum" > /etc/elite-quantum/location
-                       echo -e "${NEON_GREEN}✅ Quantum Asia selected${NC}" ;;
-                    5) echo "Auto-detect Quantum" > /etc/elite-quantum/location
-                       echo -e "${NEON_GREEN}✅ Quantum Auto-detect selected${NC}" ;;
-                    6) echo "QUANTUM ULTRA MODE" > /etc/elite-quantum/location
-                       echo -e "${NEON_RED}✅ QUANTUM ULTRA MODE selected${NC}" ;;
+                       systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+                       echo -e "${NEON_GREEN}✅ South Africa selected (MTU 1800)${NC}" ;;
+                    2) echo "USA" > /etc/elite-x/location
+                       echo -e "${NEON_GREEN}✅ USA selected${NC}" ;;
+                    3) echo "Europe" > /etc/elite-x/location
+                       echo -e "${NEON_GREEN}✅ Europe selected${NC}" ;;
+                    4) echo "Asia" > /etc/elite-x/location
+                       echo -e "${NEON_GREEN}✅ Asia selected${NC}" ;;
+                    5) echo "Auto-detect" > /etc/elite-x/location
+                       echo -e "${NEON_GREEN}✅ Auto-detect selected${NC}" ;;
+                    6) echo "Ultra Mode" > /etc/elite-x/location
+                       echo -e "${NEON_RED}✅ Ultra Mode selected${NC}" ;;
                 esac
                 read -p "Press Enter to continue..."
                 ;;
-            S18|s18)
-                echo -e "${NEON_YELLOW}Current quantum subdomain: $(cat /etc/elite-quantum/subdomain)${NC}"
-                read -p "$(echo -e $NEON_GREEN"New quantum subdomain: "$NC)" new_sub
+            18)
+                echo -e "${NEON_YELLOW}Current subdomain: $(cat /etc/elite-x/subdomain)${NC}"
+                read -p "$(echo -e $NEON_GREEN"New subdomain: "$NC)" new_sub
                 if [ ! -z "$new_sub" ]; then
-                    old_sub=$(cat /etc/elite-quantum/subdomain)
-                    echo "$new_sub" > /etc/elite-quantum/subdomain
-                    sed -i "s|$old_sub|$new_sub|g" /etc/systemd/system/dnstt-elite-quantum.service
+                    old_sub=$(cat /etc/elite-x/subdomain)
+                    echo "$new_sub" > /etc/elite-x/subdomain
+                    sed -i "s|$old_sub|$new_sub|g" /etc/systemd/system/dnstt-elite-x.service
                     systemctl daemon-reload
-                    systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy
-                    echo -e "${NEON_GREEN}✅ Quantum subdomain updated to $new_sub${NC}"
+                    systemctl restart dnstt-elite-x dnstt-elite-x-proxy
+                    echo -e "${NEON_GREEN}✅ Subdomain updated to $new_sub${NC}"
                 fi
                 read -p "Press Enter to continue..."
                 ;;
-            S19|s19)
-                elite-quantum-live
+            19)
+                elite-x-live
                 ;;
-            S20|s20)
-                elite-quantum-analyzer
-                ;;
-            S21|s21)
-                elite-quantum-renew
+            20)
+                elite-x-analyzer
                 read -p "Press Enter to continue..."
                 ;;
-            S22|s22)
+            21)
+                elite-x-renew
+                read -p "Press Enter to continue..."
+                ;;
+            22)
                 booster_menu
                 ;;
-            S23|s23)
-                echo -e "${NEON_YELLOW}📈 Running quantum system test...${NC}"
+            23)
+                echo -e "${NEON_YELLOW}📈 Running system performance test...${NC}"
                 echo ""
-                echo -e "${NEON_CYAN}Quantum CPU Info:${NC}"
+                echo -e "${NEON_CYAN}CPU Info:${NC}"
                 lscpu | grep "Model name" | cut -d: -f2 | sed 's/^ //' 2>/dev/null || echo "N/A"
-                echo -e "${NEON_CYAN}Quantum CPU Cores: $(nproc)${NC}"
+                echo -e "${NEON_CYAN}CPU Cores: $(nproc)${NC}"
                 echo ""
-                echo -e "${NEON_CYAN}Quantum Memory Speed Test:${NC}"
-                dd if=/dev/zero of=/tmp/quantum-test bs=1M count=1024 conv=fdatasync 2>&1 | grep -o '[0-9.]\+ [GM]B/s' || echo "N/A"
-                rm -f /tmp/quantum-test 2>/dev/null
+                echo -e "${NEON_CYAN}Memory Speed Test:${NC}"
+                dd if=/dev/zero of=/tmp/test bs=1M count=1024 conv=fdatasync 2>&1 | grep -o '[0-9.]\+ [GM]B/s' || echo "N/A"
+                rm -f /tmp/test 2>/dev/null
                 echo ""
                 read -p "Press Enter to continue..."
                 ;;
-            S24|s24)
-                echo -e "${NEON_YELLOW}🔄 Refreshing quantum IP information...${NC}"
-                /usr/local/bin/elite-quantum-refresh-info
-                echo -e "${NEON_GREEN}✅ Quantum information refreshed!${NC}"
+            24)
+                echo -e "${NEON_YELLOW}🔄 Refreshing IP/Location information...${NC}"
+                /usr/local/bin/elite-x-refresh-info
+                echo -e "${NEON_GREEN}✅ Information refreshed!${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            S25|s25)
-                /usr/local/bin/quantum-journal show
-                read -p "Press Enter to continue..."
-                ;;
-            S26|s26)
-                /usr/local/bin/quantum-health show
-                read -p "Press Enter to continue..."
-                ;;
-            S27|s27)
+            25)
                 echo -e "${NEON_PINK}╔═══════════════════════════════════════════════════════════════╗${NC}"
-                echo -e "${NEON_PINK}║${NEON_GOLD}${BOLD}                 SELECT QUANTUM SPEED MODE                        ${NEON_PINK}║${NC}"
+                echo -e "${NEON_PINK}║${NEON_YELLOW}${BOLD}                 SELECT SPEED MODE                               ${NEON_PINK}║${NC}"
                 echo -e "${NEON_PINK}╠═══════════════════════════════════════════════════════════════╣${NC}"
-                echo -e "${NEON_PINK}║${NEON_WHITE}  [1] ${NEON_GREEN}● QUANTUM NORMAL MODE${NC}         - Stable connection${NC}"
-                echo -e "${NEON_PINK}║${NEON_WHITE}  [2] ${NEON_YELLOW}⚡ QUANTUM OVERCLOCKED${NC}   - Faster speed${NC}"
-                echo -e "${NEON_PINK}║${NEON_WHITE}  [3] ${NEON_RED}${BLINK}🚀 QUANTUM ULTRA${NC}        - MAXIMUM SPEED${NC}"
+                echo -e "${NEON_PINK}║${NEON_WHITE}  [1] ${NEON_GREEN}● NORMAL MODE${NC}         - Stable connection${NC}"
+                echo -e "${NEON_PINK}║${NEON_WHITE}  [2] ${NEON_YELLOW}⚡ OVERCLOCKED MODE${NC}   - Faster speed${NC}"
+                echo -e "${NEON_PINK}║${NEON_WHITE}  [3] ${NEON_RED}${BLINK}🚀 ULTRA MODE${NC}        - MAXIMUM SPEED${NC}"
                 echo -e "${NEON_PINK}╚═══════════════════════════════════════════════════════════════╝${NC}"
                 echo ""
-                read -p "$(echo -e $NEON_GREEN"Select quantum mode [1-3]: "$NC)" mode_choice
+                read -p "$(echo -e $NEON_GREEN"Select mode [1-3]: "$NC)" mode_choice
                 
                 case $mode_choice in
                     1)
-                        apply_speed_mode "quantum_normal"
+                        apply_speed_mode "normal"
                         ;;
                     2)
-                        apply_speed_mode "quantum_overclocked"
+                        apply_speed_mode "overclocked"
                         ;;
                     3)
-                        apply_speed_mode "quantum_ultra"
+                        apply_speed_mode "ultra"
                         ;;
                     *)
-                        echo -e "${NEON_RED}Invalid quantum choice${NC}"
+                        echo -e "${NEON_RED}Invalid choice${NC}"
                         ;;
                 esac
                 read -p "Press Enter to continue..."
                 ;;
+            26)
+                echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}           ADVANCED CONNECTION LIMITER STATUS                ${NEON_CYAN}║${NC}"
+                echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+                if [ -f "/etc/elite-x/banned_users" ]; then
+                    echo -e "${NEON_RED}Banned Users:${NC}"
+                    cat /etc/elite-x/banned_users | while read line; do
+                        echo -e "  ${NEON_YELLOW}$line${NC}"
+                    done
+                else
+                    echo -e "${NEON_GREEN}No banned users${NC}"
+                fi
+                echo ""
+                echo -e "${NEON_CYAN}Connection Limiter Log:${NC}"
+                tail -20 /var/log/elite-x-connection-limiter.log 2>/dev/null || echo "No logs yet"
+                read -p "Press Enter to continue..."
+                ;;
+            27)
+                elite-x-health-monitor
+                ;;
+            28)
+                elite-x-bandwidth-graph
+                ;;
+            29)
+                elite-x-process-tracker
+                ;;
             0) return ;;
-            *) echo -e "${NEON_RED}Invalid quantum option${NC}"; read -p "Press Enter..." ;;
+            *) echo -e "${NEON_RED}Invalid option${NC}"; read -p "Press Enter..." ;;
         esac
     done
 }
@@ -2393,231 +2592,213 @@ settings_menu() {
 main_menu() {
     while true; do
         show_dashboard
-        echo -e "${NEON_COSMIC}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_GOLD}${BOLD}                         🎯 QUANTUM MAIN MENU 🎯                            ${NEON_COSMIC}║${NC}"
-        echo -e "${NEON_COSMIC}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [Q1]  👤 Create Quantum SSH + DNS User${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [Q2]  📋 List All Quantum Users (REAL-TIME)${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [Q3]  🔒 Lock Quantum User${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [Q4]  🔓 Unlock Quantum User${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [Q5]  🗑️ Delete Quantum User (COMPLETE CLEANUP)${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [Q6]  📝 Create/Edit Quantum Banner${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [Q7]  ❌ Delete Quantum Banner${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_RED}  [S]  ⚙️  QUANTUM SETTINGS${NC}"
-        echo -e "${NEON_COSMIC}║${NEON_WHITE}  [00] 🚪 Exit Quantum${NC}"
-        echo -e "${NEON_COSMIC}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+        echo -e "${NEON_AQUA}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${NEON_AQUA}║${NEON_GOLD}${BOLD}                         🎯 MAIN MENU 🎯                               ${NEON_AQUA}║${NC}"
+        echo -e "${NEON_AQUA}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${NEON_AQUA}║${NEON_WHITE}  [1]  👤 Create SSH + DNS User${NC}"
+        echo -e "${NEON_AQUA}║${NEON_WHITE}  [2]  📋 List All Users (with REAL traffic usage)${NC}"
+        echo -e "${NEON_AQUA}║${NEON_WHITE}  [3]  🔒 Lock User${NC}"
+        echo -e "${NEON_AQUA}║${NEON_WHITE}  [4]  🔓 Unlock User${NC}"
+        echo -e "${NEON_AQUA}║${NEON_WHITE}  [5]  🗑️ Delete User${NC}"
+        echo -e "${NEON_AQUA}║${NEON_WHITE}  [6]  📝 Create/Edit Banner${NC}"
+        echo -e "${NEON_AQUA}║${NEON_WHITE}  [7]  ❌ Delete Banner${NC}"
+        echo -e "${NEON_AQUA}║${NEON_RED}  [S]  ⚙️  SETTINGS${NC}"
+        echo -e "${NEON_AQUA}║${NEON_WHITE}  [00] 🚪 Exit${NC}"
+        echo -e "${NEON_AQUA}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
-        read -p "$(echo -e $NEON_GREEN"Quantum main menu option: "$NC)" ch
+        read -p "$(echo -e $NEON_GREEN"Main menu option: "$NC)" ch
         
         case $ch in
-            Q1|q1) elite-quantum-user add; read -p "Press Enter to continue..." ;;
-            Q2|q2) elite-quantum-user list; read -p "Press Enter to continue..." ;;
-            Q3|q3) elite-quantum-user lock; read -p "Press Enter to continue..." ;;
-            Q4|q4) elite-quantum-user unlock; read -p "Press Enter to continue..." ;;
-            Q5|q5) elite-quantum-user del; read -p "Press Enter to continue..." ;;
-            Q6|q6)
-                mkdir -p /etc/elite-quantum/banner
-                [ -f /etc/elite-quantum/banner/custom ] || cp /etc/elite-quantum/banner/default /etc/elite-quantum/banner/custom 2>/dev/null || echo "Welcome to QUANTUM ELITE-X" > /etc/elite-quantum/banner/custom
-                nano /etc/elite-quantum/banner/custom
-                cp /etc/elite-quantum/banner/custom /etc/elite-quantum/banner/ssh-banner 2>/dev/null
+            1) elite-x-user add; read -p "Press Enter to continue..." ;;
+            2) elite-x-user list; read -p "Press Enter to continue..." ;;
+            3) elite-x-user lock; read -p "Press Enter to continue..." ;;
+            4) elite-x-user unlock; read -p "Press Enter to continue..." ;;
+            5) elite-x-user del; read -p "Press Enter to continue..." ;;
+            6)
+                mkdir -p /etc/elite-x/banner
+                [ -f /etc/elite-x/banner/custom ] || cp /etc/elite-x/banner/default /etc/elite-x/banner/custom 2>/dev/null || echo "Welcome to ELITE-X" > /etc/elite-x/banner/custom
+                nano /etc/elite-x/banner/custom
+                cp /etc/elite-x/banner/custom /etc/elite-x/banner/ssh-banner 2>/dev/null
                 systemctl restart sshd
-                echo -e "${NEON_GREEN}✅ Quantum banner saved${NC}"
+                echo -e "${NEON_GREEN}✅ Banner saved${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            Q7|q7)
-                rm -f /etc/elite-quantum/banner/custom
-                cp /etc/elite-quantum/banner/default /etc/elite-quantum/banner/ssh-banner 2>/dev/null || echo "Welcome to QUANTUM ELITE-X" > /etc/elite-quantum/banner/ssh-banner
+            7)
+                rm -f /etc/elite-x/banner/custom
+                cp /etc/elite-x/banner/default /etc/elite-x/banner/ssh-banner 2>/dev/null || echo "Welcome to ELITE-X" > /etc/elite-x/banner/ssh-banner
                 systemctl restart sshd
-                echo -e "${NEON_GREEN}✅ Quantum banner deleted${NC}"
+                echo -e "${NEON_GREEN}✅ Banner deleted${NC}"
                 read -p "Press Enter to continue..."
                 ;;
             [Ss]) settings_menu ;;
             00|0) 
-                rm -f /tmp/elite-quantum-running
+                rm -f /tmp/elite-x-running
                 show_quote
-                echo -e "${NEON_GREEN}Quantum ELITE-X signing off!${NC}"
+                echo -e "${NEON_GREEN}Goodbye!${NC}"
                 exit 0 
                 ;;
-            *) echo -e "${NEON_RED}Invalid quantum option${NC}"; read -p "Press Enter to continue..." ;;
+            *) echo -e "${NEON_RED}Invalid option${NC}"; read -p "Press Enter to continue..." ;;
         esac
     done
 }
 
 main_menu
 EOF
-    chmod +x /usr/local/bin/elite-quantum
+    chmod +x /usr/local/bin/elite-x
 }
 
 # ==================== MAIN INSTALLATION ====================
 show_banner
 
-# First, fix DNS resolution if broken
-echo -e "${NEON_YELLOW}🔧 Checking and fixing DNS resolution...${NC}"
-if ! ping -c 1 google.com >/dev/null 2>&1; then
-    echo -e "${NEON_RED}⚠️ DNS resolution is broken! Fixing...${NC}"
-    echo "nameserver 8.8.8.8" > /etc/resolv.conf
-    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
-    echo -e "${NEON_GREEN}✅ DNS fixed temporarily${NC}"
-fi
-
 # ACTIVATION
 echo -e "${NEON_YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${NEON_YELLOW}║${NEON_GREEN}${BOLD}                    QUANTUM ACTIVATION REQUIRED                       ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_GREEN}${BOLD}                    ACTIVATION REQUIRED                          ${NEON_YELLOW}║${NC}"
 echo -e "${NEON_YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "${NEON_WHITE}Available Quantum Keys:${NC}"
-echo -e "${NEON_GREEN}  💎 Quantum Lifetime : Whtsapp +255713-628-668${NC}"
-echo -e "${NEON_YELLOW}  ⏳ Quantum Trial    : QUANTUM-TRIAL-0208 (2 days)${NC}"
+echo -e "${NEON_WHITE}Available Keys:${NC}"
+echo -e "${NEON_GREEN}  💎 Lifetime : Whtsapp +255713-628-668${NC}"
+echo -e "${NEON_YELLOW}  ⏳ Trial    : ELITE-X-TEST-0208 (2 days)${NC}"
 echo ""
-echo -ne "${NEON_CYAN}🔑 Quantum Activation Key: ${NC}"
+echo -ne "${NEON_CYAN}🔑 Activation Key: ${NC}"
 read ACTIVATION_INPUT
 
-mkdir -p /etc/elite-quantum
+mkdir -p /etc/elite-x
 if ! activate_script "$ACTIVATION_INPUT"; then
-    echo -e "${NEON_RED}❌ Invalid quantum activation key! Installation cancelled.${NC}"
+    echo -e "${NEON_RED}❌ Invalid activation key! Installation cancelled.${NC}"
     exit 1
 fi
 
-echo -e "${NEON_GREEN}✅ Quantum activation successful!${NC}"
+echo -e "${NEON_GREEN}✅ Activation successful!${NC}"
 sleep 1
 
 set_timezone
 
 # SUBDOMAIN
 echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${NEON_CYAN}║${NEON_WHITE}${BOLD}                  ENTER YOUR QUANTUM SUBDOMAIN                       ${NEON_CYAN}║${NC}"
+echo -e "${NEON_CYAN}║${NEON_WHITE}${BOLD}                  ENTER YOUR SUBDOMAIN                          ${NEON_CYAN}║${NC}"
 echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${NEON_CYAN}║${NEON_WHITE}  Example: quantum.elitex.sbs                                  ${NEON_CYAN}║${NC}"
+echo -e "${NEON_CYAN}║${NEON_WHITE}  Example: ns-dan.elitex.sbs                                 ${NEON_CYAN}║${NC}"
 echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -ne "${NEON_GREEN}🌐 Quantum Subdomain: ${NC}"
+echo -ne "${NEON_GREEN}🌐 Subdomain: ${NC}"
 read TDOMAIN
-echo "$TDOMAIN" > /etc/elite-quantum/subdomain
+echo "$TDOMAIN" > /etc/elite-x/subdomain
 check_subdomain "$TDOMAIN"
 
 # LOCATION
 echo -e "${NEON_YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${NEON_YELLOW}║${NEON_GREEN}${BOLD}           QUANTUM NETWORK LOCATION OPTIMIZATION                    ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_GREEN}${BOLD}           NETWORK LOCATION OPTIMIZATION                          ${NEON_YELLOW}║${NC}"
 echo -e "${NEON_YELLOW}╠═══════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${NEON_YELLOW}║${NEON_WHITE}  Select your VPS quantum location:                              ${NEON_YELLOW}║${NC}"
-echo -e "${NEON_YELLOW}║${NEON_GREEN}  [1] South Africa (Quantum - MTU 1800)                          ${NEON_YELLOW}║${NC}"
-echo -e "${NEON_YELLOW}║${NEON_CYAN}  [2] USA (Quantum)                                               ${NEON_YELLOW}║${NC}"
-echo -e "${NEON_YELLOW}║${NEON_BLUE}  [3] Europe (Quantum)                                            ${NEON_YELLOW}║${NC}"
-echo -e "${NEON_YELLOW}║${NEON_PURPLE}  [4] Asia (Quantum)                                              ${NEON_YELLOW}║${NC}"
-echo -e "${NEON_YELLOW}║${NEON_PINK}  [5] Auto-detect Quantum                                        ${NEON_YELLOW}║${NC}"
-echo -e "${NEON_YELLOW}║${NEON_RED}${BLINK}  [6] 🚀 QUANTUM ULTRA MODE (MAXIMUM SPEED)                     ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_WHITE}  Select your VPS location:                                    ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_GREEN}  [1] South Africa (Default - MTU 1800)                        ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_CYAN}  [2] USA                                                       ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_BLUE}  [3] Europe                                                    ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_PURPLE}  [4] Asia                                                      ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_PINK}  [5] Auto-detect                                                ${NEON_YELLOW}║${NC}"
+echo -e "${NEON_YELLOW}║${NEON_RED}${BLINK}  [6] 🚀 ULTRA MODE (MAXIMUM SPEED)                           ${NEON_YELLOW}║${NC}"
 echo -e "${NEON_YELLOW}╚═══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -ne "${NEON_GREEN}Select quantum location [1-6] [default: 6]: ${NC}"
+echo -ne "${NEON_GREEN}Select location [1-6] [default: 6]: ${NC}"
 read LOCATION_CHOICE
 LOCATION_CHOICE=${LOCATION_CHOICE:-6}
 
 MTU=1800
-SELECTED_LOCATION="Quantum South Africa"
+SELECTED_LOCATION="South Africa"
 
 case $LOCATION_CHOICE in
     2)
-        SELECTED_LOCATION="Quantum USA"
-        echo -e "${NEON_CYAN}✅ Quantum USA selected${NC}"
+        SELECTED_LOCATION="USA"
+        echo -e "${NEON_CYAN}✅ USA selected${NC}"
         ;;
     3)
-        SELECTED_LOCATION="Quantum Europe"
-        echo -e "${NEON_BLUE}✅ Quantum Europe selected${NC}"
+        SELECTED_LOCATION="Europe"
+        echo -e "${NEON_BLUE}✅ Europe selected${NC}"
         ;;
     4)
-        SELECTED_LOCATION="Quantum Asia"
-        echo -e "${NEON_PURPLE}✅ Quantum Asia selected${NC}"
+        SELECTED_LOCATION="Asia"
+        echo -e "${NEON_PURPLE}✅ Asia selected${NC}"
         ;;
     5)
-        SELECTED_LOCATION="Quantum Auto-detect"
-        echo -e "${NEON_PINK}✅ Quantum Auto-detect selected${NC}"
+        SELECTED_LOCATION="Auto-detect"
+        echo -e "${NEON_PINK}✅ Auto-detect selected${NC}"
         ;;
     6)
-        SELECTED_LOCATION="QUANTUM ULTRA MODE"
-        echo -e "${NEON_RED}${BLINK}✅ QUANTUM ULTRA MODE SELECTED - MAXIMUM SPEED${NC}"
+        SELECTED_LOCATION="ULTRA MODE"
+        echo -e "${NEON_RED}${BLINK}✅ ULTRA MODE SELECTED - MAXIMUM SPEED${NC}"
         ;;
     *)
-        SELECTED_LOCATION="Quantum South Africa"
-        echo -e "${NEON_GREEN}✅ Using Quantum South Africa configuration${NC}"
+        SELECTED_LOCATION="South Africa"
+        echo -e "${NEON_GREEN}✅ Using South Africa configuration${NC}"
         ;;
 esac
 
-echo "$SELECTED_LOCATION" > /etc/elite-quantum/location
-echo "$MTU" > /etc/elite-quantum/mtu
+echo "$SELECTED_LOCATION" > /etc/elite-x/location
+echo "$MTU" > /etc/elite-x/mtu
 
-echo "quantum_ultra" > /etc/elite-quantum/speed_mode
-echo "ultra" > /etc/elite-quantum/quantum_mode
+# Set ultra mode by default
+mkdir -p /etc/elite-x
+echo "ultra" > /etc/elite-x/speed_mode
 
 DNSTT_PORT=5300
 
-echo -e "${NEON_YELLOW}==> QUANTUM ELITE-X INSTALLATION STARTING...${NC}"
+echo -e "${NEON_YELLOW}==> ELITE-X INSTALLATION STARTING...${NC}"
 
 if [ "$(id -u)" -ne 0 ]; then
   echo -e "${NEON_RED}[-] Run as root${NC}"
   exit 1
 fi
 
-mkdir -p /etc/elite-quantum/{banner,users,traffic,banned}
-echo "$TDOMAIN" > /etc/elite-quantum/subdomain
+mkdir -p /etc/elite-x/{banner,users,traffic}
+echo "$TDOMAIN" > /etc/elite-x/subdomain
 
-cat > /etc/elite-quantum/banner/default <<'EOF'
-╔══════════════════════════════════════╗
-      QUANTUM ELITE-X VPN SERVICE
-  • Quantum Speed • Quantum Secure • Quantum Unlimited
-╚══════════════════════════════════════╝
+# Create banners
+cat > /etc/elite-x/banner/default <<'EOF'
+╔═════════════════════════════════╗
+        ELITE-X ULTRA VPN
+  Premium • Secure • Unlimited
+╚═════════════════════════════════╝
 EOF
 
-cat > /etc/elite-quantum/banner/ssh-banner <<'EOF'
-╔══════════════════════════════════════╗
-      QUANTUM ELITE-X VPN SERVICE
-  • Quantum Speed • Quantum Secure • Quantum Unlimited
-╚══════════════════════════════════════╝
+cat > /etc/elite-x/banner/ssh-banner <<'EOF'
+╔═════════════════════════════════╗
+        ELITE-X ULTRA VPN
+  Premium • Secure • Unlimited
+╚═════════════════════════════════╝
 EOF
 
 if ! grep -q "^Banner" /etc/ssh/sshd_config; then
-    echo "Banner /etc/elite-quantum/banner/ssh-banner" >> /etc/ssh/sshd_config
+    echo "Banner /etc/elite-x/banner/ssh-banner" >> /etc/ssh/sshd_config
 else
-    sed -i 's|^Banner.*|Banner /etc/elite-quantum/banner/ssh-banner|' /etc/ssh/sshd_config
+    sed -i 's|^Banner.*|Banner /etc/elite-x/banner/ssh-banner|' /etc/ssh/sshd_config
 fi
 systemctl restart sshd
 
-echo -e "${NEON_CYAN}Stopping old quantum services...${NC}"
-for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-quantum dnstt-elite-quantum-proxy; do
+echo -e "${NEON_CYAN}Stopping old services...${NC}"
+for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-proxy; do
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
-# Backup DNS configuration but don't break it
-if [ -f /etc/resolv.conf ]; then
-    cp /etc/resolv.conf /etc/resolv.conf.backup 2>/dev/null || true
+# Backup and configure systemd-resolved
+if [ -f /etc/systemd/resolved.conf ]; then
+    cp /etc/systemd/resolved.conf /etc/systemd/resolved.conf.backup 2>/dev/null || true
+    echo -e "${NEON_CYAN}Configuring systemd-resolved...${NC}"
+    systemctl stop systemd-resolved 2>/dev/null || true
+    systemctl disable systemd-resolved 2>/dev/null || true
 fi
-
-# Ensure DNS is working before apt update
-echo -e "${NEON_CYAN}Ensuring DNS is working for package installation...${NC}"
-echo "nameserver 8.8.8.8" > /etc/resolv.conf
-echo "nameserver 1.1.1.1" >> /etc/resolv.conf
 
 fuser -k 53/udp 2>/dev/null || true
 
-echo -e "${NEON_CYAN}Installing quantum dependencies...${NC}"
-apt update -y || {
-    echo -e "${NEON_RED}❌ apt update failed, trying with different DNS...${NC}"
-    echo "nameserver 8.8.4.4" > /etc/resolv.conf
-    echo "nameserver 208.67.222.222" >> /etc/resolv.conf
-    apt update -y || {
-        echo -e "${NEON_RED}❌ Cannot update packages. Please check your internet connection.${NC}"
-        exit 1
-    }
-}
-
+echo -e "${NEON_CYAN}Installing dependencies...${NC}"
+apt update -y
 apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils net-tools iftop nload htop git make golang-go build-essential wget unzip irqbalance openssl bc
 
 install_dnstt_server
 
-echo -e "${NEON_CYAN}Generating quantum keys...${NC}"
+echo -e "${NEON_CYAN}Generating keys...${NC}"
 mkdir -p /etc/dnstt
 
 if [ -f /etc/dnstt/server.key ]; then
-    echo -e "${NEON_YELLOW}⚠️ Existing quantum keys found, removing...${NC}"
+    echo -e "${NEON_YELLOW}⚠️ Existing keys found, removing...${NC}"
     chattr -i /etc/dnstt/server.key 2>/dev/null || true
     rm -f /etc/dnstt/server.key
     rm -f /etc/dnstt/server.pub
@@ -2630,12 +2811,12 @@ cd ~
 chmod 600 /etc/dnstt/server.key
 chmod 644 /etc/dnstt/server.pub
 
-echo -e "${NEON_GREEN}✅ Quantum public key generated: $(cat /etc/dnstt/server.pub)${NC}"
+echo -e "${NEON_GREEN}✅ Public key generated: $(cat /etc/dnstt/server.pub)${NC}"
 
-echo -e "${NEON_CYAN}Creating dnstt-elite-quantum.service...${NC}"
-cat >/etc/systemd/system/dnstt-elite-quantum.service <<EOF
+echo -e "${NEON_CYAN}Creating dnstt-elite-x.service...${NC}"
+cat >/etc/systemd/system/dnstt-elite-x.service <<EOF
 [Unit]
-Description=QUANTUM ELITE-X DNSTT Server
+Description=ELITE-X DNSTT Server
 After=network-online.target
 Wants=network-online.target
 
@@ -2645,25 +2826,25 @@ ExecStart=/usr/local/bin/dnstt-server -udp :${DNSTT_PORT} -mtu ${MTU} -privkey-f
 Restart=always
 RestartSec=2
 KillSignal=SIGTERM
-LimitNOFILE=2097152
+LimitNOFILE=1048576
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-install_quantum_edns_proxy
+install_edns_proxy
 
-cat >/etc/systemd/system/dnstt-elite-quantum-proxy.service <<EOF
+cat >/etc/systemd/system/dnstt-elite-x-proxy.service <<EOF
 [Unit]
-Description=QUANTUM ELITE-X DNS Proxy
-After=dnstt-elite-quantum.service
-Requires=dnstt-elite-quantum.service
+Description=ELITE-X DNS Proxy
+After=dnstt-elite-x.service
+Requires=dnstt-elite-x.service
 Wants=network.target
 
 [Service]
 Type=simple
 User=root
-ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-quantum.py
+ExecStart=/usr/bin/python3 /usr/local/bin/dnstt-edns-proxy.py
 Restart=always
 RestartSec=2
 StandardOutput=journal
@@ -2680,12 +2861,12 @@ command -v ufw >/dev/null && {
 }
 
 systemctl daemon-reload
-systemctl enable dnstt-elite-quantum.service dnstt-elite-quantum-proxy.service
-systemctl start dnstt-elite-quantum.service
+systemctl enable dnstt-elite-x.service dnstt-elite-x-proxy.service
+systemctl start dnstt-elite-x.service
 sleep 2
-systemctl start dnstt-elite-quantum-proxy.service
+systemctl start dnstt-elite-x-proxy.service
 
-# Setup all quantum features
+# Setup all features
 setup_traffic_monitor
 setup_auto_remover
 setup_live_monitor
@@ -2695,128 +2876,423 @@ setup_updater
 setup_user_script
 create_refresh_script
 create_uninstall_script
+setup_main_menu
 setup_connection_limiter
-setup_quantum_journal
-setup_quantum_health
+setup_process_tracker
+setup_bandwidth_graph
+setup_health_monitor
 
-# Save quantum booster functions to a file
-cat > /usr/local/bin/elite-quantum-boosters <<'BOOSTERFILE'
+# Save booster functions to a file
+cat > /usr/local/bin/elite-x-boosters <<'BOOSTERFILE'
 #!/bin/bash
-# Quantum booster functions (included in main script)
+enable_bbr_plus() {
+    echo -e "${NEON_CYAN}🚀 ENABLING BBR PLUS CONGESTION CONTROL...${NC}"
+    modprobe tcp_bbr 2>/dev/null || true
+    echo "tcp_bbr" >> /etc/modules-load.d/modules.conf 2>/dev/null || true
+    if ! grep -q "tcp_congestion_control = bbr" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== BBR PLUS BOOST ==========
+net.core.default_qdisc = fq_codel
+net.ipv4.tcp_congestion_control = bbr
+net.ipv4.tcp_notsent_lowat = 16384
+net.ipv4.tcp_slow_start_after_idle = 0
+EOF
+    fi
+    echo -e "${NEON_GREEN}✅ BBR + FQ Codel enabled!${NC}"
+}
+
+optimize_cpu_performance() {
+    echo -e "${NEON_CYAN}⚡ OPTIMIZING CPU FOR MAX PERFORMANCE...${NC}"
+    for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
+        [ -f "$cpu" ] && echo "performance" > "$cpu" 2>/dev/null || true
+    done
+    if [ -f /sys/devices/system/cpu/intel_pstate/no_turbo ]; then
+        echo 0 > /sys/devices/system/cpu/intel_pstate/no_turbo 2>/dev/null || true
+    fi
+    echo -e "${NEON_GREEN}✅ CPU optimized for max speed!${NC}"
+}
+
+tune_kernel_parameters() {
+    echo -e "${NEON_CYAN}🧠 TUNING KERNEL PARAMETERS...${NC}"
+    if ! grep -q "KERNEL BOOSTER" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== KERNEL BOOSTER ==========
+fs.file-max = 2097152
+fs.nr_open = 2097152
+fs.inotify.max_user_watches = 524288
+fs.inotify.max_user_instances = 512
+fs.inotify.max_queued_events = 16384
+vm.swappiness = 5
+vm.vfs_cache_pressure = 40
+vm.dirty_ratio = 30
+vm.dirty_background_ratio = 3
+vm.min_free_kbytes = 131072
+vm.overcommit_memory = 1
+vm.overcommit_ratio = 50
+vm.max_map_count = 524288
+kernel.sched_autogroup_enabled = 0
+kernel.sched_min_granularity_ns = 8000000
+kernel.sched_wakeup_granularity_ns = 10000000
+kernel.numa_balancing = 0
+EOF
+    fi
+    echo -e "${NEON_GREEN}✅ Kernel parameters tuned!${NC}"
+}
+
+optimize_irq_affinity() {
+    echo -e "${NEON_CYAN}🔄 OPTIMIZING IRQ AFFINITY...${NC}"
+    apt install -y irqbalance 2>/dev/null || true
+    cat > /etc/default/irqbalance <<EOF
+ENABLED="1"
+ONESHOT="0"
+IRQBALANCE_ARGS="--powerthresh=0 --pkgthresh=0"
+IRQBALANCE_BANNED_CPUS=""
+EOF
+    systemctl enable irqbalance 2>/dev/null || true
+    systemctl restart irqbalance 2>/dev/null || true
+    echo -e "${NEON_GREEN}✅ IRQ affinity optimized!${NC}"
+}
+
+optimize_dns_cache() {
+    echo -e "${NEON_CYAN}📡 OPTIMIZING DNS CACHE...${NC}"
+    apt install -y dnsmasq 2>/dev/null || true
+    cat > /etc/dnsmasq.conf <<EOF
+port=53
+domain-needed
+bogus-priv
+no-resolv
+server=8.8.8.8
+server=8.8.4.4
+server=1.1.1.1
+server=1.0.0.1
+cache-size=10000
+dns-forward-max=1000
+neg-ttl=3600
+max-ttl=3600
+min-cache-ttl=3600
+max-cache-ttl=86400
+edns-packet-max=4096
+EOF
+    systemctl enable dnsmasq 2>/dev/null || true
+    systemctl restart dnsmasq 2>/dev/null || true
+    echo "nameserver 127.0.0.1" > /etc/resolv.conf
+    echo "nameserver 8.8.8.8" >> /etc/resolv.conf
+    echo -e "${NEON_GREEN}✅ DNS cache optimized!${NC}"
+}
+
+optimize_interface_offloading() {
+    echo -e "${NEON_CYAN}🔧 OPTIMIZING INTERFACE OFFLOADING...${NC}"
+    for iface in $(ls /sys/class/net/ | grep -v lo); do
+        ethtool -K $iface tx on rx on 2>/dev/null || true
+        ethtool -K $iface sg on 2>/dev/null || true
+        ethtool -K $iface tso on 2>/dev/null || true
+        ethtool -K $iface gso on 2>/dev/null || true
+        ethtool -K $iface gro on 2>/dev/null || true
+        ethtool -G $iface rx 4096 tx 4096 2>/dev/null || true
+    done
+    echo -e "${NEON_GREEN}✅ Interface offloading optimized!${NC}"
+}
+
+optimize_tcp_parameters() {
+    echo -e "${NEON_CYAN}📶 APPLYING TCP ULTRA BOOST...${NC}"
+    if ! grep -q "TCP ULTRA BOOST" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== TCP ULTRA BOOST ==========
+net.ipv4.tcp_timestamps = 1
+net.ipv4.tcp_sack = 1
+net.ipv4.tcp_fack = 1
+net.ipv4.tcp_dsack = 1
+net.ipv4.tcp_window_scaling = 1
+net.ipv4.tcp_adv_win_scale = 2
+net.ipv4.tcp_app_win = 31
+net.ipv4.tcp_rmem = 4096 87380 536870912
+net.ipv4.tcp_wmem = 4096 65536 536870912
+net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_moderate_rcvbuf = 1
+net.ipv4.tcp_no_metrics_save = 1
+net.ipv4.tcp_keepalive_time = 30
+net.ipv4.tcp_keepalive_intvl = 5
+net.ipv4.tcp_keepalive_probes = 3
+net.ipv4.tcp_retries1 = 2
+net.ipv4.tcp_retries2 = 3
+net.ipv4.tcp_syn_retries = 2
+net.ipv4.tcp_synack_retries = 2
+net.ipv4.tcp_fin_timeout = 5
+net.ipv4.tcp_tw_reuse = 1
+EOF
+    fi
+    echo -e "${NEON_GREEN}✅ TCP ultra boost applied!${NC}"
+}
+
+setup_qos_priorities() {
+    echo -e "${NEON_CYAN}🎯 SETTING UP QOS PRIORITIES...${NC}"
+    apt install -y iproute2 2>/dev/null || true
+    DEV=$(ip route | grep default | awk '{print $5}' | head -1)
+    if [ -n "$DEV" ]; then
+        tc qdisc del dev $DEV root 2>/dev/null || true
+        tc qdisc add dev $DEV root handle 1: htb default 30 2>/dev/null || true
+        tc class add dev $DEV parent 1: classid 1:1 htb rate 10000mbit ceil 10000mbit 2>/dev/null || true
+        tc class add dev $DEV parent 1:1 classid 1:10 htb rate 5000mbit ceil 10000mbit prio 0 2>/dev/null || true
+        tc class add dev $DEV parent 1:1 classid 1:20 htb rate 3000mbit ceil 10000mbit prio 1 2>/dev/null || true
+        tc class add dev $DEV parent 1:1 classid 1:30 htb rate 2000mbit ceil 10000mbit prio 2 2>/dev/null || true
+        tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip dport 22 0xffff flowid 1:10 2>/dev/null || true
+        tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip sport 22 0xffff flowid 1:10 2>/dev/null || true
+        tc filter add dev $DEV protocol ip parent 1:0 prio 2 u32 match ip dport 53 0xffff flowid 1:20 2>/dev/null || true
+        tc filter add dev $DEV protocol ip parent 1:0 prio 2 u32 match ip sport 53 0xffff flowid 1:20 2>/dev/null || true
+    fi
+    echo -e "${NEON_GREEN}✅ QoS priorities configured!${NC}"
+}
+
+optimize_memory_usage() {
+    echo -e "${NEON_CYAN}💾 OPTIMIZING MEMORY USAGE...${NC}"
+    echo 5 > /proc/sys/vm/swappiness 2>/dev/null || true
+    sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
+    echo 1 > /proc/sys/vm/compact_memory 2>/dev/null || true
+    echo 131072 > /proc/sys/vm/min_free_kbytes 2>/dev/null || true
+    echo -e "${NEON_GREEN}✅ Memory optimized!${NC}"
+}
+
+optimize_buffer_mtu() {
+    echo -e "${NEON_CYAN}⚡ OVERCLOCKING BUFFERS & MTU...${NC}"
+    BEST_MTU=$(ping -M do -s 1472 -c 1 google.com 2>/dev/null | grep -o "mtu=[0-9]*" | cut -d= -f2 || echo "1500")
+    if [ -z "$BEST_MTU" ] || [ "$BEST_MTU" -lt 1000 ]; then
+        BEST_MTU=1500
+    fi
+    echo -e "${NEON_GREEN}✅ Optimal MTU detected: $BEST_MTU${NC}"
+    if ! grep -q "BUFFER OVERCLOCK" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== BUFFER OVERCLOCK ==========
+net.core.rmem_max = 536870912
+net.core.wmem_max = 536870912
+net.core.rmem_default = 268435456
+net.core.wmem_default = 268435456
+net.core.netdev_max_backlog = 2000000
+net.core.somaxconn = 131072
+net.core.optmem_max = 50331648
+net.ipv4.udp_rmem_min = 131072
+net.ipv4.udp_wmem_min = 131072
+EOF
+    fi
+    for iface in $(ls /sys/class/net/ | grep -v lo); do
+        ip link set dev $iface mtu $BEST_MTU 2>/dev/null || true
+        ip link set dev $iface txqueuelen 200000 2>/dev/null || true
+    done
+    echo -e "${NEON_GREEN}✅ Buffers overclocked to 512MB!${NC}"
+}
+
+optimize_network_steering() {
+    echo -e "${NEON_CYAN}🎮 ENABLING NETWORK STEERING...${NC}"
+    for iface in $(ls /sys/class/net/ | grep -v lo); do
+        echo f > /sys/class/net/$iface/queues/rx-0/rps_cpus 2>/dev/null || true
+        echo 4096 > /sys/class/net/$iface/queues/rx-0/rps_flow_cnt 2>/dev/null || true
+    done
+    echo 262144 > /proc/sys/net/core/rps_sock_flow_entries 2>/dev/null || true
+    echo -e "${NEON_GREEN}✅ Network steering enabled!${NC}"
+}
+
+enable_tcp_fastopen_master() {
+    echo -e "${NEON_CYAN}🔓 ENABLING TCP FAST OPEN MASTER...${NC}"
+    if ! grep -q "TCP FAST OPEN" /etc/sysctl.conf 2>/dev/null; then
+        cat >> /etc/sysctl.conf <<EOF
+
+# ========== TCP FAST OPEN ==========
+net.ipv4.tcp_fastopen = 3
+net.ipv4.tcp_fack = 1
+net.ipv4.tcp_early_retrans = 3
+EOF
+    fi
+    echo -e "${NEON_GREEN}✅ TCP Fast Open enabled!${NC}"
+}
+
+apply_all_boosters() {
+    echo -e "${NEON_RED}${BLINK}🚀🚀🚀 APPLYING ALL BOOSTERS - ULTRA MODE 🚀🚀🚀${NC}"
+    enable_bbr_plus
+    optimize_cpu_performance
+    tune_kernel_parameters
+    optimize_irq_affinity
+    optimize_dns_cache
+    optimize_interface_offloading
+    optimize_tcp_parameters
+    setup_qos_priorities
+    optimize_memory_usage
+    optimize_buffer_mtu
+    optimize_network_steering
+    enable_tcp_fastopen_master
+    sysctl -p 2>/dev/null || true
+    echo -e "${NEON_GREEN}${BOLD}✅✅✅ ALL BOOSTERS APPLIED SUCCESSFULLY! ✅✅✅${NC}"
+    echo -e "${NEON_YELLOW}⚠️ System reboot recommended for maximum effect${NC}"
+}
+
+booster_menu() {
+    while true; do
+        clear
+        echo -e "${NEON_CYAN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                    🚀 ELITE-X ULTIMATE BOOSTER 🚀                       ${NEON_CYAN}║${NC}"
+        echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B1] 🔥 TCP BBR + FQ Codel (Congestion Control)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B2] ⚡ CPU Performance Mode (Overclock)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B3] 🧠 Kernel Parameter Tuning${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B4] 🔄 IRQ Affinity Optimization${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B5] 📡 DNS Cache Booster (200x Faster)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B6] 🔧 Network Interface Offloading${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B7] 📶 TCP Ultra Boost (512MB Buffers)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B8] 🎯 QoS Priority Setup${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B9] 💾 Memory Optimizer${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B10] ⚡ Buffer/MTU Overclock${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B11] 🎮 Network Steering${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [B12] 🔓 TCP Fast Open Master${NC}"
+        echo -e "${NEON_CYAN}║${NEON_RED}  [B13] 🚀 APPLY ALL BOOSTERS (MAXIMUM SPEED)${NC}"
+        echo -e "${NEON_CYAN}║${NEON_WHITE}  [0] ↩️ Back to Settings${NC}"
+        echo -e "${NEON_CYAN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        read -p "$(echo -e $NEON_GREEN"Booster option: "$NC)" bch
+        
+        case $bch in
+            B1|b1) enable_bbr_plus; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B2|b2) optimize_cpu_performance; read -p "Press Enter..." ;;
+            B3|b3) tune_kernel_parameters; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B4|b4) optimize_irq_affinity; read -p "Press Enter..." ;;
+            B5|b5) optimize_dns_cache; read -p "Press Enter..." ;;
+            B6|b6) optimize_interface_offloading; read -p "Press Enter..." ;;
+            B7|b7) optimize_tcp_parameters; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B8|b8) setup_qos_priorities; read -p "Press Enter..." ;;
+            B9|b9) optimize_memory_usage; read -p "Press Enter..." ;;
+            B10|b10) optimize_buffer_mtu; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B11|b11) optimize_network_steering; read -p "Press Enter..." ;;
+            B12|b12) enable_tcp_fastopen_master; sysctl -p 2>/dev/null || true; read -p "Press Enter..." ;;
+            B13|b13) apply_all_boosters; read -p "Press Enter..." ;;
+            0) return ;;
+            *) echo -e "${NEON_RED}Invalid option${NC}"; read -p "Press Enter..." ;;
+        esac
+    done
+}
 BOOSTERFILE
-chmod +x /usr/local/bin/elite-quantum-boosters
+chmod +x /usr/local/bin/elite-x-boosters
 
-echo -e "${NEON_CYAN}Applying QUANTUM ULTRA MODE for maximum speed...${NC}"
-apply_quantum_ultra
+# Apply ultra mode
+echo -e "${NEON_CYAN}Applying ULTRA MODE for maximum speed...${NC}"
+apply_ultra_mode
 
+# Additional optimizations
 for iface in $(ls /sys/class/net/ | grep -v lo); do
     ethtool -K $iface tx on sg on tso on gso on gro on 2>/dev/null || true
-    ip link set dev $iface txqueuelen 200000 2>/dev/null || true
+    ip link set dev $iface txqueuelen 100000 2>/dev/null || true
 done
 
 systemctl daemon-reload
-systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy
+systemctl restart dnstt-elite-x dnstt-elite-x-proxy elite-x-connection-limiter elite-x-health-monitor
 
-cat > /etc/cron.hourly/elite-quantum-expiry <<'EOF'
+cat > /etc/cron.hourly/elite-x-expiry <<'EOF'
 #!/bin/bash
-if [ -f /usr/local/bin/elite-quantum ]; then
-    /usr/local/bin/elite-quantum --check-expiry
+if [ -f /usr/local/bin/elite-x ]; then
+    /usr/local/bin/elite-x --check-expiry
 fi
 EOF
-chmod +x /etc/cron.hourly/elite-quantum-expiry
+chmod +x /etc/cron.hourly/elite-x-expiry
 
-echo -e "${NEON_CYAN}Caching quantum network information...${NC}"
-/usr/local/bin/elite-quantum-refresh-info
+# Cache network info
+echo -e "${NEON_CYAN}Caching network information...${NC}"
+/usr/local/bin/elite-x-refresh-info
 
-cat > /etc/profile.d/elite-quantum-dashboard.sh <<'EOF'
+# Auto-show on login
+cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
 #!/bin/bash
-if [ -f /usr/local/bin/elite-quantum ] && [ -z "$QUANTUM_SHOWN" ]; then
-    export QUANTUM_SHOWN=1
-    rm -f /tmp/elite-quantum-running 2>/dev/null
-    /usr/local/bin/elite-quantum
+if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
+    export ELITE_X_SHOWN=1
+    rm -f /tmp/elite-x-running 2>/dev/null
+    /usr/local/bin/elite-x
 fi
 EOF
-chmod +x /etc/profile.d/elite-quantum-dashboard.sh
+chmod +x /etc/profile.d/elite-x-dashboard.sh
 
 cat >> ~/.bashrc <<'EOF'
-alias qmenu='elite-quantum'
-alias quantum='elite-quantum'
-alias qlive='elite-quantum-live'
-alias qspeed='elite-quantum-analyzer'
-alias qrenew='elite-quantum-renew'
-alias qhealth='quantum-health show'
-alias qjournal='quantum-journal show'
+alias menu='elite-x'
+alias elite='elite-x'
+alias live='elite-x-live'
+alias speed='elite-x-analyzer'
+alias renew='elite-x-renew'
+alias health='elite-x-health-monitor'
+alias graph='elite-x-bandwidth-graph'
+alias tracker='elite-x-process-tracker'
 EOF
 
-if [ ! -f /etc/elite-quantum/key ]; then
+if [ ! -f /etc/elite-x/key ]; then
     if [ -f "$ACTIVATION_FILE" ]; then
-        cp "$ACTIVATION_FILE" /etc/elite-quantum/key
+        cp "$ACTIVATION_FILE" /etc/elite-x/key
     else
-        echo "$ACTIVATION_KEY" > /etc/elite-quantum/key
+        echo "$ACTIVATION_KEY" > /etc/elite-x/key
     fi
 fi
 
-EXPIRY_INFO=$(cat /etc/elite-quantum/expiry 2>/dev/null || echo "Quantum Lifetime")
+EXPIRY_INFO=$(cat /etc/elite-x/expiry 2>/dev/null || echo "Lifetime")
 
 clear
 show_banner
-echo -e "${NEON_GREEN}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${NEON_GREEN}║${NEON_YELLOW}${BOLD}              QUANTUM ELITE-X INSTALLED SUCCESSFULLY!                         ${NEON_GREEN}║${NC}"
-echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  📌 DOMAIN  : ${NEON_CYAN}${TDOMAIN}${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  📍 LOCATION: ${NEON_CYAN}${SELECTED_LOCATION}${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  🔑 KEY     : ${NEON_YELLOW}$(cat /etc/elite-quantum/key)${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  🔑 PUBLIC KEY: ${NEON_CYAN}$(cat /etc/dnstt/server.pub)${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  ⚡ MODE     : ${NEON_RED}${BLINK}QUANTUM ULTRA MODE - MAXIMUM SPEED${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  ⏳ EXPIRY  : ${NEON_YELLOW}${EXPIRY_INFO}${NC}"
-echo -e "${NEON_GREEN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}  🚀 Quantum Commands:${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}     qmenu - Open quantum dashboard${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}     quantum - Quick quantum access${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}     qlive  - Quantum live monitor${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}     qspeed - Quantum traffic analyzer${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}     qrenew - Quantum renew account${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}     qhealth - Quantum health monitor${NC}"
-echo -e "${NEON_GREEN}║${NEON_WHITE}     qjournal - Quantum activity journal${NC}"
-echo -e "${NEON_GREEN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
+echo -e "${NEON_GOLD}╔═══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${NEON_GOLD}║${NEON_SILVER}${BOLD}              ELITE-X SLOWDNS INSTALLED SUCCESSFULLY!                ${NEON_GOLD}║${NC}"
+echo -e "${NEON_GOLD}╠═══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}  📌 DOMAIN  : ${NEON_CYAN}${TDOMAIN}${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}  📍 LOCATION: ${NEON_CYAN}${SELECTED_LOCATION}${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}  🔑 KEY     : ${NEON_YELLOW}$(cat /etc/elite-x/key)${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}  🔑 PUBLIC KEY: ${NEON_CYAN}$(cat /etc/dnstt/server.pub)${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}  ⚡ MODE     : ${NEON_RED}${BLINK}ULTRA PREMIUM MODE${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}  ⏳ EXPIRY  : ${NEON_YELLOW}${EXPIRY_INFO}${NC}"
+echo -e "${NEON_GOLD}╠═══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${NEON_GOLD}║${NEON_MAGENTA}${BOLD}           ⚡ UNIQUE PREMIUM FEATURES ENABLED ⚡            ${NEON_GOLD}║${NC}"
+echo -e "${NEON_GOLD}║${NEON_AQUA}  ✓ Real-time Traffic Monitor${NC}"
+echo -e "${NEON_GOLD}║${NEON_AQUA}  ✓ Advanced Connection Limiter${NC}"
+echo -e "${NEON_GOLD}║${NEON_AQUA}  ✓ Smart User Deletion${NC}"
+echo -e "${NEON_GOLD}║${NEON_AQUA}  ✓ Live Bandwidth Graph${NC}"
+echo -e "${NEON_GOLD}║${NEON_AQUA}  ✓ Auto-Ban System${NC}"
+echo -e "${NEON_GOLD}║${NEON_AQUA}  ✓ System Health Monitor${NC}"
+echo -e "${NEON_GOLD}╠═══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}  🚀 Commands:${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}     menu    - Open dashboard${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}     elite   - Quick access${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}     live    - Live connection monitor${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}     speed   - Traffic analyzer${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}     renew   - Renew SSH account${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}     health  - System health monitor${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}     graph   - Bandwidth graph${NC}"
+echo -e "${NEON_GOLD}║${NEON_WHITE}     tracker - Process tracker${NC}"
+echo -e "${NEON_GOLD}╚═══════════════════════════════════════════════════════════════╝${NC}"
 show_quote
 
+# Check service status
 sleep 2
-echo -e "${NEON_CYAN}Quantum Service Status:${NC}"
-if systemctl is-active dnstt-elite-quantum >/dev/null 2>&1; then
-    echo -e "  Quantum DNSTT: ${NEON_GREEN}● RUNNING${NC}"
+echo -e "${NEON_CYAN}Service Status:${NC}"
+if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
+    echo -e "  DNSTT: ${NEON_GREEN}● RUNNING${NC}"
 else
-    echo -e "  Quantum DNSTT: ${NEON_RED}● FAILED${NC}"
+    echo -e "  DNSTT: ${NEON_RED}● FAILED${NC}"
 fi
 
-if systemctl is-active dnstt-elite-quantum-proxy >/dev/null 2>&1; then
-    echo -e "  Quantum PROXY: ${NEON_GREEN}● RUNNING${NC}"
+if systemctl is-active dnstt-elite-x-proxy >/dev/null 2>&1; then
+    echo -e "  PROXY: ${NEON_GREEN}● RUNNING${NC}"
 else
-    echo -e "  Quantum PROXY: ${NEON_RED}● FAILED${NC}"
+    echo -e "  PROXY: ${NEON_RED}● FAILED${NC}"
 fi
 
-if systemctl is-active quantum-connection-limiter >/dev/null 2>&1; then
-    echo -e "  Quantum LIMITER: ${NEON_GREEN}● RUNNING${NC}"
+if systemctl is-active elite-x-connection-limiter >/dev/null 2>&1; then
+    echo -e "  LIMITER: ${NEON_GREEN}● RUNNING${NC}"
 else
-    echo -e "  Quantum LIMITER: ${NEON_RED}● FAILED${NC}"
+    echo -e "  LIMITER: ${NEON_RED}● FAILED${NC}"
 fi
 
-if systemctl is-active quantum-journal >/dev/null 2>&1; then
-    echo -e "  Quantum JOURNAL: ${NEON_GREEN}● RUNNING${NC}"
+if systemctl is-active elite-x-health-monitor >/dev/null 2>&1; then
+    echo -e "  HEALTH: ${NEON_GREEN}● RUNNING${NC}"
 else
-    echo -e "  Quantum JOURNAL: ${NEON_RED}● FAILED${NC}"
+    echo -e "  HEALTH: ${NEON_RED}● FAILED${NC}"
 fi
-
-if systemctl is-active quantum-health >/dev/null 2>&1; then
-    echo -e "  Quantum HEALTH: ${NEON_GREEN}● RUNNING${NC}"
-else
-    echo -e "  Quantum HEALTH: ${NEON_RED}● FAILED${NC}"
-fi
-
 echo ""
 
-echo -e "${NEON_GREEN}Opening quantum dashboard in 3 seconds...${NC}"
+# Auto-open menu after installation
+echo -e "${NEON_GREEN}Opening dashboard in 3 seconds...${NC}"
 sleep 3
-/usr/local/bin/elite-quantum
+/usr/local/bin/elite-x
 
 self_destruct
