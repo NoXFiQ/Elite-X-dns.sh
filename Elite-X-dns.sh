@@ -2451,6 +2451,15 @@ EOF
 # ==================== MAIN INSTALLATION ====================
 show_banner
 
+# First, fix DNS resolution if broken
+echo -e "${NEON_YELLOW}🔧 Checking and fixing DNS resolution...${NC}"
+if ! ping -c 1 google.com >/dev/null 2>&1; then
+    echo -e "${NEON_RED}⚠️ DNS resolution is broken! Fixing...${NC}"
+    echo "nameserver 8.8.8.8" > /etc/resolv.conf
+    echo "nameserver 1.1.1.1" >> /etc/resolv.conf
+    echo -e "${NEON_GREEN}✅ DNS fixed temporarily${NC}"
+fi
+
 # ACTIVATION
 echo -e "${NEON_YELLOW}╔═══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${NEON_YELLOW}║${NEON_GREEN}${BOLD}                    QUANTUM ACTIVATION REQUIRED                       ${NEON_YELLOW}║${NC}"
@@ -2577,17 +2586,29 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-quantum dnstt-elit
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
-if [ -f /etc/systemd/resolved.conf ]; then
-    cp /etc/systemd/resolved.conf /etc/systemd/resolved.conf.backup 2>/dev/null || true
-    echo -e "${NEON_CYAN}Configuring quantum systemd-resolved...${NC}"
-    systemctl stop systemd-resolved 2>/dev/null || true
-    systemctl disable systemd-resolved 2>/dev/null || true
+# Backup DNS configuration but don't break it
+if [ -f /etc/resolv.conf ]; then
+    cp /etc/resolv.conf /etc/resolv.conf.backup 2>/dev/null || true
 fi
+
+# Ensure DNS is working before apt update
+echo -e "${NEON_CYAN}Ensuring DNS is working for package installation...${NC}"
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver 1.1.1.1" >> /etc/resolv.conf
 
 fuser -k 53/udp 2>/dev/null || true
 
 echo -e "${NEON_CYAN}Installing quantum dependencies...${NC}"
-apt update -y
+apt update -y || {
+    echo -e "${NEON_RED}❌ apt update failed, trying with different DNS...${NC}"
+    echo "nameserver 8.8.4.4" > /etc/resolv.conf
+    echo "nameserver 208.67.222.222" >> /etc/resolv.conf
+    apt update -y || {
+        echo -e "${NEON_RED}❌ Cannot update packages. Please check your internet connection.${NC}"
+        exit 1
+    }
+}
+
 apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils net-tools iftop nload htop git make golang-go build-essential wget unzip irqbalance openssl bc
 
 install_dnstt_server
@@ -2664,6 +2685,7 @@ systemctl start dnstt-elite-quantum.service
 sleep 2
 systemctl start dnstt-elite-quantum-proxy.service
 
+# Setup all quantum features
 setup_traffic_monitor
 setup_auto_remover
 setup_live_monitor
@@ -2677,6 +2699,7 @@ setup_connection_limiter
 setup_quantum_journal
 setup_quantum_health
 
+# Save quantum booster functions to a file
 cat > /usr/local/bin/elite-quantum-boosters <<'BOOSTERFILE'
 #!/bin/bash
 # Quantum booster functions (included in main script)
