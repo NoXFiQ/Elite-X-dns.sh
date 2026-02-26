@@ -47,10 +47,8 @@ NEON_COSMIC='\033[1;38;5;99m'; NEON_GALAXY='\033[1;38;5;57m'
 BG_BLACK='\033[40m'; BG_RED='\033[41m'; BG_GREEN='\033[42m'
 BG_YELLOW='\033[43m'; BG_BLUE='\033[44m'; BG_PURPLE='\033[45m'
 BG_CYAN='\033[46m'; BG_WHITE='\033[47m'
-BG_RAINBOW='\033[48;5;196m'
 
 BLINK='\033[5m'; UNDERLINE='\033[4m'; REVERSE='\033[7m'
-CROSSED='\033[9m'; FRAMED='\033[51m'; ENCIRCLED='\033[52m'
 
 print_color() { echo -e "${2}${1}${NC}"; }
 
@@ -58,42 +56,34 @@ print_color() { echo -e "${2}${1}${NC}"; }
 complete_uninstall() {
     echo -e "${NEON_RED}${BLINK}🗑️  QUANTUM UNINSTALL - REMOVING EVERYTHING...${NC}"
     
-    systemctl stop dnstt-elite-quantum dnstt-elite-quantum-proxy elite-quantum-traffic elite-quantum-cleaner quantum-health quantum-journal 2>/dev/null || true
-    systemctl disable dnstt-elite-quantum dnstt-elite-quantum-proxy elite-quantum-traffic elite-quantum-cleaner quantum-health quantum-journal 2>/dev/null || true
+    systemctl stop dnstt-elite-quantum dnstt-elite-quantum-proxy elite-quantum-traffic elite-quantum-cleaner quantum-connection-limiter quantum-journal quantum-health 2>/dev/null || true
+    systemctl disable dnstt-elite-quantum dnstt-elite-quantum-proxy elite-quantum-traffic elite-quantum-cleaner quantum-connection-limiter quantum-journal quantum-health 2>/dev/null || true
     
     rm -f /etc/systemd/system/{dnstt-elite-quantum*,elite-quantum-*,quantum-*}
     
-    echo -e "${NEON_YELLOW}🔍 Removing all ELITE-QUANTUM users...${NC}"
+    echo -e "${NEON_YELLOW}🔍 Removing all QUANTUM users...${NC}"
     
     if [ -d "/etc/elite-quantum/users" ]; then
         for user_file in /etc/elite-quantum/users/*; do
             if [ -f "$user_file" ]; then
                 username=$(basename "$user_file")
                 echo -e "${NEON_RED}Removing user: $username${NC}"
-                # Kill all processes with extreme prejudice
                 pkill -9 -u "$username" 2>/dev/null || true
                 killall -9 -u "$username" 2>/dev/null || true
-                # Force remove user
                 userdel -r -f "$username" 2>/dev/null || true
-                # Clean home directory
                 rm -rf /home/"$username" 2>/dev/null || true
-                # Remove from system files
-                sed -i "/$username/d" /etc/passwd 2>/dev/null || true
-                sed -i "/$username/d" /etc/shadow 2>/dev/null || true
-                sed -i "/$username/d" /etc/group 2>/dev/null || true
             fi
         done
     fi
     
     pkill -f dnstt-server 2>/dev/null || true
     pkill -f dnstt-edns-quantum 2>/dev/null || true
-    pkill -f quantum- 2>/dev/null || true
     
     rm -rf /etc/dnstt
     rm -rf /etc/elite-quantum
     rm -f /usr/local/bin/{dnstt-*,elite-quantum-*,quantum-*}
     rm -f /usr/local/bin/dnstt-edns-quantum.py
-    rm -f /usr/local/bin/elite-quantum-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall,health,journal,monitor,quantum}
+    rm -f /usr/local/bin/elite-quantum-{live,analyzer,renew,update,traffic,cleaner,user,booster,refresh,uninstall,health,journal,monitor}
     
     sed -i '/^Banner/d' /etc/ssh/sshd_config
     systemctl restart sshd
@@ -101,7 +91,6 @@ complete_uninstall() {
     rm -f /etc/cron.hourly/elite-quantum-expiry
     rm -f /etc/profile.d/elite-quantum-dashboard.sh
     sed -i '/elite-quantum/d' /root/.bashrc 2>/dev/null || true
-    sed -i '/quantum/d' /root/.bashrc 2>/dev/null || true
     
     systemctl daemon-reload
     
@@ -122,7 +111,6 @@ self_destruct() {
     fi
     
     sed -i '/elite-quantum/d' /var/log/auth.log 2>/dev/null || true
-    sed -i '/quantum/d' /var/log/syslog 2>/dev/null || true
     
     echo -e "${NEON_GREEN}${BOLD}✅ QUANTUM CLEANUP COMPLETE!${NC}"
 }
@@ -427,7 +415,7 @@ optimize_quantum_irq() {
     cat > /etc/default/irqbalance <<EOF
 ENABLED="1"
 ONESHOT="0"
-IRQBALANCE_ARGS="--powerthresh=0 --pkgthresh=0 --banirq=0"
+IRQBALANCE_ARGS="--powerthresh=0 --pkgthresh=0"
 IRQBALANCE_BANNED_CPUS=""
 EOF
     
@@ -478,7 +466,6 @@ optimize_quantum_offloading() {
         ethtool -K $iface tso on 2>/dev/null || true
         ethtool -K $iface gso on 2>/dev/null || true
         ethtool -K $iface gro on 2>/dev/null || true
-        ethtool -K $iface lro on 2>/dev/null || true
         ethtool -G $iface rx 8192 tx 8192 2>/dev/null || true
     done
     
@@ -513,7 +500,6 @@ net.ipv4.tcp_syn_retries = 2
 net.ipv4.tcp_synack_retries = 2
 net.ipv4.tcp_fin_timeout = 3
 net.ipv4.tcp_tw_reuse = 1
-net.ipv4.tcp_tw_recycle = 1
 EOF
     fi
     
@@ -539,8 +525,6 @@ setup_quantum_qos() {
         tc filter add dev $DEV protocol ip parent 1:0 prio 1 u32 match ip sport 22 0xffff flowid 1:10 2>/dev/null || true
         tc filter add dev $DEV protocol ip parent 1:0 prio 2 u32 match ip dport 53 0xffff flowid 1:20 2>/dev/null || true
         tc filter add dev $DEV protocol ip parent 1:0 prio 2 u32 match ip sport 53 0xffff flowid 1:20 2>/dev/null || true
-        tc filter add dev $DEV protocol ip parent 1:0 prio 3 u32 match ip dport 80 0xffff flowid 1:30 2>/dev/null || true
-        tc filter add dev $DEV protocol ip parent 1:0 prio 3 u32 match ip sport 80 0xffff flowid 1:30 2>/dev/null || true
     fi
     
     echo -e "${NEON_GREEN}✅ Quantum QoS priorities configured!${NC}"
@@ -553,7 +537,6 @@ optimize_quantum_memory() {
     sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
     echo 1 > /proc/sys/vm/compact_memory 2>/dev/null || true
     echo 262144 > /proc/sys/vm/min_free_kbytes 2>/dev/null || true
-    echo 100 > /proc/sys/vm/vfs_cache_pressure 2>/dev/null || true
     
     echo -e "${NEON_GREEN}✅ Quantum memory optimized!${NC}"
 }
@@ -614,7 +597,6 @@ enable_quantum_tfo() {
 net.ipv4.tcp_fastopen = 3
 net.ipv4.tcp_fack = 1
 net.ipv4.tcp_early_retrans = 3
-net.ipv4.tcp_autocorking = 0
 EOF
     fi
     
@@ -764,31 +746,6 @@ DNSTT_PORT = 5300
 BUFFER_SIZE = 32768
 QUANTUM_MODE = True
 
-# Quantum simulation parameters
-QUANTUM_ENTROPY = 0.99
-QUANTUM_ENC_LAYERS = 3
-
-def quantum_shuffle(data):
-    """Simulate quantum encryption by shuffling bytes"""
-    if not QUANTUM_MODE or len(data) < 64:
-        return data
-    data_array = bytearray(data)
-    # Simple reversible shuffle (for simulation)
-    mid = len(data_array) // 2
-    data_array[::2], data_array[1::2] = data_array[1::2], data_array[::2]
-    return bytes(data_array)
-
-def quantum_unshuffle(data):
-    """Reverse quantum shuffle"""
-    if not QUANTUM_MODE or len(data) < 64:
-        return data
-    data_array = bytearray(data)
-    # Reverse shuffle
-    result = bytearray(len(data_array))
-    result[::2] = data_array[1::2]
-    result[1::2] = data_array[::2]
-    return bytes(result)
-
 def add_edns0(data, max_size=4096):
     if len(data) < 12:
         return data
@@ -839,10 +796,6 @@ def add_edns0(data, max_size=4096):
 
 def handle_query(server_socket, data, client_addr):
     try:
-        # Apply quantum simulation
-        if QUANTUM_MODE:
-            data = quantum_unshuffle(data)
-        
         modified = add_edns0(data, 8192)
         dnstt = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         dnstt.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2097152)
@@ -851,11 +804,6 @@ def handle_query(server_socket, data, client_addr):
         dnstt.sendto(modified, (DNSTT_IP, DNSTT_PORT))
         response, _ = dnstt.recvfrom(BUFFER_SIZE)
         modified_resp = add_edns0(response, 1024)
-        
-        # Apply quantum simulation to response
-        if QUANTUM_MODE:
-            modified_resp = quantum_shuffle(modified_resp)
-        
         server_socket.sendto(modified_resp, client_addr)
     except:
         pass
@@ -863,7 +811,6 @@ def handle_query(server_socket, data, client_addr):
         dnstt.close()
 
 def signal_handler(sig, frame):
-    print("Quantum proxy shutting down...")
     sys.exit(0)
 
 def main():
@@ -875,8 +822,6 @@ def main():
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 2097152)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 2097152)
     sock.bind((LISTEN_IP, LISTEN_PORT))
-    
-    print(f"Quantum EDNS proxy listening on port {LISTEN_PORT}")
     
     while True:
         try:
@@ -901,32 +846,27 @@ NEON_RED='\033[1;31m'; NEON_GREEN='\033[1;32m'; NEON_YELLOW='\033[1;33m'
 NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'
 
 USER_DB="/etc/elite-quantum/users"
-LIMIT_DB="/etc/elite-quantum/connection_limits"
 BAN_DB="/etc/elite-quantum/banned"
-mkdir -p $LIMIT_DB $BAN_DB
+mkdir -p $BAN_DB
 
 enforce_connection_limits() {
     for user_file in "$USER_DB"/*; do
         if [ -f "$user_file" ]; then
             username=$(basename "$user_file")
             
-            # Get connection limit for this user
             conn_limit=$(grep "Conn_Limit:" "$user_file" 2>/dev/null | cut -d' ' -f2)
             if [ -z "$conn_limit" ] || [ "$conn_limit" -eq 0 ]; then
                 continue
             fi
             
-            # Get current connections
             current_conn=$(ss -tnp | grep :22 | grep ESTAB | grep -o "users:((.*" | grep -o "pid=[0-9]*" | while read pid; do
                 ps -o user= -p ${pid#pid=} 2>/dev/null
             done | grep -c "^$username$")
             
-            # Check if banned
             if [ -f "$BAN_DB/$username" ]; then
                 ban_time=$(cat "$BAN_DB/$username")
                 current_time=$(date +%s)
                 if [ $((current_time - ban_time)) -lt 3600 ]; then
-                    # Still banned (1 hour)
                     pkill -u "$username" 2>/dev/null || true
                     continue
                 else
@@ -936,18 +876,9 @@ enforce_connection_limits() {
             
             if [ "$current_conn" -gt "$conn_limit" ]; then
                 echo "$(date): User $username exceeded connection limit ($current_conn > $conn_limit)" >> /var/log/quantum-limiter.log
-                
-                # Ban user for 1 hour
                 date +%s > "$BAN_DB/$username"
-                
-                # Kill all connections
                 pkill -u "$username" 2>/dev/null || true
-                
-                # Update status
                 sed -i 's/^Status:.*/Status: BANNED (Connection Limit)/' "$user_file" 2>/dev/null || echo "Status: BANNED (Connection Limit)" >> "$user_file"
-                
-                # Send notification
-                echo "User $username banned for 1 hour (exceeded connection limit)" >> /var/log/quantum-limiter.log
             fi
         fi
     done
@@ -1018,8 +949,6 @@ monitor_and_log() {
             for user_file in /etc/elite-quantum/users/*; do
                 if [ -f "$user_file" ]; then
                     username=$(basename "$user_file")
-                    
-                    # Log connections
                     connections=$(ss -tnp | grep :22 | grep ESTAB | grep -o "users:((.*" | grep -o "pid=[0-9]*" | while read pid; do
                         ps -o user= -p ${pid#pid=} 2>/dev/null
                     done | grep -c "^$username$")
@@ -1070,30 +999,19 @@ NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'; BLINK='\033[5m'
 
 HEALTH_LOG="/var/log/quantum-health.log"
 LAST_RESTART_FILE="/etc/elite-quantum/last_restart"
-SLOWDOWN_COUNT_FILE="/etc/elite-quantum/slowdown_count"
-CRITICAL_COUNT_FILE="/etc/elite-quantum/critical_count"
 
 check_services() {
     local issues=0
     
-    # Check DNSTT service
     if ! systemctl is-active dnstt-elite-quantum >/dev/null 2>&1; then
         echo "$(date): DNSTT service down, restarting..." >> "$HEALTH_LOG"
         systemctl restart dnstt-elite-quantum
         ((issues++))
     fi
     
-    # Check Proxy service
     if ! systemctl is-active dnstt-elite-quantum-proxy >/dev/null 2>&1; then
         echo "$(date): Proxy service down, restarting..." >> "$HEALTH_LOG"
         systemctl restart dnstt-elite-quantum-proxy
-        ((issues++))
-    fi
-    
-    # Check DNS resolution
-    if ! dig +short google.com @127.0.0.1 >/dev/null 2>&1; then
-        echo "$(date): DNS resolution failed, restarting services..." >> "$HEALTH_LOG"
-        systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy
         ((issues++))
     fi
     
@@ -1101,25 +1019,21 @@ check_services() {
 }
 
 check_slowdown() {
-    local threshold=100
     local current_load=$(uptime | awk -F'load average:' '{print $2}' | cut -d, -f1 | tr -d ' ')
     local cpu_count=$(nproc)
-    local load_per_cpu=$(echo "$current_load / $cpu_count" | bc -l | cut -d. -f1)
+    local load_per_cpu=$(echo "$current_load / $cpu_count" | bc -l 2>/dev/null | cut -d. -f1)
     
-    if [ "$load_per_cpu" -gt "$threshold" ]; then
-        echo "$(date): High load detected: $current_load" >> "$HEALTH_LOG"
+    if [ -z "$load_per_cpu" ] || [ "$load_per_cpu" -gt 10 ]; then
         return 1
     fi
     return 0
 }
 
 check_critical() {
-    # Check if any service is failing repeatedly
-    local dnstt_fails=$(systemctl show dnstt-elite-quantum -p NRestarts | cut -d= -f2)
-    local proxy_fails=$(systemctl show dnstt-elite-quantum-proxy -p NRestarts | cut -d= -f2)
+    local dnstt_fails=$(systemctl show dnstt-elite-quantum -p NRestarts 2>/dev/null | cut -d= -f2)
+    local proxy_fails=$(systemctl show dnstt-elite-quantum-proxy -p NRestarts 2>/dev/null | cut -d= -f2)
     
-    if [ "$dnstt_fails" -gt 5 ] || [ "$proxy_fails" -gt 5 ]; then
-        echo "$(date): Critical failure detected" >> "$HEALTH_LOG"
+    if [ "${dnstt_fails:-0}" -gt 5 ] || [ "${proxy_fails:-0}" -gt 5 ]; then
         return 1
     fi
     return 0
@@ -1135,7 +1049,6 @@ auto_heal() {
     
     local time_diff=$(( (current_time - last_restart) / 3600 ))
     
-    # Auto restart every 4 hours if slowdown detected
     if [ $time_diff -ge 4 ]; then
         if ! check_slowdown; then
             echo "$(date): Auto-restart due to slowdown (4hr)" >> "$HEALTH_LOG"
@@ -1144,7 +1057,6 @@ auto_heal() {
         fi
     fi
     
-    # Auto restart every 6 hours if critical
     if [ $time_diff -ge 6 ]; then
         if ! check_critical; then
             echo "$(date): Critical auto-restart (6hr)" >> "$HEALTH_LOG"
@@ -1160,12 +1072,10 @@ show_health() {
     echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}               QUANTUM HEALTH MONITOR                             ${NEON_CYAN}║${NC}"
     echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════╣${NC}"
     
-    # System health
     echo -e "${NEON_WHITE}System Uptime:${NEON_GREEN} $(uptime -p)${NC}"
     echo -e "${NEON_WHITE}Load Average:${NEON_GREEN} $(uptime | awk -F'load average:' '{print $2}')${NC}"
     echo -e "${NEON_WHITE}Memory Usage:${NEON_GREEN} $(free -h | awk '/^Mem:/ {print $3"/"$2}')${NC}"
     
-    # Service health
     echo ""
     echo -e "${NEON_WHITE}Service Status:${NC}"
     if systemctl is-active dnstt-elite-quantum >/dev/null 2>&1; then
@@ -1180,13 +1090,6 @@ show_health() {
         echo -e "  PROXY: ${NEON_RED}● CRITICAL${NC}"
     fi
     
-    if systemctl is-active quantum-connection-limiter >/dev/null 2>&1; then
-        echo -e "  LIMITER: ${NEON_GREEN}● HEALTHY${NC}"
-    else
-        echo -e "  LIMITER: ${NEON_RED}● CRITICAL${NC}"
-    fi
-    
-    # Last events
     echo ""
     echo -e "${NEON_WHITE}Last 5 Health Events:${NC}"
     tail -5 "$HEALTH_LOG" 2>/dev/null | while read line; do
@@ -1261,7 +1164,6 @@ while true; do
             username="unknown"
         fi
         
-        # Check if banned
         if [ -f "/etc/elite-quantum/banned/$username" ]; then
             echo -e "${NEON_RED}User: $username ${NEON_YELLOW}IP: $src_ip ${NEON_RED}[BANNED]${NC}"
         else
@@ -1287,7 +1189,6 @@ NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'; BOLD='\033[1m'
 
 TRAFFIC_DB="/etc/elite-quantum/traffic"
 USER_DB="/etc/elite-quantum/users"
-BANDWIDTH_LOG="/var/log/quantum-bandwidth.log"
 
 show_graph() {
     local percent=$1
@@ -1308,7 +1209,6 @@ while true; do
     echo -e "${NEON_CYAN}║${NEON_YELLOW}${BOLD}                 QUANTUM TRAFFIC ANALYZER                                   ${NEON_CYAN}║${NC}"
     echo -e "${NEON_CYAN}╠═══════════════════════════════════════════════════════════════════════════╣${NC}"
     
-    # System bandwidth
     rx_total=0
     tx_total=0
     for net_dev in /sys/class/net/*; do
@@ -1329,20 +1229,10 @@ while true; do
     echo -e "${NEON_WHITE}System Quantum TX: ${NEON_GREEN}${tx_gb} GB${NC}"
     echo ""
     
-    # Real-time bandwidth
-    if command -v iftop >/dev/null 2>&1; then
-        echo -e "${NEON_WHITE}Real-time Bandwidth (last 2s):${NC}"
-        timeout 2 iftop -t -s 2 -n -N 2>/dev/null | grep -A 10 "Total" | tail -5 | while read line; do
-            echo -e "  ${NEON_CYAN}$line${NC}"
-        done
-    fi
-    
-    echo ""
     echo -e "${NEON_WHITE}User Traffic Usage:${NC}"
     echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────${NC}"
     
     if [ -d "$USER_DB" ]; then
-        # Table header
         printf "${NEON_WHITE}%-12s %-10s %-10s %-10s %-52s${NC}\n" "USERNAME" "USED(MB)" "LIMIT(MB)" "USAGE%" "GRAPH"
         echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────${NC}"
         
@@ -1356,7 +1246,6 @@ while true; do
                     percent=$((used * 100 / limit))
                     if [ "$percent" -gt 100 ]; then percent=100; fi
                     
-                    # Color based on usage
                     if [ "$percent" -gt 90 ]; then
                         percent_disp="${NEON_RED}${percent}%${NC}"
                     elif [ "$percent" -gt 70 ]; then
@@ -1365,7 +1254,6 @@ while true; do
                         percent_disp="${NEON_GREEN}${percent}%${NC}"
                     fi
                     
-                    # Draw graph
                     graph=$(show_graph $percent)
                     
                     printf "${NEON_CYAN}%-12s ${NEON_YELLOW}%-10s ${NEON_WHITE}%-10s ${percent_disp} %-10s ${graph}${NC}\n" \
@@ -1398,9 +1286,8 @@ NEON_CYAN='\033[1;36m'; NEON_WHITE='\033[1;37m'; NC='\033[0m'; BOLD='\033[1m'
 
 UD="/etc/elite-quantum/users"
 TD="/etc/elite-quantum/traffic"
-LD="/etc/elite-quantum/connection_limits"
 BD="/etc/elite-quantum/banned"
-mkdir -p $UD $TD $LD $BD
+mkdir -p $UD $TD $BD
 
 show_quote() {
     echo ""
@@ -1412,23 +1299,17 @@ show_quote() {
     echo ""
 }
 
-# Function to completely kill all processes for a user
 kill_user_processes() {
     local username="$1"
-    echo -e "${NEON_YELLOW}Killing all processes for user: $username${NC}"
     
-    # Get all PIDs for this user
     local pids=$(pgrep -u "$username" 2>/dev/null)
     for pid in $pids; do
-        echo -e "${NEON_RED}Killing PID: $pid${NC}"
         kill -9 $pid 2>/dev/null || true
     done
     
-    # Force kill any remaining
     pkill -9 -u "$username" 2>/dev/null || true
     killall -9 -u "$username" 2>/dev/null || true
     
-    # Kill SSH sessions
     ss -tnp | grep :22 | grep ESTAB | while read line; do
         if echo "$line" | grep -q "$username"; then
             pid=$(echo "$line" | grep -o 'pid=[0-9]*' | cut -d= -f2)
@@ -1439,31 +1320,21 @@ kill_user_processes() {
     sleep 1
 }
 
-# Function to completely remove user from system
 complete_user_removal() {
     local username="$1"
     
-    # Kill all processes
     kill_user_processes "$username"
     
-    # Remove from system
-    echo -e "${NEON_YELLOW}Removing user from system: $username${NC}"
     userdel -r -f "$username" 2>/dev/null || true
     
-    # Clean home directory
     rm -rf /home/"$username" 2>/dev/null || true
     rm -rf /var/spool/mail/"$username" 2>/dev/null || true
     
-    # Remove from system files
     sed -i "/^$username:/d" /etc/passwd 2>/dev/null || true
     sed -i "/^$username:/d" /etc/shadow 2>/dev/null || true
     sed -i "/^$username:/d" /etc/group 2>/dev/null || true
-    sed -i "/^$username:/d" /etc/gshadow 2>/dev/null || true
     
-    # Remove from sudoers
     rm -f /etc/sudoers.d/"$username" 2>/dev/null || true
-    
-    echo -e "${NEON_GREEN}✅ User $username completely removed from system${NC}"
 }
 
 add_user() {
@@ -1474,19 +1345,15 @@ add_user() {
     
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" username
     
-    # Check if user exists in system
     if id "$username" &>/dev/null; then
         echo -e "${NEON_RED}❌ User already exists in system!${NC}"
         echo -e "${NEON_YELLOW}Cleaning up existing user...${NC}"
         complete_user_removal "$username"
     fi
     
-    # Check if user file exists
     if [ -f "$UD/$username" ]; then
-        echo -e "${NEON_YELLOW}Removing old user data...${NC}"
         rm -f "$UD/$username"
         rm -f "$TD/$username"
-        rm -f "$LD/$username"
         rm -f "$BD/$username"
     fi
     
@@ -1495,7 +1362,6 @@ add_user() {
     read -p "$(echo -e $NEON_GREEN"Traffic limit (MB, 0 for unlimited): "$NC)" traffic_limit
     read -p "$(echo -e $NEON_GREEN"Connection limit (0 for unlimited): "$NC)" conn_limit
     
-    # Create user
     useradd -m -s /bin/false "$username"
     echo "$username:$password" | chpasswd
     
@@ -1513,9 +1379,7 @@ Status: ACTIVE
 INFO
     
     echo "0" > $TD/$username
-    echo "$conn_limit" > "$LD/$username"
     
-    # Log activity
     /usr/local/bin/quantum-journal log "$username" "CREATED" "User created with limit $conn_limit connections"
     
     SERVER=$(cat /etc/elite-quantum/subdomain 2>/dev/null || echo "?")
@@ -1548,7 +1412,6 @@ list_users() {
         return
     fi
     
-    # Table header
     printf "${NEON_WHITE}%-12s %-15s %-12s %-10s %-10s %-10s %-10s %s${NC}\n" "USERNAME" "PASSWORD" "EXPIRE" "LIMIT(MB)" "USED(MB)" "CONN LIMIT" "ACTIVE" "STATUS"
     echo -e "${NEON_CYAN}─────────────────────────────────────────────────────────────────────────────────────────────${NC}"
     
@@ -1556,12 +1419,10 @@ list_users() {
         [ ! -f "$user_file" ] && continue
         username=$(basename "$user_file")
         
-        # Check if user exists in system
         if ! id "$username" &>/dev/null; then
             echo -e "${NEON_RED}User $username missing from system, cleaning up...${NC}"
             rm -f "$user_file"
             rm -f "$TD/$username"
-            rm -f "$LD/$username"
             rm -f "$BD/$username"
             continue
         fi
@@ -1571,7 +1432,6 @@ list_users() {
         limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
         conn_limit=$(grep "Conn_Limit:" "$user_file" | cut -d' ' -f2)
         
-        # Get REAL traffic usage
         used=0
         user_pids=$(pgrep -u "$username" 2>/dev/null)
         if [ ! -z "$user_pids" ]; then
@@ -1595,24 +1455,19 @@ list_users() {
             used=$(( (total_rx + total_tx) / 1048576 ))
         fi
         
-        # Save current usage
         echo "$used" > "$TD/$username"
         
-        # Get active connections
         active_conn=$(ss -tnp | grep :22 | grep ESTAB | grep -o "users:((.*" | grep -o "pid=[0-9]*" | while read pid; do
             ps -o user= -p ${pid#pid=} 2>/dev/null
         done | grep -c "^$username$")
         
-        # Check if banned
         if [ -f "$BD/$username" ]; then
             status="${NEON_RED}BANNED${NC}"
         else
-            # Check if expired
             current_date=$(date +%Y-%m-%d)
             if [[ "$current_date" > "$expire" ]]; then
                 status="${NEON_RED}EXPIRED${NC}"
             else
-                # Check password status
                 if passwd -S "$username" 2>/dev/null | grep -q "L"; then
                     status="${NEON_RED}LOCKED${NC}"
                 else
@@ -1621,14 +1476,12 @@ list_users() {
             fi
         fi
         
-        # Truncate password if too long
         if [ ${#password} -gt 14 ]; then
             display_pass="${password:0:11}..."
         else
             display_pass="$password"
         fi
         
-        # Color based on usage
         if [ "$limit" -gt 0 ] 2>/dev/null; then
             percent=$((used * 100 / limit))
             if [ "$percent" -ge 90 ]; then
@@ -1642,7 +1495,6 @@ list_users() {
             used_disp="${NEON_GREEN}$used${NC}"
         fi
         
-        # Color connections
         if [ "$conn_limit" -gt 0 ] 2>/dev/null; then
             if [ "$active_conn" -ge "$conn_limit" ]; then
                 conn_disp="${NEON_RED}$active_conn${NC}"
@@ -1659,7 +1511,6 @@ list_users() {
     
     echo -e "${NEON_CYAN}─────────────────────────────────────────────────────────────────────────────────────────────${NC}"
     
-    # Summary
     total_users=$(ls -1 $UD | wc -l)
     total_active=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
     total_banned=$(ls -1 $BD | wc -l)
@@ -1689,7 +1540,6 @@ unlock_user() {
         if [ -f "$UD/$u" ]; then
             sed -i 's/^Status:.*/Status: ACTIVE/' "$UD/$u" 2>/dev/null
         fi
-        # Remove from banned if present
         rm -f "$BD/$u"
         /usr/local/bin/quantum-journal log "$u" "UNLOCKED" "Manually unlocked"
     else
@@ -1701,31 +1551,22 @@ unlock_user() {
 delete_user() { 
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
     
-    # Check if user exists in system or in files
     if id "$u" &>/dev/null || [ -f "$UD/$u" ]; then
         echo -e "${NEON_RED}⚠️  WARNING: This will completely remove user $u from system${NC}"
         read -p "Are you sure? (type YES to confirm): " confirm
         if [ "$confirm" = "YES" ]; then
-            # Log activity
             /usr/local/bin/quantum-journal log "$u" "DELETED" "User completely removed"
-            
-            # Complete removal
             complete_user_removal "$u"
-            
-            # Remove all associated files
             rm -f "$UD/$u"
             rm -f "$TD/$u"
-            rm -f "$LD/$u"
             rm -f "$BD/$u"
-            
             echo -e "${NEON_GREEN}✅ User $u completely deleted from system${NC}"
         else
             echo -e "${NEON_YELLOW}Deletion cancelled${NC}"
         fi
     else
         echo -e "${NEON_RED}❌ User does not exist${NC}"
-        # Clean up any leftover files
-        rm -f "$UD/$u" "$TD/$u" "$LD/$u" "$BD/$u" 2>/dev/null
+        rm -f "$UD/$u" "$TD/$u" "$BD/$u" 2>/dev/null
     fi
     show_quote
 }
@@ -1778,7 +1619,6 @@ if [ -f "$USER_DB/$username" ]; then
     sed -i "s/Expire: .*/Expire: $new_expire/" "$USER_DB/$username"
 fi
 
-# Log activity
 /usr/local/bin/quantum-journal log "$username" "RENEWED" "Added $days days"
 
 echo -e "${NEON_GREEN}✅ Quantum account renewed until: $new_expire${NC}"
@@ -1804,14 +1644,12 @@ setup_traffic_monitor() {
 
 TRAFFIC_DB="/etc/elite-quantum/traffic"
 USER_DB="/etc/elite-quantum/users"
-BANDWIDTH_LOG="/var/log/quantum-bandwidth.log"
 mkdir -p $TRAFFIC_DB
 
 get_user_traffic() {
     local username="$1"
     local traffic_file="$TRAFFIC_DB/$username"
     
-    # Get all PIDs for this user
     local user_pids=$(pgrep -u "$username" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
     
     if [ ! -z "$user_pids" ]; then
@@ -1836,9 +1674,6 @@ get_user_traffic() {
         
         total_mb=$(( (total_rx + total_tx) / 1048576 ))
         echo "$total_mb" > "$traffic_file"
-        
-        # Log bandwidth for analytics
-        echo "$(date +%s):$username:$total_mb" >> "$BANDWIDTH_LOG"
     else
         if [ ! -f "$traffic_file" ]; then
             echo "0" > "$traffic_file"
@@ -1857,17 +1692,9 @@ enforce_limits() {
                 
                 if [ "$used" -ge "$limit" ]; then
                     echo "$(date): User $username exceeded traffic limit ($used/${limit}MB)" >> /var/log/elite-quantum-traffic.log
-                    
-                    # Kill all connections
                     pkill -u "$username" 2>/dev/null || true
-                    
-                    # Lock the account
                     usermod -L "$username" 2>/dev/null || true
-                    
-                    # Update status
                     sed -i 's/^Status:.*/Status: LOCKED (Traffic Limit)/' "$user_file" 2>/dev/null || echo "Status: LOCKED (Traffic Limit)" >> "$user_file"
-                    
-                    # Log activity
                     /usr/local/bin/quantum-journal log "$username" "LIMIT" "Traffic limit exceeded: ${used}/${limit}MB"
                 fi
             fi
@@ -1925,20 +1752,11 @@ while true; do
                     current_date=$(date +%Y-%m-%d)
                     if [[ "$current_date" > "$expire_date" ]] || [ "$current_date" = "$expire_date" ]; then
                         echo "$(date): Removing expired user $username" >> /var/log/elite-quantum-cleaner.log
-                        
-                        # Kill all processes
                         pkill -9 -u "$username" 2>/dev/null || true
-                        
-                        # Remove user
                         userdel -r -f "$username" 2>/dev/null || true
-                        
-                        # Remove files
                         rm -f "$user_file"
                         rm -f "$TRAFFIC_DB/$username"
-                        rm -f "/etc/elite-quantum/connection_limits/$username"
                         rm -f "/etc/elite-quantum/banned/$username"
-                        
-                        # Log activity
                         /usr/local/bin/quantum-journal log "$username" "EXPIRED" "Auto-removed due to expiry"
                     fi
                 fi
@@ -2079,8 +1897,6 @@ systemctl disable dnstt-elite-quantum dnstt-elite-quantum-proxy elite-quantum-tr
     
 rm -f /etc/systemd/system/{dnstt-elite-quantum*,elite-quantum-*,quantum-*}
     
-echo -e "${NEON_YELLOW}🔍 Removing all QUANTUM users...${NC}"
-
 if [ -d "/etc/elite-quantum/users" ]; then
     for user_file in /etc/elite-quantum/users/*; do
         if [ -f "$user_file" ]; then
@@ -2109,7 +1925,6 @@ systemctl restart sshd
 rm -f /etc/cron.hourly/elite-quantum-expiry
 rm -f /etc/profile.d/elite-quantum-dashboard.sh
 sed -i '/elite-quantum/d' /root/.bashrc 2>/dev/null || true
-sed -i '/quantum/d' /root/.bashrc 2>/dev/null || true
     
 systemctl daemon-reload
 
@@ -2190,7 +2005,6 @@ if [ ! -f "$QUANTUM_MODE_FILE" ]; then
     echo "ultra" > "$QUANTUM_MODE_FILE"
 fi
 
-# Source quantum booster functions
 if [ -f /usr/local/bin/elite-quantum-boosters ]; then
     source /usr/local/bin/elite-quantum-boosters
 fi
@@ -2325,7 +2139,6 @@ show_dashboard() {
     BANNED=$(ls /etc/elite-quantum/banned 2>/dev/null | wc -l)
     UPTIME=$(uptime -p | sed 's/up //')
     
-    # Get total traffic usage
     total_traffic=0
     if [ -d "/etc/elite-quantum/traffic" ]; then
         for tf in /etc/elite-quantum/traffic/*; do
@@ -2336,7 +2149,6 @@ show_dashboard() {
         done
     fi
     
-    # Get health status
     HEALTH=$(systemctl is-active quantum-health 2>/dev/null | grep -q active && echo "${NEON_GREEN}● HEALTHY${NC}" || echo "${NEON_RED}● DOWN${NC}")
     
     echo -e "${NEON_QUANTUM}╔═══════════════════════════════════════════════════════════════════════════╗${NC}"
@@ -2407,13 +2219,15 @@ settings_menu() {
             S9|s9)
                 echo -e "${NEON_YELLOW}Current MTU: $(cat /etc/elite-quantum/mtu)${NC}"
                 read -p "$(echo -e $NEON_GREEN"New Quantum MTU (1000-9000): "$NC)" mtu
-                [[ "$mtu" =~ ^[0-9]+$ ]] && [ $mtu -ge 1000 ] && [ $mtu -le 9000 ] && {
+                if [[ "$mtu" =~ ^[0-9]+$ ]] && [ $mtu -ge 1000 ] && [ $mtu -le 9000 ]; then
                     echo "$mtu" > /etc/elite-quantum/mtu
                     sed -i "s/-mtu [0-9]*/-mtu $mtu/" /etc/systemd/system/dnstt-elite-quantum.service
                     systemctl daemon-reload
                     systemctl restart dnstt-elite-quantum dnstt-elite-quantum-proxy
                     echo -e "${NEON_GREEN}✅ Quantum MTU updated to $mtu${NC}"
-                } || echo -e "${NEON_RED}❌ Invalid (must be 1000-9000)${NC}"
+                else
+                    echo -e "${NEON_RED}❌ Invalid (must be 1000-9000)${NC}"
+                fi
                 read -p "Press Enter to continue..."
                 ;;
             S10|s10)
@@ -2722,8 +2536,6 @@ esac
 echo "$SELECTED_LOCATION" > /etc/elite-quantum/location
 echo "$MTU" > /etc/elite-quantum/mtu
 
-# Set quantum ultra mode by default
-mkdir -p /etc/elite-quantum
 echo "quantum_ultra" > /etc/elite-quantum/speed_mode
 echo "ultra" > /etc/elite-quantum/quantum_mode
 
@@ -2736,10 +2548,9 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-mkdir -p /etc/elite-quantum/{banner,users,traffic,connection_limits,banned}
+mkdir -p /etc/elite-quantum/{banner,users,traffic,banned}
 echo "$TDOMAIN" > /etc/elite-quantum/subdomain
 
-# Create banners
 cat > /etc/elite-quantum/banner/default <<'EOF'
 ╔══════════════════════════════════════╗
       QUANTUM ELITE-X VPN SERVICE
@@ -2766,7 +2577,6 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-quantum dnstt-elit
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
-# Backup and configure systemd-resolved
 if [ -f /etc/systemd/resolved.conf ]; then
     cp /etc/systemd/resolved.conf /etc/systemd/resolved.conf.backup 2>/dev/null || true
     echo -e "${NEON_CYAN}Configuring quantum systemd-resolved...${NC}"
@@ -2854,7 +2664,6 @@ systemctl start dnstt-elite-quantum.service
 sleep 2
 systemctl start dnstt-elite-quantum-proxy.service
 
-# Setup all quantum features
 setup_traffic_monitor
 setup_auto_remover
 setup_live_monitor
@@ -2868,18 +2677,15 @@ setup_connection_limiter
 setup_quantum_journal
 setup_quantum_health
 
-# Save quantum booster functions to a file
 cat > /usr/local/bin/elite-quantum-boosters <<'BOOSTERFILE'
 #!/bin/bash
 # Quantum booster functions (included in main script)
 BOOSTERFILE
 chmod +x /usr/local/bin/elite-quantum-boosters
 
-# Apply quantum ultra mode
 echo -e "${NEON_CYAN}Applying QUANTUM ULTRA MODE for maximum speed...${NC}"
 apply_quantum_ultra
 
-# Additional quantum optimizations
 for iface in $(ls /sys/class/net/ | grep -v lo); do
     ethtool -K $iface tx on sg on tso on gso on gro on 2>/dev/null || true
     ip link set dev $iface txqueuelen 200000 2>/dev/null || true
@@ -2896,11 +2702,9 @@ fi
 EOF
 chmod +x /etc/cron.hourly/elite-quantum-expiry
 
-# Cache network info
 echo -e "${NEON_CYAN}Caching quantum network information...${NC}"
 /usr/local/bin/elite-quantum-refresh-info
 
-# Auto-show on login
 cat > /etc/profile.d/elite-quantum-dashboard.sh <<'EOF'
 #!/bin/bash
 if [ -f /usr/local/bin/elite-quantum ] && [ -z "$QUANTUM_SHOWN" ]; then
@@ -2954,7 +2758,6 @@ echo -e "${NEON_GREEN}║${NEON_WHITE}     qjournal - Quantum activity journal${
 echo -e "${NEON_GREEN}╚═══════════════════════════════════════════════════════════════════════════╝${NC}"
 show_quote
 
-# Check service status
 sleep 2
 echo -e "${NEON_CYAN}Quantum Service Status:${NC}"
 if systemctl is-active dnstt-elite-quantum >/dev/null 2>&1; then
@@ -2989,7 +2792,6 @@ fi
 
 echo ""
 
-# Auto-open menu after installation
 echo -e "${NEON_GREEN}Opening quantum dashboard in 3 seconds...${NC}"
 sleep 3
 /usr/local/bin/elite-quantum
