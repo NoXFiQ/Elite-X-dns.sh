@@ -50,6 +50,8 @@ complete_uninstall() {
                 pkill -u "$username" 2>/dev/null || true
                 userdel -r -f "$username" 2>/dev/null || true
                 rm -rf /home/"$username" 2>/dev/null || true
+                sed -i "/^$username:/d" /etc/passwd 2>/dev/null || true
+                sed -i "/^$username:/d" /etc/shadow 2>/dev/null || true
             fi
         done
     fi
@@ -840,48 +842,57 @@ EOF
     chmod +x /usr/local/bin/dnstt-edns-proxy.py
 }
 
-# ==================== FIXED INSTALL DNSTT-SERVER WITH WORKING URLS ====================
+# ==================== INSTALL DNSTT-SERVER FROM SOURCE ====================
 install_dnstt_server() {
-    echo -e "${NEON_CYAN}Installing dnstt-server...${NC}"
-
-    # Working URLs for dnstt-server binary
-    DNSTT_URLS=(
-        "https://github.com/ambrop72/badvpn/raw/master/dnstt/dnstt-server"
-        "https://raw.githubusercontent.com/ambrop72/badvpn/master/dnstt/dnstt-server"
-        "https://github.com/ambrop72/badvpn/raw/master/dnstt/dnstt-server?raw=true"
-    )
-
-    DOWNLOAD_SUCCESS=0
-
-    for url in "${DNSTT_URLS[@]}"; do
-        echo -e "${NEON_CYAN}Trying: $url${NC}"
-        if curl -L -f -o /usr/local/bin/dnstt-server "$url" 2>/dev/null; then
-            if [ -s /usr/local/bin/dnstt-server ]; then
-                chmod +x /usr/local/bin/dnstt-server
-                echo -e "${NEON_GREEN}✅ Download successful${NC}"
-                DOWNLOAD_SUCCESS=1
-                break
-            fi
-        fi
-    done
-
-    if [ $DOWNLOAD_SUCCESS -eq 0 ]; then
-        echo -e "${NEON_RED}❌ Failed to download dnstt-server${NC}"
-        echo -e "${NEON_YELLOW}⚠️ Creating fallback dnstt-server script...${NC}"
-        
-        # Create a fallback script that redirects traffic (simplified version)
-        cat > /usr/local/bin/dnstt-server <<'EOF'
-#!/bin/bash
-# Fallback dnstt-server - simple UDP forwarder
-echo "ELITE-X Fallback DNS tunnel" > /var/log/dnstt-fallback.log
-while true; do
-    socat UDP-LISTEN:5300,fork,reuseaddr TCP:127.0.0.1:22
-    sleep 1
-done
-EOF
-        chmod +x /usr/local/bin/dnstt-server
-        echo -e "${NEON_GREEN}✅ Fallback script created${NC}"
+    echo -e "${NEON_CYAN}Installing dnstt-server from source...${NC}"
+    
+    # Install Go if not present
+    if ! command -v go &> /dev/null; then
+        echo -e "${NEON_YELLOW}Installing Go...${NC}"
+        wget -q https://golang.org/dl/go1.21.0.linux-amd64.tar.gz
+        rm -rf /usr/local/go && tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+        export PATH=$PATH:/usr/local/go/bin
+        echo 'export PATH=$PATH:/usr/local/go/bin' >> /root/.bashrc
+        rm -f go1.21.0.linux-amd64.tar.gz
     fi
+    
+    # Create temp directory
+    TMP_DIR=$(mktemp -d)
+    cd $TMP_DIR
+    
+    echo -e "${NEON_CYAN}Cloning dnstt repository...${NC}"
+    git clone https://github.com/getlantern/dnstt.git
+    
+    if [ ! -d "dnstt" ]; then
+        echo -e "${NEON_RED}❌ Failed to clone repository${NC}"
+        cd /
+        rm -rf $TMP_DIR
+        exit 1
+    fi
+    
+    cd dnstt
+    
+    echo -e "${NEON_CYAN}Building dnstt-server...${NC}"
+    cd server
+    go mod init dnstt-server 2>/dev/null || true
+    go mod tidy 2>/dev/null || true
+    go build -o dnstt-server
+    
+    if [ ! -f "dnstt-server" ]; then
+        echo -e "${NEON_RED}❌ Failed to build dnstt-server${NC}"
+        cd /
+        rm -rf $TMP_DIR
+        exit 1
+    fi
+    
+    cp dnstt-server /usr/local/bin/
+    chmod +x /usr/local/bin/dnstt-server
+    
+    # Clean up
+    cd /
+    rm -rf $TMP_DIR
+    
+    echo -e "${NEON_GREEN}✅ dnstt-server built and installed successfully${NC}"
 }
 
 # ==================== LIVE CONNECTION MONITOR ====================
@@ -966,7 +977,6 @@ if [ -d "$USER_DB" ]; then
             used=$(cat "$TRAFFIC_DB/$username" 2>/dev/null || echo "0")
             limit=$(grep "Traffic_Limit:" "$user_file" | cut -d' ' -f2)
             
-            # Calculate percentage if limit > 0
             if [ "$limit" -gt 0 ] 2>/dev/null; then
                 percent=$((used * 100 / limit))
                 if [ "$percent" -gt 90 ]; then
@@ -1050,31 +1060,24 @@ TRAFFIC_DB="/etc/elite-x/traffic"
 USER_DB="/etc/elite-x/users"
 mkdir -p $TRAFFIC_DB
 
-# Function to get traffic for a user
 get_user_traffic() {
     local username="$1"
     local traffic_file="$TRAFFIC_DB/$username"
     
-    # Get all PIDs for this user
-    local user_pids=$(pgrep -u "$username" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
+    local user_pids=$(pgrep -u "$username" 2>/dev/null)
     
     if [ ! -z "$user_pids" ]; then
-        # Sum up traffic from all user processes using /proc/net/dev
         local total_rx=0
         local total_tx=0
         
-        # For each PID, get traffic from /proc/[pid]/net/dev
-        for pid in $(echo "$user_pids" | tr '|' ' '); do
+        for pid in $user_pids; do
             if [ -f "/proc/$pid/net/dev" ]; then
-                # Get interface traffic for this process
                 while read line; do
-                    if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+)[[:space:]]+([0-9]+) ]]; then
+                    if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+) ]]; then
                         iface="${BASH_REMATCH[1]}"
-                        rx_bytes="${BASH_REMATCH[2]}"
-                        tx_bytes="${BASH_REMATCH[10]}"
-                        
-                        # Only count for non-loopback interfaces
                         if [ "$iface" != "lo" ]; then
+                            rx_bytes=$(echo "$line" | awk '{print $2}')
+                            tx_bytes=$(echo "$line" | awk '{print $10}')
                             total_rx=$((total_rx + rx_bytes))
                             total_tx=$((total_tx + tx_bytes))
                         fi
@@ -1083,18 +1086,15 @@ get_user_traffic() {
             fi
         done
         
-        # Convert to MB
         total_mb=$(( (total_rx + total_tx) / 1048576 ))
         echo "$total_mb" > "$traffic_file"
     else
-        # No active processes, keep last known value or 0
         if [ ! -f "$traffic_file" ]; then
             echo "0" > "$traffic_file"
         fi
     fi
 }
 
-# Function to enforce traffic limits
 enforce_limits() {
     for user_file in "$USER_DB"/*; do
         if [ -f "$user_file" ]; then
@@ -1105,22 +1105,16 @@ enforce_limits() {
                 used=$(cat "$TRAFFIC_DB/$username")
                 
                 if [ "$used" -ge "$limit" ]; then
-                    # User exceeded limit - kill all connections
                     echo "$(date): User $username exceeded limit ($used/${limit}MB)" >> /var/log/elite-x-traffic.log
                     pkill -u "$username" 2>/dev/null || true
-                    
-                    # Lock the account
                     usermod -L "$username" 2>/dev/null || true
-                    
-                    # Update status in user file
-                    sed -i 's/^Status:.*/Status: LOCKED (Traffic Limit)/' "$user_file" 2>/dev/null || echo "Status: LOCKED (Traffic Limit)" >> "$user_file"
+                    sed -i 's/^Status:.*/Status: LOCKED (Traffic Limit)/' "$user_file" 2>/dev/null
                 fi
             fi
         fi
     done
 }
 
-# Main loop
 while true; do
     if [ -d "$USER_DB" ]; then
         for user_file in "$USER_DB"/*; do
@@ -1175,6 +1169,8 @@ while true; do
                         userdel -r -f "$username" 2>/dev/null || true
                         rm -f "$user_file"
                         rm -f "$TRAFFIC_DB/$username"
+                        sed -i "/^$username:/d" /etc/passwd 2>/dev/null || true
+                        sed -i "/^$username:/d" /etc/shadow 2>/dev/null || true
                     fi
                 fi
             fi
@@ -1235,26 +1231,16 @@ add_user() {
     read -p "$(echo -e $NEON_GREEN"Traffic limit (MB, 0 for unlimited): "$NC)" traffic_limit
     read -p "$(echo -e $NEON_GREEN"Max connections (0 for unlimited): "$NC)" max_connections
     
-    # Check if user already exists in system
     if id "$username" &>/dev/null; then
         echo -e "${NEON_RED}❌ User already exists in system! Cleaning up...${NC}"
-        
-        # Kill all processes for this user
         pkill -u "$username" 2>/dev/null || true
-        
-        # Force delete user
         userdel -r -f "$username" 2>/dev/null || true
         rm -rf "/home/$username" 2>/dev/null || true
-        
-        # Remove from system files
         sed -i "/^$username:/d" /etc/passwd 2>/dev/null || true
         sed -i "/^$username:/d" /etc/shadow 2>/dev/null || true
-        sed -i "/^$username:/d" /etc/group 2>/dev/null || true
-        
         echo -e "${NEON_GREEN}✅ Old user cleaned up. Creating new user...${NC}"
     fi
     
-    # Create user
     useradd -m -s /bin/false "$username"
     echo "$username:$password" | chpasswd
     
@@ -1303,7 +1289,6 @@ list_users() {
         return
     fi
     
-    # Table header
     printf "${NEON_WHITE}%-12s %-15s %-12s %-10s %-10s %-8s %-8s %s${NC}\n" "USERNAME" "PASSWORD" "EXPIRE" "LIMIT(MB)" "USED(MB)" "CONN" "USAGE%" "STATUS"
     echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────────────────────${NC}"
     
@@ -1317,18 +1302,15 @@ list_users() {
         max_conn=$(grep "Max_Connections:" "$user_file" | cut -d' ' -f2)
         [ -z "$max_conn" ] && max_conn="0"
         
-        # Get REAL traffic usage from /proc/net/dev for this user's processes
         used=0
-        user_pids=$(pgrep -u "$username" 2>/dev/null | tr '\n' '|' | sed 's/|$//')
+        user_pids=$(pgrep -u "$username" 2>/dev/null)
         if [ ! -z "$user_pids" ]; then
-            total_rx=0
-            total_tx=0
-            for pid in $(echo "$user_pids" | tr '|' ' '); do
+            total_rx=0; total_tx=0
+            for pid in $user_pids; do
                 if [ -f "/proc/$pid/net/dev" ]; then
                     while read line; do
                         if [[ $line =~ ^[[:space:]]*([a-zA-Z0-9]+):[[:space:]]*([0-9]+) ]]; then
-                            iface="${BASH_REMATCH[1]}"
-                            if [ "$iface" != "lo" ]; then
+                            if [ "${BASH_REMATCH[1]}" != "lo" ]; then
                                 rx_bytes=$(echo "$line" | awk '{print $2}')
                                 tx_bytes=$(echo "$line" | awk '{print $10}')
                                 total_rx=$((total_rx + rx_bytes))
@@ -1340,25 +1322,19 @@ list_users() {
             done
             used=$(( (total_rx + total_tx) / 1048576 ))
         fi
-        
-        # Save current usage to file
         echo "$used" > "$TD/$username"
         
-        # Get current connections
         current_conn=0
         if id "$username" &>/dev/null; then
             current_conn=$(ss -tnp | grep :22 | grep ESTAB | while read line; do
                 pid=$(echo $line | grep -o 'pid=[0-9]*' | cut -d= -f2)
                 if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
                     user=$(ps -o user= -p $pid 2>/dev/null | head -1 | xargs)
-                    if [ "$user" = "$username" ]; then
-                        echo "1"
-                    fi
+                    [ "$user" = "$username" ] && echo "1"
                 fi
             done | wc -l)
         fi
         
-        # Calculate usage percentage
         if [ "$limit" -gt 0 ] 2>/dev/null; then
             percent=$((used * 100 / limit))
             if [ "$percent" -ge 100 ]; then
@@ -1366,36 +1342,20 @@ list_users() {
                 status="${NEON_RED}LIMIT EXCEEDED${NC}"
             elif [ "$percent" -ge 80 ]; then
                 percent_disp="${NEON_YELLOW}${percent}%${NC}"
-                if [ -f "$user_file" ] && grep -q "LOCKED" "$user_file"; then
-                    status="${NEON_RED}LOCKED${NC}"
-                else
-                    status="${NEON_GREEN}ACTIVE${NC}"
-                fi
+                [ -f "$user_file" ] && grep -q "LOCKED" "$user_file" && status="${NEON_RED}LOCKED${NC}" || status="${NEON_GREEN}ACTIVE${NC}"
             else
                 percent_disp="${NEON_GREEN}${percent}%${NC}"
-                if [ -f "$user_file" ] && grep -q "LOCKED" "$user_file"; then
-                    status="${NEON_RED}LOCKED${NC}"
-                else
-                    status="${NEON_GREEN}ACTIVE${NC}"
-                fi
+                [ -f "$user_file" ] && grep -q "LOCKED" "$user_file" && status="${NEON_RED}LOCKED${NC}" || status="${NEON_GREEN}ACTIVE${NC}"
             fi
         else
             percent_disp="${NEON_GREEN}---${NC}"
-            if [ -f "$user_file" ] && grep -q "LOCKED" "$user_file"; then
-                status="${NEON_RED}LOCKED${NC}"
-            else
-                status="${NEON_GREEN}ACTIVE${NC}"
-            fi
+            [ -f "$user_file" ] && grep -q "LOCKED" "$user_file" && status="${NEON_RED}LOCKED${NC}" || status="${NEON_GREEN}ACTIVE${NC}"
         fi
         
-        # Check connection limit
-        if [ "$max_conn" -gt 0 ] 2>/dev/null; then
-            if [ "$current_conn" -gt "$max_conn" ]; then
-                status="${NEON_RED}CONN LIMIT${NC}"
-            fi
+        if [ "$max_conn" -gt 0 ] 2>/dev/null ] && [ "$current_conn" -gt "$max_conn" ]; then
+            status="${NEON_RED}CONN LIMIT${NC}"
         fi
         
-        # Truncate password if too long
         if [ ${#password} -gt 14 ]; then
             display_pass="${password:0:11}..."
         else
@@ -1410,7 +1370,6 @@ list_users() {
     
     echo -e "${NEON_CYAN}────────────────────────────────────────────────────────────────────────────────────────────${NC}"
     
-    # Summary
     total_users=$(ls -1 $UD | wc -l)
     total_active=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
     echo -e "${NEON_WHITE}Total Users: ${NEON_GREEN}$total_users${NC}  ${NEON_WHITE}Active Connections: ${NEON_GREEN}$total_active${NC}"
@@ -1422,12 +1381,8 @@ lock_user() {
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
     if id "$u" &>/dev/null; then
         usermod -L "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u locked${NC}" || echo -e "${NEON_RED}❌ Failed to lock${NC}"
-        # Kill all connections
         pkill -u "$u" 2>/dev/null || true
-        # Update status in user file
-        if [ -f "$UD/$u" ]; then
-            sed -i 's/^Status:.*/Status: LOCKED (Manual)/' "$UD/$u" 2>/dev/null || echo "Status: LOCKED (Manual)" >> "$UD/$u"
-        fi
+        [ -f "$UD/$u" ] && sed -i 's/^Status:.*/Status: LOCKED (Manual)/' "$UD/$u" 2>/dev/null
     else
         echo -e "${NEON_RED}❌ User does not exist${NC}"
     fi
@@ -1438,10 +1393,7 @@ unlock_user() {
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
     if id "$u" &>/dev/null; then
         usermod -U "$u" 2>/dev/null && echo -e "${NEON_GREEN}✅ User $u unlocked${NC}" || echo -e "${NEON_RED}❌ Failed to unlock${NC}"
-        # Update status in user file
-        if [ -f "$UD/$u" ]; then
-            sed -i 's/^Status:.*/Status: ACTIVE/' "$UD/$u" 2>/dev/null
-        fi
+        [ -f "$UD/$u" ] && sed -i 's/^Status:.*/Status: ACTIVE/' "$UD/$u" 2>/dev/null
     else
         echo -e "${NEON_RED}❌ User does not exist${NC}"
     fi
@@ -1451,39 +1403,19 @@ unlock_user() {
 delete_user() { 
     read -p "$(echo -e $NEON_GREEN"Username: "$NC)" u
     
-    # Check if user exists in system
     if id "$u" &>/dev/null; then
         echo -e "${NEON_YELLOW}User $u found in system. Proceeding with deletion...${NC}"
-        
-        # Kill all processes for this user
         pkill -u "$u" 2>/dev/null || true
-        
-        # Force delete user
         userdel -r -f "$u" 2>/dev/null
-        
-        # Remove from system files
+        rm -rf "/home/$u" 2>/dev/null || true
         sed -i "/^$u:/d" /etc/passwd 2>/dev/null || true
         sed -i "/^$u:/d" /etc/shadow 2>/dev/null || true
-        sed -i "/^$u:/d" /etc/group 2>/dev/null || true
-        
-        # Remove home directory
-        rm -rf "/home/$u" 2>/dev/null || true
-        
         echo -e "${NEON_GREEN}✅ User $u deleted from system${NC}"
     else
         echo -e "${NEON_YELLOW}⚠️ User $u not found in system${NC}"
     fi
     
-    # Remove from ELITE-X database
-    if [ -f "$UD/$u" ]; then
-        rm -f "$UD/$u"
-        echo -e "${NEON_GREEN}✅ Removed from ELITE-X database${NC}"
-    fi
-    
-    if [ -f "$TD/$u" ]; then
-        rm -f "$TD/$u"
-    fi
-    
+    rm -f "$UD/$u" "$TD/$u" 2>/dev/null
     echo -e "${NEON_GREEN}✅ User $u completely deleted${NC}"
     show_quote
 }
@@ -1641,7 +1573,6 @@ if [ ! -f "$SPEED_MODE_FILE" ]; then
     echo "ultra" > "$SPEED_MODE_FILE"
 fi
 
-# Source booster functions
 if [ -f /usr/local/bin/elite-x-boosters ]; then
     source /usr/local/bin/elite-x-boosters
 fi
@@ -1777,7 +1708,6 @@ show_dashboard() {
     ACTIVE_SSH=$(ss -tnp | grep :22 | grep ESTAB | wc -l)
     UPTIME=$(uptime -p | sed 's/up //')
     
-    # Get total traffic usage across all users
     total_traffic=0
     if [ -d "/etc/elite-x/traffic" ]; then
         for tf in /etc/elite-x/traffic/*; do
@@ -2162,7 +2092,6 @@ esac
 echo "$SELECTED_LOCATION" > /etc/elite-x/location
 echo "$MTU" > /etc/elite-x/mtu
 
-# Set ultra mode by default
 mkdir -p /etc/elite-x
 echo "ultra" > /etc/elite-x/speed_mode
 
@@ -2178,7 +2107,6 @@ fi
 mkdir -p /etc/elite-x/{banner,users,traffic}
 echo "$TDOMAIN" > /etc/elite-x/subdomain
 
-# Create banners
 cat > /etc/elite-x/banner/default <<'EOF'
 ╔═════════════════════════════════╗
         ELITE-X VPN SERVICE
@@ -2205,7 +2133,6 @@ for svc in dnstt dnstt-server slowdns dnstt-smart dnstt-elite-x dnstt-elite-x-pr
   systemctl disable --now "$svc" 2>/dev/null || true
 done
 
-# Backup and configure systemd-resolved
 if [ -f /etc/systemd/resolved.conf ]; then
     cp /etc/systemd/resolved.conf /etc/systemd/resolved.conf.backup 2>/dev/null || true
     echo -e "${NEON_CYAN}Configuring systemd-resolved...${NC}"
@@ -2217,7 +2144,7 @@ fuser -k 53/udp 2>/dev/null || true
 
 echo -e "${NEON_CYAN}Installing dependencies...${NC}"
 apt update -y
-apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils net-tools iftop nload htop git make golang-go build-essential wget unzip irqbalance openssl bc socat
+apt install -y curl python3 jq nano iptables iptables-persistent ethtool dnsutils net-tools iftop nload htop git make golang-go build-essential wget unzip irqbalance openssl bc
 
 install_dnstt_server
 
@@ -2293,7 +2220,6 @@ systemctl start dnstt-elite-x.service
 sleep 2
 systemctl start dnstt-elite-x-proxy.service
 
-# Setup all features
 setup_traffic_monitor
 setup_auto_remover
 setup_live_monitor
@@ -2305,7 +2231,6 @@ create_refresh_script
 create_uninstall_script
 setup_main_menu
 
-# Save booster functions to a file
 cat > /usr/local/bin/elite-x-boosters <<'BOOSTERFILE'
 #!/bin/bash
 enable_bbr_plus() {
@@ -2596,11 +2521,9 @@ booster_menu() {
 BOOSTERFILE
 chmod +x /usr/local/bin/elite-x-boosters
 
-# Apply ultra mode
 echo -e "${NEON_CYAN}Applying ULTRA MODE for maximum speed...${NC}"
 apply_ultra_mode
 
-# Additional optimizations
 for iface in $(ls /sys/class/net/ | grep -v lo); do
     ethtool -K $iface tx on sg on tso on gso on gro on 2>/dev/null || true
     ip link set dev $iface txqueuelen 100000 2>/dev/null || true
@@ -2617,11 +2540,9 @@ fi
 EOF
 chmod +x /etc/cron.hourly/elite-x-expiry
 
-# Cache network info
 echo -e "${NEON_CYAN}Caching network information...${NC}"
 /usr/local/bin/elite-x-refresh-info
 
-# Auto-show on login
 cat > /etc/profile.d/elite-x-dashboard.sh <<'EOF'
 #!/bin/bash
 if [ -f /usr/local/bin/elite-x ] && [ -z "$ELITE_X_SHOWN" ]; then
@@ -2671,7 +2592,6 @@ echo -e "${NEON_GREEN}║${NEON_WHITE}     renew - Renew SSH account${NC}"
 echo -e "${NEON_GREEN}╚═══════════════════════════════════════════════════════════════╝${NC}"
 show_quote
 
-# Check service status
 sleep 2
 echo -e "${NEON_CYAN}Service Status:${NC}"
 if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
@@ -2687,7 +2607,6 @@ else
 fi
 echo ""
 
-# Auto-open menu after installation
 echo -e "${NEON_GREEN}Opening dashboard in 3 seconds...${NC}"
 sleep 3
 /usr/local/bin/elite-x
