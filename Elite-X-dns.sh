@@ -468,11 +468,6 @@ get_user_traffic() {
                     local upload=$(iptables -vnx -L OUTPUT -t filter 2>/dev/null | grep "$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
                     local download=$(iptables -vnx -L INPUT -t filter 2>/dev/null | grep "$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
                     total=$((total + upload + download))
-                else
-                    # Fallback to /proc/net/dev monitoring
-                    local rx_bytes=$(cat /sys/class/net/eth0/statistics/rx_bytes 2>/dev/null || echo "0")
-                    local tx_bytes=$(cat /sys/class/net/eth0/statistics/tx_bytes 2>/dev/null || echo "0")
-                    total=$((rx_bytes + tx_bytes))
                 fi
             fi
         done
@@ -480,6 +475,21 @@ get_user_traffic() {
     
     # Convert to MB
     echo $((total / 1048576))
+}
+
+# Function to get current login count for a user
+get_user_logins() {
+    local username="$1"
+    local count=0
+    
+    # Count SSH sessions for this user
+    for pid in $(pgrep -u "$username" -f sshd 2>/dev/null); do
+        if [ -d "/proc/$pid" ]; then
+            count=$((count + 1))
+        fi
+    done
+    
+    echo $count
 }
 
 # Function to ban user for exceeding limit
@@ -496,7 +506,7 @@ ban_user() {
     pkill -u "$username" 2>/dev/null || true
     
     # Add to banned list
-    echo "$username" >> /etc/elite-x/banned_users
+    echo "$username" >> /etc/elite-x/banned_users 2>/dev/null
     
     # Update user file
     if [ -f "$USER_DB/$username" ]; then
@@ -512,6 +522,11 @@ monitor_user() {
     local traffic_file="$TRAFFIC_DB/$username"
     local history_file="$TRAFFIC_DB/${username}.history"
     
+    # Skip if user doesn't exist in system
+    if ! id "$username" &>/dev/null 2>&1; then
+        return
+    fi
+    
     # Get real-time traffic
     local total_mb=$(get_user_traffic "$username")
     
@@ -526,14 +541,14 @@ monitor_user() {
     if [ -f "$USER_DB/$username" ]; then
         # Check traffic limit
         local traffic_limit=$(grep "Traffic_Limit:" "$USER_DB/$username" | cut -d' ' -f2)
-        if [ "$traffic_limit" -gt 0 ] && [ "$total_mb" -gt "$traffic_limit" ]; then
+        if [ -n "$traffic_limit" ] && [ "$traffic_limit" -gt 0 ] && [ "$total_mb" -gt "$traffic_limit" ]; then
             ban_user "$username" "Traffic limit exceeded ($total_mb/$traffic_limit MB)"
         fi
         
         # Check login limit
         local max_logins=$(grep "Max_Logins:" "$USER_DB/$username" | cut -d' ' -f2)
-        if [ "$max_logins" -gt 0 ]; then
-            local current_logins=$(ps -u "$username" 2>/dev/null | grep -c "sshd" || echo "0")
+        if [ -n "$max_logins" ] && [ "$max_logins" -gt 0 ]; then
+            local current_logins=$(get_user_logins "$username")
             if [ "$current_logins" -gt "$max_logins" ]; then
                 ban_user "$username" "Login limit exceeded ($current_logins/$max_logins)"
             fi
@@ -548,7 +563,7 @@ while true; do
             if [ -f "$user_file" ]; then
                 username=$(basename "$user_file")
                 # Skip if user is already banned
-                if ! grep -q "^$username$" /etc/elite-x/banned_users 2>/dev/null; then
+                if [ ! -f "/etc/elite-x/banned_users" ] || ! grep -q "^$username$" "/etc/elite-x/banned_users" 2>/dev/null; then
                     monitor_user "$username"
                 fi
             fi
@@ -710,52 +725,6 @@ WantedBy=multi-user.target
 EOF
 }
 
-# ========== BANDWIDTH SPEED TEST ==========
-setup_bandwidth_tester() {
-    cat > /usr/local/bin/elite-x-speedtest <<'EOF'
-#!/bin/bash
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${YELLOW}              ELITE-X BANDWIDTH SPEED TEST                      ${CYAN}║${NC}"
-echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
-# Test download speed
-echo -e "${YELLOW}Testing download speed...${NC}"
-DOWNLOAD_START=$(date +%s%N)
-curl -s -o /dev/null http://speedtest.tele2.net/100MB.zip &
-PID=$!
-sleep 5
-kill $PID 2>/dev/null || true
-DOWNLOAD_END=$(date +%s%N)
-DOWNLOAD_TIME=$(( ($DOWNLOAD_END - $DOWNLOAD_START) / 1000000 ))
-DOWNLOAD_SPEED=$(( 100 * 1000 / $DOWNLOAD_TIME ))
-
-# Test upload speed
-echo -e "${YELLOW}Testing upload speed...${NC}"
-UPLOAD_START=$(date +%s%N)
-dd if=/dev/zero bs=1M count=50 2>/dev/null | curl -s -X POST --data-binary @- https://httpbin.org/post -o /dev/null &
-PID=$!
-sleep 5
-kill $PID 2>/dev/null || true
-UPLOAD_END=$(date +%s%N)
-UPLOAD_TIME=$(( ($UPLOAD_END - $UPLOAD_START) / 1000000 ))
-UPLOAD_SPEED=$(( 50 * 1000 / $UPLOAD_TIME ))
-
-echo -e "\n${GREEN}Results:${NC}"
-echo -e "Download Speed: ${YELLOW}${DOWNLOAD_SPEED} Mbps${NC}"
-echo -e "Upload Speed:   ${YELLOW}${UPLOAD_SPEED} Mbps${NC}"
-echo -e "Latency:        ${CYAN}$(ping -c 1 google.com 2>/dev/null | grep time= | cut -d= -f4)${NC}"
-EOF
-    chmod +x /usr/local/bin/elite-x-speedtest
-}
-
 # ========== AUTO BACKUP ==========
 setup_auto_backup() {
     cat > /usr/local/bin/elite-x-backup <<'EOF'
@@ -788,121 +757,6 @@ EOF
 /usr/local/bin/elite-x-backup
 EOF
     chmod +x /etc/cron.daily/elite-x-backup
-}
-
-# ========== SYSTEM OPTIMIZER ==========
-setup_system_optimizer() {
-    cat > /usr/local/bin/elite-x-optimize <<'EOF'
-#!/bin/bash
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║${YELLOW}              ELITE-X SYSTEM OPTIMIZER                          ${CYAN}║${NC}"
-echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
-# Network optimizations
-echo -e "${YELLOW}Optimizing network parameters...${NC}"
-sysctl -w net.core.rmem_max=134217728 >/dev/null 2>&1
-sysctl -w net.core.wmem_max=134217728 >/dev/null 2>&1
-sysctl -w net.ipv4.tcp_rmem="4096 87380 134217728" >/dev/null 2>&1
-sysctl -w net.ipv4.tcp_wmem="4096 65536 134217728" >/dev/null 2>&1
-sysctl -w net.ipv4.tcp_congestion_control=bbr >/dev/null 2>&1
-sysctl -w net.core.default_qdisc=fq >/dev/null 2>&1
-sysctl -w net.ipv4.tcp_fastopen=3 >/dev/null 2>&1
-sysctl -w net.ipv4.tcp_slow_start_after_idle=0 >/dev/null 2>&1
-sysctl -w net.ipv4.tcp_mtu_probing=1 >/dev/null 2>&1
-
-# CPU optimizations
-echo -e "${YELLOW}Optimizing CPU performance...${NC}"
-for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
-    echo "performance" > "$cpu" 2>/dev/null || true
-done
-
-# Memory optimizations
-echo -e "${YELLOW}Optimizing memory usage...${NC}"
-sync && echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true
-sysctl -w vm.swappiness=10 >/dev/null 2>&1
-sysctl -w vm.vfs_cache_pressure=50 >/dev/null 2>&1
-
-echo -e "\n${GREEN}✅ System optimization complete!${NC}"
-EOF
-    chmod +x /usr/local/bin/elite-x-optimize
-}
-
-# ========== CONNECTION MONITOR ==========
-setup_connection_monitor() {
-    cat > /usr/local/bin/elite-x-monitor <<'EOF'
-#!/bin/bash
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-while true; do
-    clear
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${YELLOW}              ELITE-X REAL-TIME CONNECTION MONITOR              ${CYAN}║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    
-    echo -e "${GREEN}Active SSH Connections:${NC}"
-    echo "─────────────────────────────────"
-    local ssh_count=0
-    while read pid; do
-        if [ -n "$pid" ]; then
-            local user=$(ps -o user= -p $pid 2>/dev/null | head -1)
-            local ip=$(ss -tnp | grep ",$pid," | awk '{print $5}' | cut -d: -f1 | head -1)
-            if [ -n "$ip" ]; then
-                echo -e "  ${GREEN}→${NC} $ip ($user)"
-                ssh_count=$((ssh_count + 1))
-            fi
-        fi
-    done < <(pgrep -f "sshd:.*@pts" 2>/dev/null)
-    
-    if [ $ssh_count -eq 0 ]; then
-        echo "  No active SSH connections"
-    fi
-    
-    echo -e "\n${YELLOW}DNS Tunnel Connections (port 5300):${NC}"
-    echo "─────────────────────────────────"
-    local dns_count=$(ss -unp | grep -c ":5300" 2>/dev/null || echo "0")
-    ss -unp | grep ":5300" 2>/dev/null | while read line; do
-        IP=$(echo "$line" | awk '{print $5}' | cut -d: -f1)
-        echo -e "  ${YELLOW}→${NC} $IP"
-    done | head -10
-    
-    echo -e "\n${CYAN}Total Connections: $ssh_count SSH, $dns_count DNS${NC}"
-    echo -e "${WHITE}Press 'q' to exit, any other key to refresh${NC}"
-    read -t 5 -n 1 key
-    if [[ $key = q ]]; then 
-        break
-    fi
-done
-EOF
-    chmod +x /usr/local/bin/elite-x-monitor
-
-    cat > /etc/systemd/system/elite-x-monitor.service <<EOF
-[Unit]
-Description=ELITE-X Connection Monitor
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/local/bin/elite-x-monitor
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
 }
 
 # ========== SPEED OPTIMIZATION MENU ==========
@@ -1031,39 +885,6 @@ EOF
     chmod +x /usr/local/bin/elite-x-speed
 }
 
-# ========== UPDATER ==========
-setup_updater() {
-    cat > /usr/local/bin/elite-x-update <<'EOF'
-#!/bin/bash
-
-echo -e "\033[1;33m🔄 Checking for updates...\033[0m"
-
-BACKUP_DIR="/root/elite-x-backup-$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$BACKUP_DIR"
-cp -r /etc/elite-x "$BACKUP_DIR/" 2>/dev/null || true
-cp -r /etc/dnstt "$BACKUP_DIR/" 2>/dev/null || true
-
-cd /tmp
-rm -rf Elite-X-dns.sh
-git clone https://github.com/NoXFiQ/Elite-X-dns.sh.git 2>/dev/null || {
-    echo -e "\033[0;31m❌ Failed to download update\033[0m"
-    exit 1
-}
-
-cd Elite-X-dns.sh
-chmod +x *.sh
-
-# Restore backup
-cp -r "$BACKUP_DIR/elite-x" /etc/ 2>/dev/null || true
-cp -r "$BACKUP_DIR/dnstt" /etc/ 2>/dev/null || true
-
-echo -e "\033[0;32m✅ Update complete!\033[0m"
-echo ""
-read -p "Press Enter to continue..."
-EOF
-    chmod +x /usr/local/bin/elite-x-update
-}
-
 # ========== USER MANAGEMENT WITH FIXED NAVIGATION ==========
 setup_user_manager() {
     cat > /usr/local/bin/elite-x-user <<'EOF'
@@ -1186,10 +1007,16 @@ completely_remove_user() {
     fi
 }
 
-# Function to get real-time traffic for a user
+# Function to get real-time traffic for a user - FIXED LINE 402
 get_realtime_traffic() {
     local username="$1"
     local total=0
+    
+    # Check if user exists
+    if ! user_exists_in_system "$username"; then
+        echo "0"
+        return
+    fi
     
     # Get all PIDs for this user's SSH sessions
     local pids=$(pgrep -u "$username" -f sshd 2>/dev/null || echo "")
@@ -1200,23 +1027,58 @@ get_realtime_traffic() {
             if [ -d "/proc/$pid" ]; then
                 # Use iptables for more accurate traffic if available
                 if command -v iptables >/dev/null 2>&1; then
-                    local upload=$(iptables -vnx -L OUTPUT -t filter 2>/dev/null | grep "$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
-                    local download=$(iptables -vnx -L INPUT -t filter 2>/dev/null | grep "$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
+                    # Get traffic for this specific PID
+                    local upload=$(iptables -vnx -L OUTPUT -t filter 2>/dev/null | grep -E ".*$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
+                    local download=$(iptables -vnx -L INPUT -t filter 2>/dev/null | grep -E ".*$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
+                    
+                    # Ensure values are numbers
+                    upload=${upload:-0}
+                    download=${download:-0}
+                    
                     total=$((total + upload + download))
                 fi
             fi
         done
     fi
     
-    # Convert to MB
-    echo $((total / 1048576))
+    # Convert to MB and ensure it's a number
+    if [ "$total" -gt 0 ]; then
+        echo $((total / 1048576))
+    else
+        # If no active traffic, read from stored file
+        if [ -f "$TD/$username" ]; then
+            cat "$TD/$username" 2>/dev/null || echo "0"
+        else
+            echo "0"
+        fi
+    fi
+}
+
+# Function to get current login count for a user
+get_user_logins() {
+    local username="$1"
+    local count=0
+    
+    if ! user_exists_in_system "$username"; then
+        echo "0"
+        return
+    fi
+    
+    # Count SSH sessions for this user
+    for pid in $(pgrep -u "$username" -f sshd 2>/dev/null); do
+        if [ -d "/proc/$pid" ]; then
+            count=$((count + 1))
+        fi
+    done
+    
+    echo $count
 }
 
 # Function to calculate usage percentage with color
 calc_usage_percent() {
     local used=$1
     local limit=$2
-    if [ "$limit" -eq 0 ] || [ -z "$limit" ]; then
+    if [ -z "$limit" ] || [ "$limit" -eq 0 ]; then
         echo "Unlimited"
     else
         local percent=$((used * 100 / limit))
@@ -1283,12 +1145,10 @@ show_menu() {
         echo -e "${CYAN}║${WHITE}  [12] Restore Deleted User                                   ${CYAN}║${NC}"
         echo -e "${CYAN}║${WHITE}  [13] User Activity Log                                      ${CYAN}║${NC}"
         echo -e "${CYAN}║${WHITE}  [14] Online Users Report                                    ${CYAN}║${NC}"
-        echo -e "${CYAN}║${WHITE}  [15] Show Banned Users                                      ${CYAN}║${NC}"
-        echo -e "${CYAN}║${WHITE}  [16] Unban User                                             ${CYAN}║${NC}"
         echo -e "${CYAN}║${WHITE}  [0] Back to Main Menu                                       ${CYAN}║${NC}"
         echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
         echo ""
-        read -p "$(echo -e $GREEN"Choose option [0-16]: "$NC)" opt
+        read -p "$(echo -e $GREEN"Choose option [0-14]: "$NC)" opt
         
         case $opt in
             1) add_user ;;
@@ -1305,8 +1165,6 @@ show_menu() {
             12) restore_user ;;
             13) user_activity_log ;;
             14) online_users_report ;;
-            15) show_banned_users ;;
-            16) unban_user ;;
             0) echo -e "${GREEN}Returning to main menu...${NC}"; sleep 1; return 0 ;;
             *) echo -e "${RED}Invalid option${NC}"; sleep 2 ;;
         esac
@@ -1463,11 +1321,11 @@ list_users() {
         lm=$(grep "Traffic_Limit:" "$user" | cut -d' ' -f2)
         ml=$(grep "Max_Logins:" "$user" 2>/dev/null | cut -d' ' -f2 || echo "0")
         
-        # Get real-time traffic
+        # Get real-time traffic - FIXED: Using the fixed function
         us=$(get_realtime_traffic "$u")
         
         # Count current logins
-        current_logins=$(ps -u "$u" 2>/dev/null | grep -c "sshd" || echo "0")
+        current_logins=$(get_user_logins "$u")
         if [ "$current_logins" -gt 0 ]; then
             ONLINE_COUNT=$((ONLINE_COUNT + 1))
         fi
@@ -1632,7 +1490,7 @@ user_details() {
     echo -e "${YELLOW}Traffic History (last 24 checks):${NC}"
     get_traffic_history "$u"
     
-    # Show active connections - FIXED LINE 972
+    # Show active connections
     echo -e "\n${YELLOW}Active Connections:${NC}"
     connections=$(ss -tnp 2>/dev/null | grep "$u" || true)
     if [ -n "$connections" ]; then
@@ -1922,8 +1780,7 @@ online_users_report() {
         u=$(basename "$user")
         
         if user_exists_in_system "$u"; then
-            # FIXED LINE 972 - Get active SSH sessions
-            local sessions=$(ps -u "$u" 2>/dev/null | grep -c "sshd" || echo "0")
+            local sessions=$(get_user_logins "$u")
             if [ "$sessions" -gt 0 ]; then
                 online_found=true
                 # Get IPs from active connections
@@ -1942,62 +1799,6 @@ online_users_report() {
     if [ "$online_found" = false ]; then
         echo "  No users currently online"
     fi
-    
-    echo ""
-    read -p "Press Enter to continue..."
-}
-
-show_banned_users() {
-    clear
-    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${YELLOW}                   BANNED USERS                                 ${CYAN}║${NC}"
-    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    
-    if [ ! -f "$BL" ] || [ ! -s "$BL" ]; then
-        echo -e "${GREEN}No banned users found${NC}"
-    else
-        echo -e "${RED}Banned Users:${NC}"
-        echo "────────────────────────────────"
-        while read username; do
-            if [ -f "$UD/$username" ]; then
-                reason=$(grep "Ban_Reason:" "$UD/$username" | cut -d' ' -f2-)
-                echo -e "  ${RED}→${NC} $username - $reason"
-            else
-                echo -e "  ${RED}→${NC} $username"
-            fi
-        done < "$BL"
-    fi
-    
-    echo ""
-    read -p "Press Enter to continue..."
-}
-
-unban_user() {
-    read -p "$(echo -e $GREEN"Username to unban: "$NC)" u
-    
-    if ! is_user_banned "$u"; then
-        echo -e "${YELLOW}User $u is not banned${NC}"
-        read -p "Press Enter to continue..."
-        return
-    fi
-    
-    # Remove from banned list
-    sed -i "/^$u$/d" "$BL" 2>/dev/null
-    
-    # Unlock user
-    if user_exists_in_system "$u"; then
-        usermod -U "$u" 2>/dev/null
-    fi
-    
-    # Remove ban info from user file
-    if [ -f "$UD/$u" ]; then
-        sed -i '/^Banned:/d' "$UD/$u"
-        sed -i '/^Ban_Reason:/d' "$UD/$u"
-    fi
-    
-    echo -e "${GREEN}✅ User $u unbanned${NC}"
-    echo "$(date): Unbanned user $u" >> /var/log/elite-x-users.log
     
     echo ""
     read -p "Press Enter to continue..."
@@ -2212,22 +2013,11 @@ settings_menu() {
         echo -e "${CYAN}╠════════════════════════════════════════════════════════════════╣${NC}"
         echo -e "${CYAN}║${WHITE}  [8]  🔑 View Public Key${NC}"
         echo -e "${CYAN}║${WHITE}  [9]  Change MTU Value${NC}"
-        echo -e "${CYAN}║${WHITE}  [10] ⚡ Speed Optimization Menu${NC}"
-        echo -e "${CYAN}║${WHITE}  [11] 🧹 Clean Junk Files${NC}"
-        echo -e "${CYAN}║${WHITE}  [12] 🔄 Auto Expired Account Remover${NC}"
-        echo -e "${CYAN}║${WHITE}  [13] 📦 Update Script${NC}"
-        echo -e "${CYAN}║${WHITE}  [14] 🔄 Restart All Services${NC}"
-        echo -e "${CYAN}║${WHITE}  [15] 📊 System Info${NC}"
-        echo -e "${CYAN}║${WHITE}  [16] 💾 Backup Configuration${NC}"
-        echo -e "${CYAN}║${WHITE}  [17] 📈 Speed Test${NC}"
-        echo -e "${CYAN}║${WHITE}  [18] 👁️  Connection Monitor${NC}"
-        echo -e "${CYAN}║${WHITE}  [19] 🚀 Turbo Optimize${NC}"
-        echo -e "${CYAN}║${WHITE}  [20] 🔄 Reboot VPS${NC}"
-        echo -e "${CYAN}║${WHITE}  [21] 🗑️  Uninstall Script${NC}"
-        echo -e "${CYAN}║${WHITE}  [22] 🌍 Re-apply Location Optimization${NC}"
-        echo -e "${CYAN}║${WHITE}  [23] 🔍 System Health Check${NC}"
-        echo -e "${CYAN}║${WHITE}  [24] 📋 View Banned Users${NC}"
-        echo -e "${CYAN}║${WHITE}  [25] 🔓 Unban User${NC}"
+        echo -e "${CYAN}║${WHITE}  [10] 🔄 Auto Expired Account Remover${NC}"
+        echo -e "${CYAN}║${WHITE}  [11] 🔄 Restart All Services${NC}"
+        echo -e "${CYAN}║${WHITE}  [12] 💾 Backup Configuration${NC}"
+        echo -e "${CYAN}║${WHITE}  [13] 🔄 Reboot VPS${NC}"
+        echo -e "${CYAN}║${WHITE}  [14] 🗑️  Uninstall Script${NC}"
         echo -e "${CYAN}║${WHITE}  [0]  Back to Main Menu${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
@@ -2254,37 +2044,26 @@ settings_menu() {
                 } || echo -e "${RED}❌ Invalid (must be 1000-5000)${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            10) elite-x-speed; read -p "Press Enter to continue..." ;;
-            11) elite-x-speed clean; read -p "Press Enter to continue..." ;;
-            12)
+            10)
                 systemctl enable --now elite-x-cleaner.service 2>/dev/null
                 echo -e "${GREEN}✅ Auto remover started${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            13) elite-x-update; read -p "Press Enter to continue..." ;;
-            14)
+            11)
                 systemctl restart dnstt-elite-x dnstt-elite-x-proxy elite-x-traffic elite-x-cleaner elite-x-bandwidth elite-x-monitor sshd 2>/dev/null
                 echo -e "${GREEN}✅ Services restarted${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            15) system_info ;;
-            16)
+            12)
                 /usr/local/bin/elite-x-backup
                 echo -e "${GREEN}✅ Backup completed${NC}"
                 read -p "Press Enter to continue..."
                 ;;
-            17) /usr/local/bin/elite-x-speedtest; read -p "Press Enter to continue..." ;;
-            18) 
-                echo -e "${YELLOW}Starting connection monitor (Press 'q' to exit)...${NC}"
-                sleep 2
-                /usr/local/bin/elite-x-monitor
-                ;;
-            19) /usr/local/bin/elite-x-optimize; read -p "Press Enter to continue..." ;;
-            20)
+            13)
                 read -p "Reboot? (y/n): " c
                 [ "$c" = "y" ] && reboot
                 ;;
-            21)
+            14)
                 read -p "Uninstall? (YES): " c
                 [ "$c" = "YES" ] && {
                     echo -e "${YELLOW}🔄 Removing all users and data...${NC}"
@@ -2344,76 +2123,6 @@ settings_menu() {
                     rm -f /tmp/elite-x-running
                     exit 0
                 }
-                read -p "Press Enter to continue..."
-                ;;
-            22)
-                echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${GREEN}           RE-APPLY LOCATION OPTIMIZATION                        ${NC}"
-                echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
-                echo -e "${WHITE}Select your VPS location:${NC}"
-                echo -e "${GREEN}  1. South Africa (MTU 1800)${NC}"
-                echo -e "${CYAN}  2. USA${NC}"
-                echo -e "${BLUE}  3. Europe${NC}"
-                echo -e "${PURPLE}  4. Asia${NC}"
-                echo -e "${YELLOW}  5. Auto-detect${NC}"
-                read -p "Choice: " opt_choice
-                
-                case $opt_choice in
-                    1) echo "South Africa" > /etc/elite-x/location
-                       echo "1800" > /etc/elite-x/mtu
-                       sed -i "s/-mtu [0-9]*/-mtu 1800/" /etc/systemd/system/dnstt-elite-x.service
-                       systemctl daemon-reload
-                       systemctl restart dnstt-elite-x dnstt-elite-x-proxy
-                       echo -e "${GREEN}✅ South Africa selected (MTU 1800)${NC}" ;;
-                    2) echo "USA" > /etc/elite-x/location
-                       echo -e "${GREEN}✅ USA selected${NC}" ;;
-                    3) echo "Europe" > /etc/elite-x/location
-                       echo -e "${GREEN}✅ Europe selected${NC}" ;;
-                    4) echo "Asia" > /etc/elite-x/location
-                       echo -e "${GREEN}✅ Asia selected${NC}" ;;
-                    5) echo "Auto-detect" > /etc/elite-x/location
-                       echo -e "${GREEN}✅ Auto-detect selected${NC}" ;;
-                esac
-                read -p "Press Enter to continue..."
-                ;;
-            23)
-                clear
-                echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
-                echo -e "${CYAN}║${YELLOW}                 SYSTEM HEALTH CHECK                              ${CYAN}║${NC}"
-                echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
-                echo ""
-                
-                # Check disk space
-                echo -n "Disk Space: "
-                df -h / | awk 'NR==2 {print $5}' | grep -q "^[0-8][0-9]%" && echo -e "${GREEN}OK${NC}" || echo -e "${RED}WARNING${NC}"
-                
-                # Check memory
-                echo -n "Memory: "
-                free -m | awk '/^Mem:/ {if ($3/$2 > 0.9) print "WARNING"; else print "OK"}'
-                
-                # Check services
-                echo -n "DNSTT Service: "
-                systemctl is-active dnstt-elite-x >/dev/null && echo -e "${GREEN}Running${NC}" || echo -e "${RED}Stopped${NC}"
-                
-                echo -n "Proxy Service: "
-                systemctl is-active dnstt-elite-x-proxy >/dev/null && echo -e "${GREEN}Running${NC}" || echo -e "${RED}Stopped${NC}"
-                
-                # Check ports
-                echo -n "Port 53: "
-                ss -uln | grep -q ":53 " && echo -e "${GREEN}Listening${NC}" || echo -e "${RED}Not listening${NC}"
-                
-                echo -n "Port 5300: "
-                ss -uln | grep -q ":5300 " && echo -e "${GREEN}Listening${NC}" || echo -e "${RED}Not listening${NC}"
-                
-                echo ""
-                read -p "Press Enter to continue..."
-                ;;
-            24)
-                /usr/local/bin/elite-x-user show-banned
-                read -p "Press Enter to continue..."
-                ;;
-            25)
-                /usr/local/bin/elite-x-user unban
                 read -p "Press Enter to continue..."
                 ;;
             0) echo -e "${GREEN}Returning to main menu...${NC}"; sleep 1; return 0 ;;
@@ -2820,12 +2529,7 @@ setup_edns_proxy
 setup_advanced_traffic_monitor
 setup_auto_remover
 setup_bandwidth_monitor
-setup_bandwidth_tester
 setup_auto_backup
-setup_system_optimizer
-setup_connection_monitor
-setup_manual_speed
-setup_updater
 setup_user_manager
 setup_main_menu
 
@@ -2877,10 +2581,6 @@ chmod +x /etc/profile.d/elite-x-dashboard.sh
 cat >> ~/.bashrc <<'EOF'
 alias menu='elite-x'
 alias elitex='elite-x'
-alias speed='elite-x-speed'
-alias monitor='elite-x-monitor'
-alias test-speed='elite-x-speedtest'
-alias optimize='elite-x-optimize'
 alias user='elite-x-user'
 alias online='elite-x-user --online'
 alias traffic='elite-x-user --traffic'
@@ -2937,10 +2637,7 @@ echo -e "  ${YELLOW}→${NC} User Login Limit (Max concurrent connections)"
 echo -e "  ${YELLOW}→${NC} Renew User Option"
 echo -e "  ${YELLOW}→${NC} Advanced Traffic Monitoring with History"
 echo -e "  ${YELLOW}→${NC} Auto-Ban for Exceeding Limits ✓ NEW"
-echo -e "  ${YELLOW}→${NC} Bandwidth Speed Test Tool"
 echo -e "  ${YELLOW}→${NC} Auto Backup System"
-echo -e "  ${YELLOW}→${NC} System Optimizer (Turbo Mode)"
-echo -e "  ${YELLOW}→${NC} Real-time Connection Monitor"
 echo -e "  ${YELLOW}→${NC} User Details with Traffic History"
 echo -e "  ${YELLOW}→${NC} Multiple User Delete"
 echo -e "  ${YELLOW}→${NC} Export Users List"
@@ -2948,8 +2645,6 @@ echo -e "  ${YELLOW}→${NC} Deleted Users Archive"
 echo -e "  ${YELLOW}→${NC} User Restore Function"
 echo -e "  ${YELLOW}→${NC} Online Users Report"
 echo -e "  ${YELLOW}→${NC} User Activity Log"
-echo -e "  ${YELLOW}→${NC} Banned Users Management ✓ NEW"
-echo -e "  ${YELLOW}→${NC} System Health Check"
 echo -e "  ${YELLOW}→${NC} Complete Uninstall (removes all users & data)"
 
 read -p "Open menu now? (y/n): " open
@@ -2959,7 +2654,7 @@ if [ "$open" = "y" ]; then
     /usr/local/bin/elite-x
 else
     echo -e "${YELLOW}You can type 'menu' or 'elite-x' anytime to open the dashboard.${NC}"
-    echo -e "${YELLOW}Other commands: speed, monitor, test-speed, optimize, user, online, traffic${NC}"
+    echo -e "${YELLOW}Other commands: user, online, traffic${NC}"
 fi
 
 self_destruct
