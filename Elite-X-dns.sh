@@ -1,7 +1,7 @@
 #!/bin/bash
-# ╔══════════════════════╗
-#  ELITE-X DNSTT SCRIPT v3.5
-# ╚══════════════════════╝
+# ╔════════════════════════════════════════════════════════════════════════════════════╗
+#  ELITE-X DNSTT SCRIPT v3.5 - FIXED VERSION
+# ╚════════════════════════════════════════════════════════════════════════════════════╝
 set -euo pipefail
 
 RED='\033[0;31m'
@@ -437,12 +437,13 @@ WantedBy=multi-user.target
 EOF
 }
 
-# ========== ADVANCED TRAFFIC MONITOR ==========
+# ========== ADVANCED TRAFFIC MONITOR WITH AUTO-BAN ==========
 setup_advanced_traffic_monitor() {
     cat > /usr/local/bin/elite-x-traffic <<'EOF'
 #!/bin/bash
 TRAFFIC_DB="/etc/elite-x/traffic"
 USER_DB="/etc/elite-x/users"
+BANNED_LOG="/var/log/elite-x-banned.log"
 mkdir -p $TRAFFIC_DB
 
 # Log function
@@ -450,58 +451,125 @@ log_message() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> /var/log/elite-x-traffic.log
 }
 
+# Function to get real-time traffic for a user
+get_user_traffic() {
+    local username="$1"
+    local total=0
+    
+    # Get all PIDs for this user's SSH sessions
+    local pids=$(pgrep -u "$username" -f sshd 2>/dev/null || echo "")
+    
+    if [ -n "$pids" ]; then
+        for pid in $pids; do
+            # Get traffic from /proc/net/dev for this PID
+            if [ -d "/proc/$pid" ]; then
+                # Use iptables for more accurate traffic if available
+                if command -v iptables >/dev/null 2>&1; then
+                    local upload=$(iptables -vnx -L OUTPUT -t filter 2>/dev/null | grep "$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
+                    local download=$(iptables -vnx -L INPUT -t filter 2>/dev/null | grep "$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
+                    total=$((total + upload + download))
+                else
+                    # Fallback to /proc/net/dev monitoring
+                    local rx_bytes=$(cat /sys/class/net/eth0/statistics/rx_bytes 2>/dev/null || echo "0")
+                    local tx_bytes=$(cat /sys/class/net/eth0/statistics/tx_bytes 2>/dev/null || echo "0")
+                    total=$((rx_bytes + tx_bytes))
+                fi
+            fi
+        done
+    fi
+    
+    # Convert to MB
+    echo $((total / 1048576))
+}
+
+# Function to ban user for exceeding limit
+ban_user() {
+    local username="$1"
+    local reason="$2"
+    
+    echo "$(date): BANNED user $username - $reason" >> "$BANNED_LOG"
+    
+    # Lock the user account
+    usermod -L "$username" 2>/dev/null
+    
+    # Kill all user processes
+    pkill -u "$username" 2>/dev/null || true
+    
+    # Add to banned list
+    echo "$username" >> /etc/elite-x/banned_users
+    
+    # Update user file
+    if [ -f "$USER_DB/$username" ]; then
+        echo "Banned: $(date)" >> "$USER_DB/$username"
+        echo "Ban_Reason: $reason" >> "$USER_DB/$username"
+    fi
+    
+    log_message "User $username BANNED - $reason"
+}
+
 monitor_user() {
     local username="$1"
     local traffic_file="$TRAFFIC_DB/$username"
     local history_file="$TRAFFIC_DB/${username}.history"
     
-    if command -v iptables >/dev/null 2>&1; then
-        # Monitor both upload and download traffic
-        local upload=$(iptables -vnx -L OUTPUT | grep "$username" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "0")
-        local download=$(iptables -vnx -L INPUT | grep "$username" | awk '{sum+=$2} END {print sum}' 2>/dev/null || echo "0")
-        local total=$((upload + download))
-        local total_mb=$((total / 1048576))
+    # Get real-time traffic
+    local total_mb=$(get_user_traffic "$username")
+    
+    # Save current usage
+    echo "$total_mb" > "$traffic_file"
+    
+    # Save to history with timestamp (keep last 24 entries)
+    echo "$(date +%s):$total_mb" >> "$history_file"
+    tail -n 24 "$history_file" > "${history_file}.tmp" && mv "${history_file}.tmp" "$history_file"
+    
+    # Check if user exists in database
+    if [ -f "$USER_DB/$username" ]; then
+        # Check traffic limit
+        local traffic_limit=$(grep "Traffic_Limit:" "$USER_DB/$username" | cut -d' ' -f2)
+        if [ "$traffic_limit" -gt 0 ] && [ "$total_mb" -gt "$traffic_limit" ]; then
+            ban_user "$username" "Traffic limit exceeded ($total_mb/$traffic_limit MB)"
+        fi
         
-        # Save current usage
-        echo "$total_mb" > "$traffic_file"
-        
-        # Save to history with timestamp (keep last 24 entries)
-        echo "$(date +%s):$total_mb" >> "$history_file"
-        tail -n 24 "$history_file" > "${history_file}.tmp" && mv "${history_file}.tmp" "$history_file"
-        
-        # Check if user exceeded limit
-        if [ -f "$USER_DB/$username" ]; then
-            local limit=$(grep "Traffic_Limit:" "$USER_DB/$username" | cut -d' ' -f2)
-            if [ "$limit" -gt 0 ] && [ "$total_mb" -gt "$limit" ]; then
-                # Lock user if exceeded limit
-                usermod -L "$username" 2>/dev/null
-                # Kill all connections
-                pkill -u "$username" 2>/dev/null
-                log_message "User $username locked - exceeded traffic limit ($total_mb/$limit MB)"
+        # Check login limit
+        local max_logins=$(grep "Max_Logins:" "$USER_DB/$username" | cut -d' ' -f2)
+        if [ "$max_logins" -gt 0 ]; then
+            local current_logins=$(ps -u "$username" 2>/dev/null | grep -c "sshd" || echo "0")
+            if [ "$current_logins" -gt "$max_logins" ]; then
+                ban_user "$username" "Login limit exceeded ($current_logins/$max_logins)"
             fi
         fi
     fi
 }
 
-log_message "Traffic monitor started"
+log_message "Traffic monitor started with auto-ban feature"
 while true; do
     if [ -d "$USER_DB" ]; then
         for user_file in "$USER_DB"/*; do
-            [ -f "$user_file" ] && monitor_user "$(basename "$user_file")"
+            if [ -f "$user_file" ]; then
+                username=$(basename "$user_file")
+                # Skip if user is already banned
+                if ! grep -q "^$username$" /etc/elite-x/banned_users 2>/dev/null; then
+                    monitor_user "$username"
+                fi
+            fi
         done
     fi
-    sleep 60
+    sleep 30
 done
 EOF
     chmod +x /usr/local/bin/elite-x-traffic
 
-    # Create log file
+    # Create log files
     touch /var/log/elite-x-traffic.log
+    touch /var/log/elite-x-banned.log
+    touch /etc/elite-x/banned_users
     chmod 644 /var/log/elite-x-traffic.log
+    chmod 644 /var/log/elite-x-banned.log
+    chmod 644 /etc/elite-x/banned_users
 
     cat > /etc/systemd/system/elite-x-traffic.service <<EOF
 [Unit]
-Description=ELITE-X Advanced Traffic Monitor
+Description=ELITE-X Advanced Traffic Monitor with Auto-Ban
 After=network.target
 
 [Service]
@@ -525,6 +593,7 @@ USER_DB="/etc/elite-x/users"
 TRAFFIC_DB="/etc/elite-x/traffic"
 LOG_FILE="/var/log/elite-x-cleaner.log"
 ARCHIVE_DIR="/etc/elite-x/deleted_users"
+BANNED_LIST="/etc/elite-x/banned_users"
 
 mkdir -p "$ARCHIVE_DIR"
 
@@ -554,20 +623,24 @@ while true; do
                         # Forcefully remove user
                         userdel -f -r "$username" 2>/dev/null
                         
-                        # Also remove from sshd_config if has limit
+                        # Remove from sshd_config if has limit
                         sed -i "/Match User $username/,+3 d" /etc/ssh/sshd_config 2>/dev/null
+                        
+                        # Remove from banned list if present
+                        sed -i "/^$username$/d" "$BANNED_LIST" 2>/dev/null
                         
                         rm -f "$user_file"
                         rm -f "$TRAFFIC_DB/$username"
                         rm -f "$TRAFFIC_DB/${username}.history"
                         
                         log_message "Removed expired user: $username (expired on $expire_date)"
+                        
+                        # Restart sshd
+                        systemctl restart sshd 2>/dev/null || true
                     fi
                 fi
             fi
         done
-        # Restart sshd if any changes were made
-        systemctl restart sshd 2>/dev/null || true
     fi
     sleep 3600
 done
@@ -782,24 +855,31 @@ while true; do
     
     echo -e "${GREEN}Active SSH Connections:${NC}"
     echo "─────────────────────────────────"
-    ss -tnp | grep -E ":22" | grep ESTAB | while read line; do
-        IP=$(echo "$line" | awk '{print $5}' | cut -d: -f1)
-        PORT=$(echo "$line" | awk '{print $5}' | cut -d: -f2)
-        USER=$(ps -o user= -p $(echo "$line" | grep -o "pid=[0-9]*" | cut -d= -f2) 2>/dev/null || echo "unknown")
-        echo -e "  ${GREEN}→${NC} $IP:$PORT ($USER)"
-    done | head -20
+    local ssh_count=0
+    while read pid; do
+        if [ -n "$pid" ]; then
+            local user=$(ps -o user= -p $pid 2>/dev/null | head -1)
+            local ip=$(ss -tnp | grep ",$pid," | awk '{print $5}' | cut -d: -f1 | head -1)
+            if [ -n "$ip" ]; then
+                echo -e "  ${GREEN}→${NC} $ip ($user)"
+                ssh_count=$((ssh_count + 1))
+            fi
+        fi
+    done < <(pgrep -f "sshd:.*@pts" 2>/dev/null)
+    
+    if [ $ssh_count -eq 0 ]; then
+        echo "  No active SSH connections"
+    fi
     
     echo -e "\n${YELLOW}DNS Tunnel Connections (port 5300):${NC}"
     echo "─────────────────────────────────"
+    local dns_count=$(ss -unp | grep -c ":5300" 2>/dev/null || echo "0")
     ss -unp | grep ":5300" 2>/dev/null | while read line; do
         IP=$(echo "$line" | awk '{print $5}' | cut -d: -f1)
         echo -e "  ${YELLOW}→${NC} $IP"
     done | head -10
     
-    SSH_COUNT=$(ss -tnp | grep -c ":22.*ESTAB" 2>/dev/null || echo "0")
-    DNS_COUNT=$(ss -unp | grep -c ":5300" 2>/dev/null || echo "0")
-    
-    echo -e "\n${CYAN}Total Connections: $SSH_COUNT SSH, $DNS_COUNT DNS${NC}"
+    echo -e "\n${CYAN}Total Connections: $ssh_count SSH, $dns_count DNS${NC}"
     echo -e "${WHITE}Press 'q' to exit, any other key to refresh${NC}"
     read -t 5 -n 1 key
     if [[ $key = q ]]; then 
@@ -1005,6 +1085,7 @@ UD="/etc/elite-x/users"
 TD="/etc/elite-x/traffic"
 AD="/etc/elite-x/deleted_users"
 DL="/var/log/elite-x-deleted-users.log"
+BL="/etc/elite-x/banned_users"
 mkdir -p $UD $TD $AD
 
 # Function to check if user exists in system
@@ -1021,6 +1102,16 @@ user_exists_in_system() {
 user_exists_in_db() {
     local username="$1"
     if [ -f "$UD/$username" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to check if user is banned
+is_user_banned() {
+    local username="$1"
+    if [ -f "$BL" ] && grep -q "^$username$" "$BL" 2>/dev/null; then
         return 0
     else
         return 1
@@ -1064,6 +1155,9 @@ completely_remove_user() {
     # Remove from sshd_config if has limit
     sed -i "/Match User $username/,+3 d" /etc/ssh/sshd_config 2>/dev/null
     
+    # Remove from banned list
+    sed -i "/^$username$/d" "$BL" 2>/dev/null
+    
     # Force remove user from system
     if user_exists_in_system "$username"; then
         userdel -f -r "$username" 2>/dev/null
@@ -1092,11 +1186,37 @@ completely_remove_user() {
     fi
 }
 
+# Function to get real-time traffic for a user
+get_realtime_traffic() {
+    local username="$1"
+    local total=0
+    
+    # Get all PIDs for this user's SSH sessions
+    local pids=$(pgrep -u "$username" -f sshd 2>/dev/null || echo "")
+    
+    if [ -n "$pids" ]; then
+        for pid in $pids; do
+            # Get traffic from /proc/net/dev for this PID
+            if [ -d "/proc/$pid" ]; then
+                # Use iptables for more accurate traffic if available
+                if command -v iptables >/dev/null 2>&1; then
+                    local upload=$(iptables -vnx -L OUTPUT -t filter 2>/dev/null | grep "$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
+                    local download=$(iptables -vnx -L INPUT -t filter 2>/dev/null | grep "$pid" | awk '{sum+=$2} END {print sum}' || echo "0")
+                    total=$((total + upload + download))
+                fi
+            fi
+        done
+    fi
+    
+    # Convert to MB
+    echo $((total / 1048576))
+}
+
 # Function to calculate usage percentage with color
 calc_usage_percent() {
     local used=$1
     local limit=$2
-    if [ "$limit" -eq 0 ]; then
+    if [ "$limit" -eq 0 ] || [ -z "$limit" ]; then
         echo "Unlimited"
     else
         local percent=$((used * 100 / limit))
@@ -1163,10 +1283,12 @@ show_menu() {
         echo -e "${CYAN}║${WHITE}  [12] Restore Deleted User                                   ${CYAN}║${NC}"
         echo -e "${CYAN}║${WHITE}  [13] User Activity Log                                      ${CYAN}║${NC}"
         echo -e "${CYAN}║${WHITE}  [14] Online Users Report                                    ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [15] Show Banned Users                                      ${CYAN}║${NC}"
+        echo -e "${CYAN}║${WHITE}  [16] Unban User                                             ${CYAN}║${NC}"
         echo -e "${CYAN}║${WHITE}  [0] Back to Main Menu                                       ${CYAN}║${NC}"
         echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
         echo ""
-        read -p "$(echo -e $GREEN"Choose option [0-14]: "$NC)" opt
+        read -p "$(echo -e $GREEN"Choose option [0-16]: "$NC)" opt
         
         case $opt in
             1) add_user ;;
@@ -1183,6 +1305,8 @@ show_menu() {
             12) restore_user ;;
             13) user_activity_log ;;
             14) online_users_report ;;
+            15) show_banned_users ;;
+            16) unban_user ;;
             0) echo -e "${GREEN}Returning to main menu...${NC}"; sleep 1; return 0 ;;
             *) echo -e "${RED}Invalid option${NC}"; sleep 2 ;;
         esac
@@ -1318,7 +1442,7 @@ list_users() {
     fi
     
     printf "%-12s %-10s %-8s %-8s %-10s %-8s %-8s\n" "USERNAME" "EXPIRE" "LIMIT" "USED" "USAGE%" "LOGINS" "STATUS"
-    echo "────────────────────────────────────────────────────────────────────"
+    echo "────────────────────────────────────────────────────────────────────────────"
     
     TOTAL_TRAFFIC=0
     TOTAL_USERS=0
@@ -1338,7 +1462,9 @@ list_users() {
         ex=$(grep "Expire:" "$user" | cut -d' ' -f2)
         lm=$(grep "Traffic_Limit:" "$user" | cut -d' ' -f2)
         ml=$(grep "Max_Logins:" "$user" 2>/dev/null | cut -d' ' -f2 || echo "0")
-        us=$(cat $TD/$u 2>/dev/null || echo "0")
+        
+        # Get real-time traffic
+        us=$(get_realtime_traffic "$u")
         
         # Count current logins
         current_logins=$(ps -u "$u" 2>/dev/null | grep -c "sshd" || echo "0")
@@ -1349,14 +1475,20 @@ list_users() {
         # Calculate usage percentage
         usage_percent=$(calc_usage_percent "$us" "$lm")
         
-        st=$(passwd -S "$u" 2>/dev/null | grep -q "L" && echo "${RED}LOCK${NC}" || echo "${GREEN}OK${NC}")
+        # Check status
+        if is_user_banned "$u"; then
+            st="${RED}BANNED${NC}"
+        else
+            st=$(passwd -S "$u" 2>/dev/null | grep -q "L" && echo "${RED}LOCK${NC}" || echo "${GREEN}OK${NC}")
+        fi
+        
         printf "%-12s %-10s %-8s %-8s %-10b %-8s %-8b\n" "$u" "$ex" "$lm" "$us" "$usage_percent" "$current_logins/$ml" "$st"
         
         TOTAL_TRAFFIC=$((TOTAL_TRAFFIC + us))
         TOTAL_USERS=$((TOTAL_USERS + 1))
     done
     
-    echo "────────────────────────────────────────────────────────────────────"
+    echo "────────────────────────────────────────────────────────────────────────────"
     echo -e "Total Users: ${GREEN}$TOTAL_USERS${NC} | Online: ${CYAN}$ONLINE_COUNT${NC} | Total Traffic: ${YELLOW}$TOTAL_TRAFFIC MB${NC}"
     echo ""
     read -p "Press Enter to continue..."
@@ -1491,13 +1623,18 @@ user_details() {
     cat "$UD/$u"
     echo ""
     
+    # Show real-time traffic
+    realtime_traffic=$(get_realtime_traffic "$u")
+    echo -e "${YELLOW}Real-time Traffic:${NC} ${CYAN}$realtime_traffic MB${NC}"
+    echo ""
+    
     # Show traffic history
     echo -e "${YELLOW}Traffic History (last 24 checks):${NC}"
     get_traffic_history "$u"
     
-    # Show active connections
+    # Show active connections - FIXED LINE 972
     echo -e "\n${YELLOW}Active Connections:${NC}"
-    connections=$(ss -tnp | grep "$u" 2>/dev/null)
+    connections=$(ss -tnp 2>/dev/null | grep "$u" || true)
     if [ -n "$connections" ]; then
         echo "$connections" | while read line; do
             echo "  $line"
@@ -1509,6 +1646,14 @@ user_details() {
     # Show login history
     echo -e "\n${YELLOW}Recent Login History:${NC}"
     last -n 10 "$u" 2>/dev/null | head -5 || echo "  No login history"
+    
+    # Show ban status
+    if is_user_banned "$u"; then
+        echo -e "\n${RED}⚠️  User is BANNED${NC}"
+        if [ -f "$UD/$u" ]; then
+            grep "Ban_Reason:" "$UD/$u" 2>/dev/null || echo "  Reason: Unknown"
+        fi
+    fi
     
     echo ""
     read -p "Press Enter to continue..."
@@ -1777,10 +1922,18 @@ online_users_report() {
         u=$(basename "$user")
         
         if user_exists_in_system "$u"; then
+            # FIXED LINE 972 - Get active SSH sessions
             local sessions=$(ps -u "$u" 2>/dev/null | grep -c "sshd" || echo "0")
             if [ "$sessions" -gt 0 ]; then
                 online_found=true
-                local ips=$(ss -tnp | grep "$u" | awk '{print $5}' | cut -d: -f1 | sort -u | tr '\n' ' ')
+                # Get IPs from active connections
+                local ips=""
+                for pid in $(pgrep -u "$u" -f sshd 2>/dev/null); do
+                    local ip=$(ss -tnp 2>/dev/null | grep ",$pid," | awk '{print $5}' | cut -d: -f1 | head -1)
+                    if [ -n "$ip" ]; then
+                        ips="$ips $ip"
+                    fi
+                done
                 echo -e "  ${GREEN}→${NC} $u: $sessions session(s) - IPs: $ips"
             fi
         fi
@@ -1789,6 +1942,62 @@ online_users_report() {
     if [ "$online_found" = false ]; then
         echo "  No users currently online"
     fi
+    
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
+show_banned_users() {
+    clear
+    echo -e "${CYAN}╔═══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${YELLOW}                   BANNED USERS                                 ${CYAN}║${NC}"
+    echo -e "${CYAN}╚═══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    if [ ! -f "$BL" ] || [ ! -s "$BL" ]; then
+        echo -e "${GREEN}No banned users found${NC}"
+    else
+        echo -e "${RED}Banned Users:${NC}"
+        echo "────────────────────────────────"
+        while read username; do
+            if [ -f "$UD/$username" ]; then
+                reason=$(grep "Ban_Reason:" "$UD/$username" | cut -d' ' -f2-)
+                echo -e "  ${RED}→${NC} $username - $reason"
+            else
+                echo -e "  ${RED}→${NC} $username"
+            fi
+        done < "$BL"
+    fi
+    
+    echo ""
+    read -p "Press Enter to continue..."
+}
+
+unban_user() {
+    read -p "$(echo -e $GREEN"Username to unban: "$NC)" u
+    
+    if ! is_user_banned "$u"; then
+        echo -e "${YELLOW}User $u is not banned${NC}"
+        read -p "Press Enter to continue..."
+        return
+    fi
+    
+    # Remove from banned list
+    sed -i "/^$u$/d" "$BL" 2>/dev/null
+    
+    # Unlock user
+    if user_exists_in_system "$u"; then
+        usermod -U "$u" 2>/dev/null
+    fi
+    
+    # Remove ban info from user file
+    if [ -f "$UD/$u" ]; then
+        sed -i '/^Banned:/d' "$UD/$u"
+        sed -i '/^Ban_Reason:/d' "$UD/$u"
+    fi
+    
+    echo -e "${GREEN}✅ User $u unbanned${NC}"
+    echo "$(date): Unbanned user $u" >> /var/log/elite-x-users.log
     
     echo ""
     read -p "Press Enter to continue..."
@@ -1936,8 +2145,8 @@ show_dashboard() {
     CURRENT_MTU=$(cat /etc/elite-x/mtu 2>/dev/null || echo "1800")
     
     # Get active connections
-    SSH_CONN=$(ss -tnp | grep -c ":22.*ESTAB" 2>/dev/null || echo "0")
-    DNS_CONN=$(ss -unp | grep -c ":5300" 2>/dev/null || echo "0")
+    SSH_CONN=$(ss -tnp 2>/dev/null | grep -c ":22.*ESTAB" || echo "0")
+    DNS_CONN=$(ss -unp 2>/dev/null | grep -c ":5300" || echo "0")
     
     # Fix DNS service detection
     if systemctl is-active dnstt-elite-x >/dev/null 2>&1; then
@@ -2017,6 +2226,8 @@ settings_menu() {
         echo -e "${CYAN}║${WHITE}  [21] 🗑️  Uninstall Script${NC}"
         echo -e "${CYAN}║${WHITE}  [22] 🌍 Re-apply Location Optimization${NC}"
         echo -e "${CYAN}║${WHITE}  [23] 🔍 System Health Check${NC}"
+        echo -e "${CYAN}║${WHITE}  [24] 📋 View Banned Users${NC}"
+        echo -e "${CYAN}║${WHITE}  [25] 🔓 Unban User${NC}"
         echo -e "${CYAN}║${WHITE}  [0]  Back to Main Menu${NC}"
         echo -e "${CYAN}╚════════════════════════════════════════════════════════════════╝${NC}"
         echo ""
@@ -2197,6 +2408,14 @@ settings_menu() {
                 echo ""
                 read -p "Press Enter to continue..."
                 ;;
+            24)
+                /usr/local/bin/elite-x-user show-banned
+                read -p "Press Enter to continue..."
+                ;;
+            25)
+                /usr/local/bin/elite-x-user unban
+                read -p "Press Enter to continue..."
+                ;;
             0) echo -e "${GREEN}Returning to main menu...${NC}"; sleep 1; return 0 ;;
             *) echo -e "${RED}Invalid option${NC}"; read -p "Press Enter to continue..." ;;
         esac
@@ -2272,7 +2491,13 @@ main_menu() {
                         sessions=$(ps -u "$u" 2>/dev/null | grep -c "sshd" || echo "0")
                         if [ "$sessions" -gt 0 ]; then
                             online_found=true
-                            ips=$(ss -tnp | grep "$u" | awk '{print $5}' | cut -d: -f1 | sort -u | tr '\n' ' ')
+                            ips=""
+                            for pid in $(pgrep -u "$u" -f sshd 2>/dev/null); do
+                                ip=$(ss -tnp 2>/dev/null | grep ",$pid," | awk '{print $5}' | cut -d: -f1 | head -1)
+                                if [ -n "$ip" ]; then
+                                    ips="$ips $ip"
+                                fi
+                            done
                             echo -e "  ${GREEN}→${NC} $u: $sessions session(s) - IPs: $ips"
                         fi
                     fi
@@ -2711,6 +2936,7 @@ echo -e "\n${GREEN}ELITE-X v3.5 Features:${NC}"
 echo -e "  ${YELLOW}→${NC} User Login Limit (Max concurrent connections)"
 echo -e "  ${YELLOW}→${NC} Renew User Option"
 echo -e "  ${YELLOW}→${NC} Advanced Traffic Monitoring with History"
+echo -e "  ${YELLOW}→${NC} Auto-Ban for Exceeding Limits ✓ NEW"
 echo -e "  ${YELLOW}→${NC} Bandwidth Speed Test Tool"
 echo -e "  ${YELLOW}→${NC} Auto Backup System"
 echo -e "  ${YELLOW}→${NC} System Optimizer (Turbo Mode)"
@@ -2722,6 +2948,7 @@ echo -e "  ${YELLOW}→${NC} Deleted Users Archive"
 echo -e "  ${YELLOW}→${NC} User Restore Function"
 echo -e "  ${YELLOW}→${NC} Online Users Report"
 echo -e "  ${YELLOW}→${NC} User Activity Log"
+echo -e "  ${YELLOW}→${NC} Banned Users Management ✓ NEW"
 echo -e "  ${YELLOW}→${NC} System Health Check"
 echo -e "  ${YELLOW}→${NC} Complete Uninstall (removes all users & data)"
 
